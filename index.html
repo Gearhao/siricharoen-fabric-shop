@@ -303,6 +303,15 @@ p { line-height: 1.6; }
 </style>
 </head>
 <body>
+<div id="scPasswordGate" style="position:fixed;inset:0;background:#2c2432;display:flex;align-items:center;justify-content:center;z-index:99999;font-family:'Sarabun','Tahoma','Leelawadee UI','Segoe UI',sans-serif;">
+  <div style="background:#fff;padding:32px 28px;border-radius:12px;max-width:320px;width:90%;box-shadow:0 10px 30px rgba(0,0,0,0.3);text-align:center;">
+    <div style="font-size:18px;font-weight:700;color:#2c2432;margin-bottom:6px;">ร้านผ้าศิริเจริญ</div>
+    <div style="font-size:13px;color:#746a80;margin-bottom:18px;">กรุณาใส่รหัสผ่านเพื่อเข้าใช้งาน</div>
+    <input id="scPasswordInput" type="password" placeholder="รหัสผ่าน" style="width:100%;padding:10px 12px;border:1px solid #e2ddea;border-radius:8px;font-size:15px;box-sizing:border-box;margin-bottom:10px;" autofocus />
+    <div id="scPasswordError" style="display:none;color:#c0392b;font-size:12px;margin-bottom:10px;">รหัสผ่านไม่ถูกต้อง</div>
+    <button id="scPasswordSubmit" style="width:100%;padding:10px;background:#8a4baf;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;">เข้าสู่ระบบ</button>
+  </div>
+</div>
 <noscript>โปรแกรมนี้ต้องเปิดใช้งาน JavaScript ในเบราว์เซอร์ กรุณาเปิดใช้งานแล้วโหลดหน้านี้ใหม่</noscript>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
@@ -3451,12 +3460,64 @@ if (typeof module !== "undefined") {
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
   }
+
+  // ===== รหัสผ่านสำหรับเข้าผ่านลิงก์ออนไลน์ (กันคนทั่วไปที่บังเอิญเจอลิงก์) =====
+  var LINK_PASSWORD = "Sirichareon2518";
+  var LINK_AUTH_KEY = "sc_link_pw_ok";
+
+  function hidePasswordGate() {
+    var overlay = global.document.getElementById("scPasswordGate");
+    if (overlay) overlay.remove();
+  }
+
+  function setupPasswordGate() {
+    var overlay = global.document.getElementById("scPasswordGate");
+    if (!overlay) {
+      init();
+      return;
+    }
+    var input = global.document.getElementById("scPasswordInput");
+    var btn = global.document.getElementById("scPasswordSubmit");
+    var err = global.document.getElementById("scPasswordError");
+    function tryLogin() {
+      if (input.value === LINK_PASSWORD) {
+        try {
+          localStorage.setItem(LINK_AUTH_KEY, "1");
+        } catch (e) {}
+        hidePasswordGate();
+        init();
+      } else {
+        err.style.display = "block";
+        input.value = "";
+        input.focus();
+      }
+    }
+    btn.addEventListener("click", tryLogin);
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") tryLogin();
+    });
+    input.focus();
+  }
+
+  function bootWithPasswordGate() {
+    var alreadyOk = false;
+    try {
+      alreadyOk = localStorage.getItem(LINK_AUTH_KEY) === "1";
+    } catch (e) {}
+    if (alreadyOk) {
+      hidePasswordGate();
+      init();
+    } else {
+      setupPasswordGate();
+    }
+  }
+
   if (typeof global.window !== "undefined") {
     global.window.SiriCharoenApp = api;
     if (global.document.readyState === "loading") {
-      global.document.addEventListener("DOMContentLoaded", init);
+      global.document.addEventListener("DOMContentLoaded", bootWithPasswordGate);
     } else {
-      init();
+      bootWithPasswordGate();
     }
   }
 })(typeof window !== "undefined" ? window : global);
