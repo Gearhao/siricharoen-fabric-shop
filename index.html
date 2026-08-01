@@ -330,6 +330,7 @@ function createDB(storageKey) {
   let cloudPushTimer = null;
   let cloudSyncListener = null;
   let cloudStatus = __supabaseClient__ ? "connecting" : "offline";
+  let cloudBootstrapped = false; // true หลังจากลองดึงข้อมูลจากคลาวด์ครั้งแรกแล้ว (ไม่ว่าจะสำเร็จหรือไม่) ก่อนหน้านี้ห้ามอัปโหลดขึ้นคลาวด์เด็ดขาด
 
   function setCloudSyncListener(fn) {
     cloudSyncListener = fn;
@@ -341,6 +342,7 @@ function createDB(storageKey) {
 
   function scheduleCloudPush() {
     if (!__supabaseClient__) return;
+    if (!cloudBootstrapped) return; // ห้ามอัปโหลดขึ้นคลาวด์ก่อนจะดึงข้อมูลคลาวด์มาเช็คก่อนอย่างน้อย 1 ครั้ง (กันข้อมูลว่าง/ข้อมูลตัวอย่างทับของจริง)
     if (cloudPushTimer) clearTimeout(cloudPushTimer);
     cloudPushTimer = setTimeout(pushToCloud, 800);
   }
@@ -363,8 +365,24 @@ function createDB(storageKey) {
     }
   }
 
+  // เช็คว่าข้อมูลที่จะดึงจากคลาวด์มาทับเครื่องนี้ดู "หายไปผิดปกติ" หรือไม่ เทียบกับข้อมูลที่เครื่องนี้มีอยู่แล้ว
+  // ป้องกันกรณีคลาวด์มีข้อมูลว่าง/น้อยผิดปกติ (เช่น อัปโหลดข้อมูลตัวอย่างทับของจริงไปโดยไม่ตั้งใจ) ไม่ให้มาทับข้อมูลจริงในเครื่อง
+  function looksLikeDataLoss(incoming) {
+    const localCustomers = (store.customers || []).length;
+    const localSuppliers = (store.suppliers || []).length;
+    const inCustomers = (incoming.customers || []).length;
+    const inSuppliers = (incoming.suppliers || []).length;
+    if (localCustomers > 5 && inCustomers === 0) return true;
+    if (localSuppliers > 5 && inSuppliers === 0) return true;
+    if (localCustomers > 20 && inCustomers < localCustomers * 0.3) return true;
+    return false;
+  }
+
   async function pullFromCloud() {
-    if (!__supabaseClient__) return;
+    if (!__supabaseClient__) {
+      cloudBootstrapped = true;
+      return;
+    }
     try {
       const { data: row, error } = await __supabaseClient__
         .from(CLOUD_TABLE)
@@ -377,21 +395,31 @@ function createDB(storageKey) {
         return;
       }
       if (row && row.data) {
-        Object.keys(store).forEach((k) => delete store[k]);
-        Object.assign(store, row.data);
-        if (!store.shopInfo) store.shopInfo = emptyStore().shopInfo;
-        migrateCodes(store);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-        cloudStatus = "synced";
-        if (cloudSyncListener) cloudSyncListener();
+        if (looksLikeDataLoss(row.data)) {
+          // ข้อมูลบนคลาวด์ดูน้อยผิดปกติเทียบกับเครื่องนี้ -> ไม่ทับ ถือว่าเครื่องนี้ถูกต้องกว่า แล้วอัปโหลดข้อมูลเครื่องนี้ขึ้นไปแทนเพื่อกู้คืนคลาวด์
+          cloudStatus = "conflict";
+          console.warn("ข้อมูลบนคลาวด์น้อยผิดปกติเทียบกับเครื่องนี้ ข้ามการดึงข้อมูลมาทับ และอัปโหลดข้อมูลเครื่องนี้ขึ้นไปแทน");
+          await pushToCloud();
+        } else {
+          Object.keys(store).forEach((k) => delete store[k]);
+          Object.assign(store, row.data);
+          if (!store.shopInfo) store.shopInfo = emptyStore().shopInfo;
+          migrateCodes(store);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+          cloudStatus = "synced";
+          if (cloudSyncListener) cloudSyncListener();
+        }
       } else {
         // ยังไม่มีข้อมูลบนคลาวด์ (ครั้งแรก) -> อัปโหลดข้อมูลปัจจุบันขึ้นไปตั้งต้น
         cloudStatus = "synced";
-        pushToCloud();
+        cloudBootstrapped = true;
+        await pushToCloud();
       }
     } catch (e) {
       cloudStatus = "error";
       console.error("โหลดข้อมูลจากคลาวด์ผิดพลาด", e);
+    } finally {
+      cloudBootstrapped = true;
     }
   }
 
@@ -3357,12 +3385,15 @@ if (typeof module !== "undefined") {
 
     switchTab("dashboard");
 
-    // นำเข้ารายการผ้าที่เตรียมไว้ (BULK_IMPORT_FABRICS) อัตโนมัติทุกครั้งที่เปิดโปรแกรม ไม่ต้องกดปุ่มเอง
-    if (BULK_IMPORT_FABRICS.length) {
-      try {
-        importBulkFabrics({ silent: true });
-      } catch (e) {
-        // ไม่ให้การนำเข้าล้มเหลวไปกระทบการเปิดแอปหลัก
+    function runBulkImportFabrics() {
+      // นำเข้ารายการผ้าที่เตรียมไว้ (BULK_IMPORT_FABRICS) อัตโนมัติทุกครั้งที่เปิดโปรแกรม ไม่ต้องกดปุ่มเอง
+      // ทำหลังจากดึงข้อมูลคลาวด์เสร็จแล้วเท่านั้น กันไม่ให้แข่งกับการซิงค์คลาวด์แล้วอัปโหลดข้อมูลไม่ครบขึ้นไปทับของจริง
+      if (BULK_IMPORT_FABRICS.length) {
+        try {
+          importBulkFabrics({ silent: true });
+        } catch (e) {
+          // ไม่ให้การนำเข้าล้มเหลวไปกระทบการเปิดแอปหลัก
+        }
       }
     }
 
@@ -3376,6 +3407,7 @@ if (typeof module !== "undefined") {
         connecting: "คลาวด์: กำลังเชื่อมต่อ...",
         synced: "คลาวด์: ซิงค์แล้ว ✓",
         error: "คลาวด์: ผิดพลาด",
+        conflict: "คลาวด์: ข้อมูลไม่ตรงกัน กู้คืนแล้ว",
         offline: "คลาวด์: ออฟไลน์",
       };
       refs.cloudBadge.textContent = labels[status] || "คลาวด์: ไม่ทราบสถานะ";
@@ -3387,7 +3419,15 @@ if (typeof module !== "undefined") {
       });
     }
     updateCloudBadge();
-    if (DB.pullFromCloud) DB.pullFromCloud().then(updateCloudBadge);
+    if (DB.pullFromCloud) {
+      DB.pullFromCloud().then(() => {
+        runBulkImportFabrics();
+        switchTab(currentTab);
+        updateCloudBadge();
+      });
+    } else {
+      runBulkImportFabrics();
+    }
     global.setInterval(updateCloudBadge, 2000);
   }
 
