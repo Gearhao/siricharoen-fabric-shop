@@ -211,6 +211,25 @@ html, body {
 }
 .pos-right h3 { margin-top: 0; }
 
+/* ตารางรายการสินค้าในหน้า POS: บังคับความกว้างคอลัมน์รวมกันไม่เกิน 100% ของกล่อง ไม่ให้ต้องเลื่อนซ้าย-ขวา */
+.pos-item-table {
+  table-layout: fixed;
+  width: 100%;
+}
+.pos-item-table th:nth-child(1), .pos-item-table td:nth-child(1) { width: 5%; }
+.pos-item-table th:nth-child(2), .pos-item-table td:nth-child(2) { width: 30%; }
+.pos-item-table th:nth-child(3), .pos-item-table td:nth-child(3) { width: 9%; }
+.pos-item-table th:nth-child(4), .pos-item-table td:nth-child(4) { width: 14%; }
+.pos-item-table th:nth-child(5), .pos-item-table td:nth-child(5) { width: 10%; }
+.pos-item-table th:nth-child(6), .pos-item-table td:nth-child(6) { width: 12%; }
+.pos-item-table th:nth-child(7), .pos-item-table td:nth-child(7) { width: 12%; }
+.pos-item-table th:nth-child(8), .pos-item-table td:nth-child(8) { width: 8%; }
+.pos-item-table td { padding: 6px 4px; white-space: normal; word-break: break-word; }
+.pos-item-table input, .pos-item-table select { width: 100%; min-width: 0; box-sizing: border-box; }
+.pos-item-table .btn-sm { width: 100%; padding-left: 4px; padding-right: 4px; }
+.search-select { display: block; width: 100%; }
+.search-select input { width: 100%; box-sizing: border-box; }
+
 .form-panel { margin-top: 10px; }
 .form-row {
   display: flex;
@@ -1205,7 +1224,6 @@ if (typeof module !== "undefined") {
       list: listId,
       placeholder: placeholder || "พิมพ์เพื่อค้นหา...",
       value: selectedOpt ? selectedOpt.label : "",
-      style: { width: "230px" },
     });
     const wrap = el("span", { class: "search-select" }, input, datalist);
     wrap.getMatchedValue = () => {
@@ -1873,7 +1891,7 @@ if (typeof module !== "undefined") {
       tbody.appendChild(tr);
     });
 
-    const table = el("table", { class: "data-table" }, thead, tbody);
+    const table = el("table", { class: "data-table pos-item-table" }, thead, tbody);
     container.appendChild(table);
   }
 
