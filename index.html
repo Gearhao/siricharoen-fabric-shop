@@ -197,6 +197,7 @@ html, body {
   max-width: 1500px;
   margin: 0 auto;
   align-items: start;
+  min-width: 0;
 }
 @media (max-width: 1000px) {
   .pos-grid { grid-template-columns: 1fr; }
@@ -206,6 +207,7 @@ html, body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 14px;
+  min-width: 0; /* กันไม่ให้ตารางรายการสินค้าด้านในดันความกว้างของทั้งกล่อง/หน้าเว็บให้ล้นออกไปจนต้องเลื่อนทั้งหน้า */
 }
 .pos-right h3 { margin-top: 0; }
 
