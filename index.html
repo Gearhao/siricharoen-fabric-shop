@@ -1980,7 +1980,7 @@ if (typeof module !== "undefined") {
         );
         if (!ok) return;
       }
-    } else if (paid < total) {
+    } else if (paymentMethod !== "เงินสด" && paid < total) {
       global.alert("จำนวนเงินที่รับน้อยกว่ายอดที่ต้องชำระ");
       return;
     }
@@ -2911,7 +2911,24 @@ if (typeof module !== "undefined") {
 
     const poNoInput = textInput(DB.genPoNo());
     const dateInput = el("input", { type: "date", value: DB.todayStr() });
-    const supplierSelect = selectInput(suppliers.map((s) => ({ value: String(s.id), label: `${s.code} - ${s.name}` })));
+    const supplierOptions = suppliers.map((s) => ({ value: String(s.id), label: `${s.code} - ${s.name}` }));
+    const supplierSelect = searchSelectInput(
+      supplierOptions,
+      supplierOptions[0] ? supplierOptions[0].value : "",
+      "พิมพ์รหัส/ชื่อซัพพลายเออร์เพื่อค้นหา..."
+    );
+    supplierSelect._supplierId = supplierOptions[0] ? Number(supplierOptions[0].value) : 0;
+    supplierSelect.inputEl.addEventListener("change", () => {
+      const v = supplierSelect.getMatchedValue();
+      if (!v) {
+        global.alert("ไม่พบซัพพลายเออร์ตามที่พิมพ์ กรุณาเลือกจากรายการที่ปรากฏ");
+        const cur = supplierOptions.find((o) => o.value === String(supplierSelect._supplierId));
+        supplierSelect.setLabel(cur ? cur.label : "");
+        return;
+      }
+      supplierSelect._supplierId = Number(v);
+    });
+    supplierSelect.getSupplierId = () => supplierSelect._supplierId;
     const paymentSelect = selectInput(
       [
         { value: "เงินเชื่อ", label: "เงินเชื่อ" },
@@ -3016,7 +3033,7 @@ if (typeof module !== "undefined") {
           });
           const po = DB.createPurchase(
             convertedItems,
-            Number(supplierSelect.value),
+            supplierSelect.getSupplierId(),
             discount,
             vat,
             paymentSelect.value,
