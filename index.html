@@ -3094,7 +3094,7 @@ if (typeof module !== "undefined") {
     function syncPurchase() {
       if (items.length === 0) {
         if (currentPo) {
-          DB.deletePurchaseDraft(currentPo.id);
+          DB.deletePurchase(currentPo.id);
           currentPo = null;
         }
         autoSaveStatus.textContent = "";
@@ -3153,7 +3153,27 @@ if (typeof module !== "undefined") {
       const table = buildDataTable(
         ["รหัสสินค้า", "ชื่อผ้า", "ชนิดผ้า", "จำนวน", "หน่วย", "ราคาทุน/หน่วย", "รวม"],
         items.map((it) => [it.code, it.name, it.category || "-", it.qty, it.unit, money(it.unit_cost), money(it.qty * it.unit_cost)]),
-        { actions: (idx) => [{ label: "ลบ", onClick: () => { items.splice(idx, 1); refreshItemsTable(); syncPurchase(); } }] }
+        {
+          actions: (idx) => [
+            {
+              label: "ลบ",
+              onClick: () => {
+                if (items.length === 1 && currentPo && currentPo.status === "รับสินค้าแล้ว") {
+                  if (
+                    !global.confirm(
+                      `ใบสั่งซื้อ ${currentPo.po_no} รับสินค้าเข้าสต็อกไปแล้ว การลบรายการสุดท้ายจะลบใบสั่งซื้อนี้ทิ้งทั้งใบ และตัดสต็อก/ปรับยอดหนี้ซัพพลายเออร์คืนให้อัตโนมัติ ต้องการดำเนินการต่อหรือไม่?`
+                    )
+                  ) {
+                    return;
+                  }
+                }
+                items.splice(idx, 1);
+                refreshItemsTable();
+                syncPurchase();
+              },
+            },
+          ],
+        }
       );
       itemsContainer.appendChild(table);
     }
