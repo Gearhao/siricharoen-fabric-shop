@@ -956,6 +956,39 @@ function createDB(storageKey) {
     save();
     return purchase;
   }
+  // ใช้สำหรับบันทึกอัตโนมัติระหว่างสร้างใบสั่งซื้อ (ก่อนรับสินค้า) จึงยังไม่มีผลต่อสต็อก/ยอดหนี้ ปรับแก้ตรงๆ ได้เลย
+  function updatePurchase(id, items, supplierId, discount, vatAmount, paymentMethod, note, date, poNo) {
+    const purchase = store.purchases.find((x) => x.id === id);
+    if (!purchase) return null;
+    const subtotal = items.reduce((sum, it) => sum + it.qty * it.unit_cost, 0);
+    const disc = discount || 0;
+    const total = Math.max(0, subtotal - disc) + vatAmount;
+    purchase.po_no = poNo || purchase.po_no;
+    purchase.date = date || purchase.date;
+    purchase.supplier_id = supplierId;
+    purchase.items = items.map((it) => ({
+      fabric_id: it.fabric_id,
+      qty: it.qty,
+      unit_cost: it.unit_cost,
+      subtotal: it.qty * it.unit_cost,
+    }));
+    purchase.subtotal = subtotal;
+    purchase.discount = disc;
+    purchase.vat_amount = vatAmount;
+    purchase.total = total;
+    purchase.payment_method = paymentMethod;
+    purchase.note = note || "";
+    save();
+    return purchase;
+  }
+  // ใช้ลบใบสั่งซื้อที่ยังไม่ได้รับสินค้าเท่านั้น (เช่น ตอนลบรายการสุดท้ายออกจนไม่เหลือรายการระหว่างบันทึกอัตโนมัติ)
+  function deletePurchaseDraft(id) {
+    const idx = store.purchases.findIndex((x) => x.id === id && x.status !== "รับสินค้าแล้ว");
+    if (idx === -1) return false;
+    store.purchases.splice(idx, 1);
+    save();
+    return true;
+  }
   function receivePurchase(purchaseId) {
     const p = store.purchases.find((x) => x.id === purchaseId);
     if (!p || p.status === "รับสินค้าแล้ว") return false;
@@ -1102,7 +1135,7 @@ function createDB(storageKey) {
     addFabric, updateFabric, deleteFabric, getFabrics, getFabric,
     adjustStock, getStockMovements,
     createSale, updateSale, deleteSale, getSales, getSale,
-    createPurchase, receivePurchase, payPurchase, getPurchases, getPurchase, genPoNo,
+    createPurchase, updatePurchase, deletePurchaseDraft, receivePurchase, payPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense,
     salesSummary, cogsSummary, expensesSummary, bestSellers, lowStockList,
     arAging, apAging,
@@ -2908,9 +2941,16 @@ if (typeof module !== "undefined") {
     }
 
     let items = [];
+    let currentPo = null;
 
     const poNoInput = textInput(DB.genPoNo());
+    poNoInput.addEventListener("input", () => {
+      if (items.length > 0) syncPurchase();
+    });
     const dateInput = el("input", { type: "date", value: DB.todayStr() });
+    dateInput.addEventListener("change", () => {
+      if (items.length > 0) syncPurchase();
+    });
     const supplierOptions = suppliers.map((s) => ({ value: String(s.id), label: `${s.code} - ${s.name}` }));
     const supplierSelect = searchSelectInput(
       supplierOptions,
@@ -2927,6 +2967,7 @@ if (typeof module !== "undefined") {
         return;
       }
       supplierSelect._supplierId = Number(v);
+      if (items.length > 0) syncPurchase();
     });
     supplierSelect.getSupplierId = () => supplierSelect._supplierId;
     const paymentSelect = selectInput(
@@ -2937,7 +2978,13 @@ if (typeof module !== "undefined") {
       ],
       "เงินเชื่อ"
     );
+    paymentSelect.addEventListener("change", () => {
+      if (items.length > 0) syncPurchase();
+    });
     const discountInput = numberInput(0);
+    discountInput.addEventListener("input", () => {
+      if (items.length > 0) syncPurchase();
+    });
 
     const fabricSelect = selectInput(
       [{ value: "", label: "-- เลือกผ้า --" }].concat(fabrics.map((f) => ({ value: String(f.id), label: `${f.code} - ${f.name}` })))
@@ -2955,13 +3002,76 @@ if (typeof module !== "undefined") {
     costInput.setAttribute("placeholder", "ราคาทุน/หน่วย");
     const itemsContainer = el("div", { class: "table-container" });
     const vatChk = el("input", { type: "checkbox", checked: true });
+    vatChk.addEventListener("change", () => {
+      if (items.length > 0) syncPurchase();
+    });
+    const autoSaveStatus = el("div", { class: "totals-line", text: "" });
+
+    // บันทึกอัตโนมัติทุกครั้งที่มีการเพิ่ม/ลบ/แก้ไขรายการ ไม่ต้องกดปุ่มบันทึกเอง
+    // (ช่วงนี้ยังเป็นใบสั่งซื้อที่ "รอรับสินค้า" อยู่ ยังไม่กระทบสต็อก/ยอดหนี้ จนกว่าจะกดรับสินค้าในหน้ารายการภายหลัง)
+    function syncPurchase() {
+      if (items.length === 0) {
+        if (currentPo) {
+          DB.deletePurchaseDraft(currentPo.id);
+          currentPo = null;
+        }
+        autoSaveStatus.textContent = "";
+        renderPurchaseTable();
+        return;
+      }
+      const poNo = poNoInput.value.trim();
+      if (!poNo) {
+        autoSaveStatus.textContent = "กรุณากรอกเลขที่เอกสารรับเข้า เพื่อบันทึกอัตโนมัติ";
+        return;
+      }
+      const subtotal = items.reduce((s, it) => s + it.qty * it.unit_cost, 0);
+      const discount = Number(discountInput.value) || 0;
+      const vatBase = Math.max(0, subtotal - discount);
+      const vat = VAT_ENABLED && vatChk.checked ? Math.round(vatBase * VAT_RATE * 100) / 100 : 0;
+      // แปลงจำนวน/ราคาทุนที่กรอก (หน่วยที่เลือกรับ) ให้เป็นหน่วยฐานของสินค้าก่อนบันทึก เพื่อให้สต็อกถูกต้อง
+      const convertedItems = items.map((it) => {
+        const fab = fabrics.find((f) => f.id === it.fabric_id);
+        const factor = fab ? unitFactor(it.unit, fab.unit) : 1;
+        return {
+          fabric_id: it.fabric_id,
+          qty: it.qty * factor,
+          unit_cost: factor ? it.unit_cost / factor : it.unit_cost,
+        };
+      });
+      if (!currentPo) {
+        currentPo = DB.createPurchase(
+          convertedItems,
+          supplierSelect.getSupplierId(),
+          discount,
+          vat,
+          paymentSelect.value,
+          "",
+          dateInput.value || DB.todayStr(),
+          poNo
+        );
+      } else {
+        currentPo = DB.updatePurchase(
+          currentPo.id,
+          convertedItems,
+          supplierSelect.getSupplierId(),
+          discount,
+          vat,
+          paymentSelect.value,
+          "",
+          dateInput.value || DB.todayStr(),
+          poNo
+        );
+      }
+      autoSaveStatus.textContent = `บันทึกอัตโนมัติแล้ว (${currentPo.po_no}) ยอดรวม ${money(currentPo.total)} บาท`;
+      renderPurchaseTable();
+    }
 
     function refreshItemsTable() {
       clear(itemsContainer);
       const table = buildDataTable(
         ["รหัสสินค้า", "ชื่อผ้า", "ชนิดผ้า", "จำนวน", "หน่วย", "ราคาทุน/หน่วย", "รวม"],
         items.map((it) => [it.code, it.name, it.category || "-", it.qty, it.unit, money(it.unit_cost), money(it.qty * it.unit_cost)]),
-        { actions: (idx) => [{ label: "ลบ", onClick: () => { items.splice(idx, 1); refreshItemsTable(); } }] }
+        { actions: (idx) => [{ label: "ลบ", onClick: () => { items.splice(idx, 1); refreshItemsTable(); syncPurchase(); } }] }
       );
       itemsContainer.appendChild(table);
     }
@@ -2996,6 +3106,7 @@ if (typeof module !== "undefined") {
           qtyInput.value = "";
           costInput.value = "";
           refreshItemsTable();
+          syncPurchase();
         },
       },
       "เพิ่มรายการ"
@@ -3008,45 +3119,12 @@ if (typeof module !== "undefined") {
       {
         class: "btn btn-primary",
         onClick: () => {
-          if (items.length === 0) {
-            global.alert("กรุณาเพิ่มรายการสินค้า");
-            return;
-          }
-          const poNo = poNoInput.value.trim();
-          if (!poNo) {
-            global.alert("กรุณากรอกเลขที่เอกสารรับเข้า");
-            return;
-          }
-          const subtotal = items.reduce((s, it) => s + it.qty * it.unit_cost, 0);
-          const discount = Number(discountInput.value) || 0;
-          const vatBase = Math.max(0, subtotal - discount);
-          const vat = VAT_ENABLED && vatChk.checked ? Math.round(vatBase * VAT_RATE * 100) / 100 : 0;
-          // แปลงจำนวน/ราคาทุนที่กรอก (หน่วยที่เลือกรับ) ให้เป็นหน่วยฐานของสินค้าก่อนบันทึก เพื่อให้สต็อกถูกต้อง
-          const convertedItems = items.map((it) => {
-            const fab = fabrics.find((f) => f.id === it.fabric_id);
-            const factor = fab ? unitFactor(it.unit, fab.unit) : 1;
-            return {
-              fabric_id: it.fabric_id,
-              qty: it.qty * factor,
-              unit_cost: factor ? it.unit_cost / factor : it.unit_cost,
-            };
-          });
-          const po = DB.createPurchase(
-            convertedItems,
-            supplierSelect.getSupplierId(),
-            discount,
-            vat,
-            paymentSelect.value,
-            "",
-            dateInput.value || DB.todayStr(),
-            poNo
-          );
+          syncPurchase();
           closeModal();
           renderPurchaseTable();
-          global.alert(`สร้างใบสั่งซื้อ ${po.po_no} ยอดรวม ${money(po.total)} บาท`);
         },
       },
-      "บันทึกใบสั่งซื้อ"
+      "เสร็จสิ้น"
     );
 
     const body = el(
@@ -3065,12 +3143,14 @@ if (typeof module !== "undefined") {
       addRow,
       itemsContainer,
       VAT_ENABLED ? el("label", { class: "chk-label" }, vatChk, ` คิดภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%`) : null,
+      autoSaveStatus,
       el("div", { class: "modal-actions" }, saveBtn)
     );
     exposeTestRefs("purchaseForm", {
       poNoInput, dateInput, supplierSelect, paymentSelect, discountInput,
       fabricSelect, qtyInput, unitSelect, costInput, addItemBtn, saveBtn,
       getItems: () => items,
+      getCurrentPo: () => currentPo,
     });
     openModal("สร้างใบสั่งซื้อใหม่ (รับสินค้า)", body, { wide: true });
   }
