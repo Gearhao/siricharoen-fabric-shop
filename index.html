@@ -956,10 +956,59 @@ function createDB(storageKey) {
     save();
     return purchase;
   }
-  // ใช้สำหรับบันทึกอัตโนมัติระหว่างสร้างใบสั่งซื้อ (ก่อนรับสินค้า) จึงยังไม่มีผลต่อสต็อก/ยอดหนี้ ปรับแก้ตรงๆ ได้เลย
+  // ผลของการรับสินค้าเข้าจริง: เพิ่มสต็อก + บันทึกการเคลื่อนไหว + เพิ่มยอดหนี้ซัพพลายเออร์ (ถ้าซื้อเงินเชื่อ)
+  function applyPurchaseEffects(purchase) {
+    for (const it of purchase.items) {
+      const f = getFabric(it.fabric_id);
+      if (f) {
+        f.stock_qty += it.qty;
+        f.cost_price = it.unit_cost;
+      }
+      store.stockMovements.push({
+        id: store.stockMovements.length + 1,
+        fabric_id: it.fabric_id,
+        date: nowStr(),
+        move_type: "รับเข้า",
+        qty: it.qty,
+        ref_type: "purchase",
+        ref_id: purchase.id,
+        note: purchase.po_no,
+      });
+    }
+    if (purchase.payment_method === "เงินเชื่อ") {
+      const s = getSupplier(purchase.supplier_id);
+      if (s) s.credit_balance += purchase.total;
+    }
+  }
+  // ย้อนผลของการรับสินค้า (ใช้ตอนแก้ไข/ลบใบสั่งซื้อที่รับสินค้าไปแล้ว) ตัดสต็อกที่เคยเพิ่มออก และปรับยอดหนี้ซัพพลายเออร์คืน
+  function revertPurchaseEffects(purchase) {
+    for (const it of purchase.items) {
+      const f = getFabric(it.fabric_id);
+      if (f) f.stock_qty -= it.qty;
+      store.stockMovements.push({
+        id: store.stockMovements.length + 1,
+        fabric_id: it.fabric_id,
+        date: nowStr(),
+        move_type: "คืนสต็อก (แก้ไข/ลบใบสั่งซื้อ)",
+        qty: -it.qty,
+        ref_type: "purchase",
+        ref_id: purchase.id,
+        note: purchase.po_no,
+      });
+    }
+    if (purchase.payment_method === "เงินเชื่อ") {
+      const s = getSupplier(purchase.supplier_id);
+      if (s) s.credit_balance -= purchase.total - purchase.paid;
+    }
+  }
+  // บันทึกอัตโนมัติ/แก้ไขใบสั่งซื้อ: ถ้ายังไม่รับสินค้าจะแก้ตรงๆ ได้เลย
+  // ถ้ารับสินค้าไปแล้วจะย้อนผลเดิมก่อนแล้วค่อยใส่ผลใหม่ตามรายการที่แก้ไข เพื่อให้สต็อก/ยอดหนี้ถูกต้องเสมอ
   function updatePurchase(id, items, supplierId, discount, vatAmount, paymentMethod, note, date, poNo) {
     const purchase = store.purchases.find((x) => x.id === id);
     if (!purchase) return null;
+    const wasReceived = purchase.status === "รับสินค้าแล้ว";
+    if (wasReceived) revertPurchaseEffects(purchase);
+
     const subtotal = items.reduce((sum, it) => sum + it.qty * it.unit_cost, 0);
     const disc = discount || 0;
     const total = Math.max(0, subtotal - disc) + vatAmount;
@@ -978,10 +1027,14 @@ function createDB(storageKey) {
     purchase.total = total;
     purchase.payment_method = paymentMethod;
     purchase.note = note || "";
+    if (wasReceived) {
+      purchase.payment_status = purchase.paid >= purchase.total ? "ชำระแล้ว" : purchase.paid > 0 ? "ชำระบางส่วน" : "ค้างชำระ";
+      applyPurchaseEffects(purchase);
+    }
     save();
     return purchase;
   }
-  // ใช้ลบใบสั่งซื้อที่ยังไม่ได้รับสินค้าเท่านั้น (เช่น ตอนลบรายการสุดท้ายออกจนไม่เหลือรายการระหว่างบันทึกอัตโนมัติ)
+  // ใช้ลบใบสั่งซื้อร่างที่ยังไม่ได้รับสินค้าเท่านั้น (เช่น ตอนลบรายการสุดท้ายออกจนไม่เหลือรายการระหว่างบันทึกอัตโนมัติ)
   function deletePurchaseDraft(id) {
     const idx = store.purchases.findIndex((x) => x.id === id && x.status !== "รับสินค้าแล้ว");
     if (idx === -1) return false;
@@ -989,31 +1042,21 @@ function createDB(storageKey) {
     save();
     return true;
   }
+  // ลบใบสั่งซื้อได้ทุกสถานะ ถ้ารับสินค้าไปแล้วจะย้อนสต็อก/ยอดหนี้ที่เคยบันทึกไว้ให้อัตโนมัติก่อนลบ
+  function deletePurchase(id) {
+    const idx = store.purchases.findIndex((x) => x.id === id);
+    if (idx === -1) return false;
+    const p = store.purchases[idx];
+    if (p.status === "รับสินค้าแล้ว") revertPurchaseEffects(p);
+    store.purchases.splice(idx, 1);
+    save();
+    return true;
+  }
   function receivePurchase(purchaseId) {
     const p = store.purchases.find((x) => x.id === purchaseId);
     if (!p || p.status === "รับสินค้าแล้ว") return false;
-    for (const it of p.items) {
-      const f = getFabric(it.fabric_id);
-      if (f) {
-        f.stock_qty += it.qty;
-        f.cost_price = it.unit_cost;
-      }
-      store.stockMovements.push({
-        id: store.stockMovements.length + 1,
-        fabric_id: it.fabric_id,
-        date: nowStr(),
-        move_type: "รับเข้า",
-        qty: it.qty,
-        ref_type: "purchase",
-        ref_id: purchaseId,
-        note: p.po_no,
-      });
-    }
+    applyPurchaseEffects(p);
     p.status = "รับสินค้าแล้ว";
-    if (p.payment_method === "เงินเชื่อ") {
-      const s = getSupplier(p.supplier_id);
-      if (s) s.credit_balance += p.total;
-    }
     save();
     return true;
   }
@@ -1135,7 +1178,7 @@ function createDB(storageKey) {
     addFabric, updateFabric, deleteFabric, getFabrics, getFabric,
     adjustStock, getStockMovements,
     createSale, updateSale, deleteSale, getSales, getSale,
-    createPurchase, updatePurchase, deletePurchaseDraft, receivePurchase, payPurchase, getPurchases, getPurchase, genPoNo,
+    createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense,
     salesSummary, cogsSummary, expensesSummary, bestSellers, lowStockList,
     arAging, apAging,
@@ -2921,6 +2964,20 @@ if (typeof module !== "undefined") {
           if (p.paid < p.total) {
             actions.push({ label: "บันทึกจ่ายเงิน", onClick: () => openPurchasePayModal(p.id) });
           }
+          actions.push({ label: "แก้ไข", onClick: () => openPurchaseModal(p.id) });
+          actions.push({
+            label: "ลบ",
+            onClick: () => {
+              const msg =
+                p.status === "รับสินค้าแล้ว"
+                  ? `ใบสั่งซื้อ ${p.po_no} รับสินค้าเข้าสต็อกไปแล้ว การลบจะตัดสต็อกที่รับเข้าออกและปรับยอดหนี้ซัพพลายเออร์คืนให้อัตโนมัติ ต้องการลบหรือไม่?`
+                  : `ต้องการลบใบสั่งซื้อ ${p.po_no} หรือไม่?`;
+              if (global.confirm(msg)) {
+                DB.deletePurchase(p.id);
+                renderPurchaseTable();
+              }
+            },
+          });
           return actions;
         },
       }
@@ -2928,7 +2985,7 @@ if (typeof module !== "undefined") {
     container.appendChild(table);
   }
 
-  function openPurchaseModal() {
+  function openPurchaseModal(editPurchaseId) {
     const suppliers = DB.getSuppliers();
     const fabrics = DB.getFabrics();
     if (suppliers.length === 0) {
@@ -2940,24 +2997,44 @@ if (typeof module !== "undefined") {
       return;
     }
 
-    let items = [];
-    let currentPo = null;
+    const editingPurchase = editPurchaseId ? DB.getPurchase(editPurchaseId) : null;
 
-    const poNoInput = textInput(DB.genPoNo());
+    let items = editingPurchase
+      ? editingPurchase.items.map((it) => {
+          const f = DB.getFabric(it.fabric_id);
+          return {
+            fabric_id: it.fabric_id,
+            code: f ? f.code : "-",
+            name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)",
+            category: f ? f.category : "",
+            unit: f ? f.unit : "หลา",
+            qty: it.qty,
+            unit_cost: it.unit_cost,
+          };
+        })
+      : [];
+    let currentPo = editingPurchase || null;
+
+    const poNoInput = textInput(editingPurchase ? editingPurchase.po_no : DB.genPoNo());
     poNoInput.addEventListener("input", () => {
       if (items.length > 0) syncPurchase();
     });
-    const dateInput = el("input", { type: "date", value: DB.todayStr() });
+    const dateInput = el("input", { type: "date", value: editingPurchase ? editingPurchase.date : DB.todayStr() });
     dateInput.addEventListener("change", () => {
       if (items.length > 0) syncPurchase();
     });
     const supplierOptions = suppliers.map((s) => ({ value: String(s.id), label: `${s.code} - ${s.name}` }));
+    const initialSupplierValue = editingPurchase
+      ? String(editingPurchase.supplier_id)
+      : supplierOptions[0]
+      ? supplierOptions[0].value
+      : "";
     const supplierSelect = searchSelectInput(
       supplierOptions,
-      supplierOptions[0] ? supplierOptions[0].value : "",
+      initialSupplierValue,
       "พิมพ์รหัส/ชื่อซัพพลายเออร์เพื่อค้นหา..."
     );
-    supplierSelect._supplierId = supplierOptions[0] ? Number(supplierOptions[0].value) : 0;
+    supplierSelect._supplierId = Number(initialSupplierValue) || 0;
     supplierSelect.inputEl.addEventListener("change", () => {
       const v = supplierSelect.getMatchedValue();
       if (!v) {
@@ -2976,19 +3053,24 @@ if (typeof module !== "undefined") {
         { value: "เงินสด", label: "เงินสด" },
         { value: "โอนเงิน", label: "โอนเงิน" },
       ],
-      "เงินเชื่อ"
+      editingPurchase ? editingPurchase.payment_method : "เงินเชื่อ"
     );
     paymentSelect.addEventListener("change", () => {
       if (items.length > 0) syncPurchase();
     });
-    const discountInput = numberInput(0);
+    const discountInput = numberInput(editingPurchase ? editingPurchase.discount : 0);
     discountInput.addEventListener("input", () => {
       if (items.length > 0) syncPurchase();
     });
 
-    const fabricSelect = selectInput(
-      [{ value: "", label: "-- เลือกผ้า --" }].concat(fabrics.map((f) => ({ value: String(f.id), label: `${f.code} - ${f.name}` })))
+    const fabricOptions = [{ value: "", label: "-- เลือกผ้า --" }].concat(
+      fabrics.map((f) => ({ value: String(f.id), label: `${f.code} - ${f.name}` }))
     );
+    const fabricSelect = searchSelectInput(fabricOptions, "", "พิมพ์รหัส/ชื่อผ้าเพื่อค้นหา...");
+    fabricSelect.getFabricId = () => {
+      const v = fabricSelect.getMatchedValue();
+      return v ? Number(v) : 0;
+    };
     const qtyInput = numberInput("");
     qtyInput.setAttribute("placeholder", "จำนวน");
     const unitSelect = selectInput(
@@ -3001,7 +3083,7 @@ if (typeof module !== "undefined") {
     const costInput = numberInput("");
     costInput.setAttribute("placeholder", "ราคาทุน/หน่วย");
     const itemsContainer = el("div", { class: "table-container" });
-    const vatChk = el("input", { type: "checkbox", checked: true });
+    const vatChk = el("input", { type: "checkbox", checked: editingPurchase ? editingPurchase.vat_amount > 0 : true });
     vatChk.addEventListener("change", () => {
       if (items.length > 0) syncPurchase();
     });
@@ -3082,7 +3164,12 @@ if (typeof module !== "undefined") {
       {
         class: "btn btn-sm btn-primary",
         onClick: () => {
-          const fid = Number(fabricSelect.value);
+          const matched = fabricSelect.getMatchedValue();
+          if (matched === null) {
+            global.alert("ไม่พบผ้าตามที่พิมพ์ กรุณาเลือกจากรายการที่ปรากฏ");
+            return;
+          }
+          const fid = Number(matched) || 0;
           const fab = fabrics.find((f) => f.id === fid);
           const qty = Number(qtyInput.value);
           const cost = Number(costInput.value);
@@ -3103,6 +3190,7 @@ if (typeof module !== "undefined") {
             qty,
             unit_cost: cost,
           });
+          fabricSelect.setLabel("");
           qtyInput.value = "";
           costInput.value = "";
           refreshItemsTable();
@@ -3152,7 +3240,7 @@ if (typeof module !== "undefined") {
       getItems: () => items,
       getCurrentPo: () => currentPo,
     });
-    openModal("สร้างใบสั่งซื้อใหม่ (รับสินค้า)", body, { wide: true });
+    openModal(editingPurchase ? `แก้ไขใบสั่งซื้อ ${editingPurchase.po_no}` : "สร้างใบสั่งซื้อใหม่ (รับสินค้า)", body, { wide: true });
   }
 
   function openPurchaseItemsModal(pid) {
