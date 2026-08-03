@@ -1685,7 +1685,7 @@ if (typeof module !== "undefined") {
     });
     if (cart.length === 0) addPosRow();
     else renderPosItemsTable();
-    refs.posCustomerSelect.value = sale.customer_id ? String(sale.customer_id) : "0";
+    refs.posCustomerSelect.setCustomerId(sale.customer_id || 0);
     refs.posDiscountInput.value = sale.discount || 0;
     refs.posPaymentSelect.value = sale.payment_method;
     refs.posPaidInput.value = sale.paid;
@@ -1721,12 +1721,27 @@ if (typeof module !== "undefined") {
 
   function buildCustomerSelectOptions() {
     const customers = DB.getCustomers();
-    return selectInput(
-      [{ value: "0", label: "ลูกค้าทั่วไป (เงินสด)" }].concat(
-        customers.map((c) => ({ value: String(c.id), label: `${c.code} - ${c.name} (ค้างชำระ ${money(c.credit_balance)})` }))
-      ),
-      "0"
+    const options = [{ value: "0", label: "ลูกค้าทั่วไป (เงินสด)" }].concat(
+      customers.map((c) => ({ value: String(c.id), label: `${c.code} - ${c.name} (ค้างชำระ ${money(c.credit_balance)})` }))
     );
+    const wrap = searchSelectInput(options, "0", "พิมพ์ชื่อ/รหัสลูกค้าเพื่อค้นหา...");
+    wrap._customerId = 0;
+    function applyMatch(v) {
+      if (v === null) {
+        global.alert("ไม่พบลูกค้าตามที่พิมพ์ กรุณาเลือกจากรายการที่ปรากฏ");
+        const cur = options.find((o) => o.value === String(wrap._customerId));
+        wrap.setLabel(cur ? cur.label : "ลูกค้าทั่วไป (เงินสด)");
+        return;
+      }
+      const id = Number(v) || 0;
+      wrap._customerId = id;
+      const opt = options.find((o) => o.value === String(id));
+      wrap.setLabel(opt ? opt.label : "ลูกค้าทั่วไป (เงินสด)");
+    }
+    wrap.inputEl.addEventListener("change", () => applyMatch(wrap.getMatchedValue()));
+    wrap.getCustomerId = () => wrap._customerId;
+    wrap.setCustomerId = (id) => applyMatch(String(id || 0));
+    return wrap;
   }
 
   function fabricSelectOptions(selectedId) {
@@ -1946,7 +1961,7 @@ if (typeof module !== "undefined") {
       }
     }
     const { subtotal, discount, vat, total } = calcPosTotals();
-    const custId = Number(refs.posCustomerSelect.value) || 0;
+    const custId = refs.posCustomerSelect.getCustomerId();
     const paymentMethod = refs.posPaymentSelect.value;
     const paid = Number(refs.posPaidInput.value) || 0;
 
