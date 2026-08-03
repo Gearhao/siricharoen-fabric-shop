@@ -1714,7 +1714,7 @@ if (typeof module !== "undefined") {
     if (!sale) return;
     const cartItems = sale.items.map((it) => {
       const f = DB.getFabric(it.fabric_id);
-      return { name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)", qty: it.qty, unit_price: it.unit_price, unit: it.unit };
+      return { code: f ? f.code : "", name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)", qty: it.qty, unit_price: it.unit_price, unit: it.unit };
     });
     showReceiptModal(sale, sale.customer_id, cartItems);
   }
@@ -2039,8 +2039,9 @@ if (typeof module !== "undefined") {
     cartItems.forEach((it) => {
       const sub = it.qty * it.unit_price;
       const qtyUnit = `${it.qty}${it.unit ? " " + it.unit : ""}`;
+      const label = it.code || it.name || "";
       lines.push(
-        `${it.name.slice(0, 20).padEnd(20)}${qtyUnit.padStart(10)} x ${it.unit_price.toFixed(2).padStart(7)} = ${sub
+        `${label.slice(0, 20).padEnd(20)}${qtyUnit.padStart(10)} x ${it.unit_price.toFixed(2).padStart(7)} = ${sub
           .toFixed(2)
           .padStart(9)}`
       );
