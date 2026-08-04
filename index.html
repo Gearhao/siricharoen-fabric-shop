@@ -3019,7 +3019,8 @@ if (typeof module !== "undefined") {
       : [];
     let currentPo = editingPurchase || null;
 
-    const poNoInput = textInput(editingPurchase ? editingPurchase.po_no : DB.genPoNo());
+    const poNoInput = textInput(editingPurchase ? editingPurchase.po_no : "");
+    poNoInput.setAttribute("placeholder", "ปล่อยว่างได้ ระบบจะออกเลขที่ให้อัตโนมัติ");
     poNoInput.addEventListener("input", () => {
       if (items.length > 0) syncPurchase();
     });
@@ -3075,8 +3076,18 @@ if (typeof module !== "undefined") {
       const v = fabricSelect.getMatchedValue();
       return v ? Number(v) : 0;
     };
+    fabricSelect.inputEl.addEventListener("change", () => {
+      const v = fabricSelect.getMatchedValue();
+      if (v === null) {
+        global.alert("ไม่พบผ้าตามที่พิมพ์ กรุณาเลือกจากรายการที่ปรากฏ");
+        fabricSelect.setLabel("");
+        return;
+      }
+      tryAddItemFromRow({ alertOnInvalid: false });
+    });
     const qtyInput = numberInput("");
     qtyInput.setAttribute("placeholder", "จำนวน");
+    qtyInput.addEventListener("change", () => tryAddItemFromRow({ alertOnInvalid: false }));
     const unitSelect = selectInput(
       [
         { value: "หลา", label: "หลา" },
@@ -3086,6 +3097,7 @@ if (typeof module !== "undefined") {
     );
     const costInput = numberInput("");
     costInput.setAttribute("placeholder", "ราคาทุน/หน่วย");
+    costInput.addEventListener("change", () => tryAddItemFromRow({ alertOnInvalid: false }));
     const itemsContainer = el("div", { class: "table-container" });
     const vatChk = el("input", { type: "checkbox", checked: editingPurchase ? editingPurchase.vat_amount > 0 : true });
     vatChk.addEventListener("change", () => {
@@ -3105,10 +3117,10 @@ if (typeof module !== "undefined") {
         renderPurchaseTable();
         return;
       }
-      const poNo = poNoInput.value.trim();
+      // เลขที่เอกสารรับเข้าปล่อยว่างได้ ถ้าไม่กรอกระบบจะออกเลขที่ให้อัตโนมัติแล้วเติมกลับเข้าช่องให้เห็น
+      let poNo = poNoInput.value.trim();
       if (!poNo) {
-        autoSaveStatus.textContent = "กรุณากรอกเลขที่เอกสารรับเข้า เพื่อบันทึกอัตโนมัติ";
-        return;
+        poNo = currentPo ? currentPo.po_no : DB.genPoNo();
       }
       const subtotal = items.reduce((s, it) => s + it.qty * it.unit_cost, 0);
       const discount = Number(discountInput.value) || 0;
@@ -3148,6 +3160,7 @@ if (typeof module !== "undefined") {
           poNo
         );
       }
+      if (poNoInput.value.trim() !== currentPo.po_no) poNoInput.value = currentPo.po_no;
       autoSaveStatus.textContent = `บันทึกอัตโนมัติแล้ว (${currentPo.po_no}) ยอดรวม ${money(currentPo.total)} บาท`;
       renderPurchaseTable();
     }
@@ -3183,43 +3196,49 @@ if (typeof module !== "undefined") {
     }
     refreshItemsTable();
 
+    // เพิ่มรายการสินค้าเข้าตะกร้าจากแถวกรอก ถ้า alertOnInvalid=false จะไม่โชว์แจ้งเตือนเวลาข้อมูลยังกรอกไม่ครบ
+    // (ใช้เรียกอัตโนมัติทุกครั้งที่กรอกครบทั้งเลือกผ้า/จำนวน/ราคาทุน โดยไม่ต้องกดปุ่ม "เพิ่มรายการ" เอง)
+    function tryAddItemFromRow(opts) {
+      opts = opts || {};
+      const matched = fabricSelect.getMatchedValue();
+      if (!matched) {
+        if (opts.alertOnInvalid) global.alert("กรุณาเลือกสินค้าและกรอกจำนวนให้ถูกต้อง");
+        return false;
+      }
+      const fid = Number(matched) || 0;
+      const fab = fabrics.find((f) => f.id === fid);
+      const qty = Number(qtyInput.value);
+      const cost = Number(costInput.value);
+      if (!fab || !qty || qty <= 0) {
+        if (opts.alertOnInvalid) global.alert("กรุณาเลือกสินค้าและกรอกจำนวนให้ถูกต้อง");
+        return false;
+      }
+      if (costInput.value === "" || cost < 0) {
+        if (opts.alertOnInvalid) global.alert("กรุณากรอกราคาทุน");
+        return false;
+      }
+      items.push({
+        fabric_id: fid,
+        code: fab.code,
+        name: fab.name,
+        category: fab.category,
+        unit: unitSelect.value || "หลา",
+        qty,
+        unit_cost: cost,
+      });
+      fabricSelect.setLabel("");
+      qtyInput.value = "";
+      costInput.value = "";
+      refreshItemsTable();
+      syncPurchase();
+      return true;
+    }
+
     const addItemBtn = el(
       "button",
       {
         class: "btn btn-sm btn-primary",
-        onClick: () => {
-          const matched = fabricSelect.getMatchedValue();
-          if (matched === null) {
-            global.alert("ไม่พบผ้าตามที่พิมพ์ กรุณาเลือกจากรายการที่ปรากฏ");
-            return;
-          }
-          const fid = Number(matched) || 0;
-          const fab = fabrics.find((f) => f.id === fid);
-          const qty = Number(qtyInput.value);
-          const cost = Number(costInput.value);
-          if (!fab || !qty || qty <= 0) {
-            global.alert("กรุณาเลือกสินค้าและกรอกจำนวนให้ถูกต้อง");
-            return;
-          }
-          if (costInput.value === "" || cost < 0) {
-            global.alert("กรุณากรอกราคาทุน");
-            return;
-          }
-          items.push({
-            fabric_id: fid,
-            code: fab.code,
-            name: fab.name,
-            category: fab.category,
-            unit: unitSelect.value || "หลา",
-            qty,
-            unit_cost: cost,
-          });
-          fabricSelect.setLabel("");
-          qtyInput.value = "";
-          costInput.value = "";
-          refreshItemsTable();
-          syncPurchase();
-        },
+        onClick: () => tryAddItemFromRow({ alertOnInvalid: true }),
       },
       "เพิ่มรายการ"
     );
