@@ -1287,6 +1287,8 @@ if (typeof module !== "undefined") {
   }
 
   // ช่องเลือกแบบพิมพ์ค้นหาได้ (input + datalist) ใช้แทน select เมื่ออยากให้พิมพ์กรองตัวเลือกได้
+  // ช่องเสิร์ชแบบพิมพ์ค้นหา: ค่าที่เลือกอยู่จะโชว์เป็นตัวจางๆ (placeholder) แทนการใส่เป็นข้อความจริงในช่อง
+  // เพื่อให้พิมพ์ค้นหาต่อได้เลยโดยไม่ต้องลบข้อความเดิมออกก่อน
   function searchSelectInput(options, selectedValue, placeholder) {
     const listId = "dl_" + Math.random().toString(36).slice(2, 10);
     const datalist = el("datalist", { id: listId });
@@ -1296,12 +1298,13 @@ if (typeof module !== "undefined") {
       datalist.appendChild(el("option", { value: o.label }));
       byLabel.set(o.label, o.value);
     });
+    const defaultPlaceholder = placeholder || "พิมพ์เพื่อค้นหา...";
     const selectedOpt = options.find((o) => o.value === String(selectedValue));
     const input = el("input", {
       type: "text",
       list: listId,
-      placeholder: placeholder || "พิมพ์เพื่อค้นหา...",
-      value: selectedOpt ? selectedOpt.label : "",
+      placeholder: selectedOpt ? selectedOpt.label : defaultPlaceholder,
+      value: "",
     });
     const wrap = el("span", { class: "search-select" }, input, datalist);
     wrap.getMatchedValue = () => {
@@ -1311,7 +1314,8 @@ if (typeof module !== "undefined") {
       return match !== undefined ? match : null;
     };
     wrap.setLabel = (label) => {
-      input.value = label || "";
+      input.placeholder = label || defaultPlaceholder;
+      input.value = "";
     };
     wrap.inputEl = input;
     return wrap;
