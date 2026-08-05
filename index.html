@@ -1691,7 +1691,6 @@ if (typeof module !== "undefined") {
       el(
         "tr",
         {},
-        el("th", { text: "ยังไม่จ่าย" }),
         el("th", { text: "เลขที่บิล" }),
         el("th", { text: "วันที่" }),
         el("th", { text: "ลูกค้า" }),
@@ -1703,13 +1702,11 @@ if (typeof module !== "undefined") {
     const tbody = el("tbody", {});
 
     if (sales.length === 0) {
-      tbody.appendChild(el("tr", {}, el("td", { colspan: 7, class: "empty", text: "ไม่มีข้อมูล" })));
+      tbody.appendChild(el("tr", {}, el("td", { colspan: 6, class: "empty", text: "ไม่มีข้อมูล" })));
     }
 
     sales.forEach((s) => {
       const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
-      const unpaid = s.status !== "ชำระแล้ว";
-      const unpaidChk = el("input", { type: "checkbox", checked: unpaid, disabled: true });
       const actionsCell = el(
         "td",
         { class: "actions-cell" },
@@ -1717,15 +1714,18 @@ if (typeof module !== "undefined") {
         el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, "พิมพ์ใบเสร็จ"),
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOS(s.id) }, "ลบ")
       );
+      const statusCell = el("td", {
+        text: s.status,
+        style: s.status === "ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : {},
+      });
       const tr = el(
         "tr",
         {},
-        el("td", {}, unpaidChk),
         el("td", { text: s.sale_no }),
         el("td", { text: s.date }),
         el("td", { text: c ? c.name : "ลูกค้าทั่วไป" }),
         el("td", { text: money(s.total) }),
-        el("td", { text: s.status }),
+        statusCell,
         actionsCell
       );
       tbody.appendChild(tr);
