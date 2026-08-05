@@ -1504,6 +1504,7 @@ if (typeof module !== "undefined") {
   let posHistoryUnpaidOnly = false;
   let posHistorySearch = "";
   let posHistoryDate = "";
+  let posHistoryDateTo = "";
   let posHistoryShowAll = false;
   const refs = {};
   const sections = {};
@@ -1770,20 +1771,36 @@ if (typeof module !== "undefined") {
       value: posHistoryDate || DB.todayStr(),
       onChange: (e) => {
         posHistoryDate = e.target.value;
+        if (!posHistoryDateTo || posHistoryDateTo < posHistoryDate) {
+          posHistoryDateTo = posHistoryDate;
+          historyDateToInput.value = posHistoryDate;
+        }
         posHistoryShowAll = false;
         showAllChk.checked = false;
         renderPosSalesHistory();
       },
     });
     refs.posHistoryDateInput = historyDateInput;
+    const historyDateToInput = dateInputEl({
+      value: posHistoryDateTo || DB.todayStr(),
+      onChange: (e) => {
+        posHistoryDateTo = e.target.value;
+        posHistoryShowAll = false;
+        showAllChk.checked = false;
+        renderPosSalesHistory();
+      },
+    });
+    refs.posHistoryDateToInput = historyDateToInput;
     const todayBtn = el(
       "button",
       {
         class: "btn btn-sm",
         onClick: () => {
           posHistoryDate = "";
+          posHistoryDateTo = "";
           posHistoryShowAll = false;
           historyDateInput.value = DB.todayStr();
+          historyDateToInput.value = DB.todayStr();
           showAllChk.checked = false;
           renderPosSalesHistory();
         },
@@ -1803,6 +1820,8 @@ if (typeof module !== "undefined") {
       "div",
       { class: "toolbar" },
       historyDateInput,
+      el("span", { text: "ถึง" }),
+      historyDateToInput,
       todayBtn,
       el("label", { class: "chk-label" }, showAllChk, " แสดงทั้งหมดทุกวัน"),
       historySearchInput,
@@ -1840,8 +1859,12 @@ if (typeof module !== "undefined") {
     clear(container);
     let sales = DB.getSales();
     if (!posHistoryShowAll) {
-      const filterDate = posHistoryDate || DB.todayStr();
-      sales = sales.filter((s) => s.date.slice(0, 10) === filterDate);
+      const fromDate = posHistoryDate || DB.todayStr();
+      const toDate = posHistoryDateTo || fromDate;
+      sales = sales.filter((s) => {
+        const d = s.date.slice(0, 10);
+        return d >= fromDate && d <= toDate;
+      });
     }
     if (posHistoryUnpaidOnly) {
       sales = sales.filter((s) => s.status !== "ชำระแล้ว");
@@ -3263,6 +3286,7 @@ if (typeof module !== "undefined") {
   // ============================================================== สั่งซื้อ
   let purchaseSearch = "";
   let purchaseDate = "";
+  let purchaseDateTo = "";
   let purchaseShowAll = false;
 
   function renderPurchases() {
@@ -3281,20 +3305,36 @@ if (typeof module !== "undefined") {
       value: purchaseDate || DB.todayStr(),
       onChange: (e) => {
         purchaseDate = e.target.value;
+        if (!purchaseDateTo || purchaseDateTo < purchaseDate) {
+          purchaseDateTo = purchaseDate;
+          dateToInput.value = purchaseDate;
+        }
         purchaseShowAll = false;
         showAllChk.checked = false;
         renderPurchaseTable();
       },
     });
     refs.purchaseDateInput = dateInput;
+    const dateToInput = dateInputEl({
+      value: purchaseDateTo || DB.todayStr(),
+      onChange: (e) => {
+        purchaseDateTo = e.target.value;
+        purchaseShowAll = false;
+        showAllChk.checked = false;
+        renderPurchaseTable();
+      },
+    });
+    refs.purchaseDateToInput = dateToInput;
     const todayBtn = el(
       "button",
       {
         class: "btn btn-sm",
         onClick: () => {
           purchaseDate = "";
+          purchaseDateTo = "";
           purchaseShowAll = false;
           dateInput.value = DB.todayStr();
+          dateToInput.value = DB.todayStr();
           showAllChk.checked = false;
           renderPurchaseTable();
         },
@@ -3314,6 +3354,8 @@ if (typeof module !== "undefined") {
       "div",
       { class: "toolbar" },
       dateInput,
+      el("span", { text: "ถึง" }),
+      dateToInput,
       todayBtn,
       el("label", { class: "chk-label" }, showAllChk, " แสดงทั้งหมดทุกวัน"),
       searchInput,
@@ -3332,8 +3374,12 @@ if (typeof module !== "undefined") {
     clear(container);
     let purchases = DB.getPurchases();
     if (!purchaseShowAll) {
-      const filterDate = purchaseDate || DB.todayStr();
-      purchases = purchases.filter((p) => p.date.slice(0, 10) === filterDate);
+      const fromDate = purchaseDate || DB.todayStr();
+      const toDate = purchaseDateTo || fromDate;
+      purchases = purchases.filter((p) => {
+        const d = p.date.slice(0, 10);
+        return d >= fromDate && d <= toDate;
+      });
     }
     const pq = purchaseSearch.trim().toLowerCase();
     if (pq) {
