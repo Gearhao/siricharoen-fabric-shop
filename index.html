@@ -1771,7 +1771,8 @@ if (typeof module !== "undefined") {
       value: posHistoryDate || DB.todayStr(),
       onChange: (e) => {
         posHistoryDate = e.target.value;
-        if (!posHistoryDateTo || posHistoryDateTo < posHistoryDate) {
+        const effectiveTo = posHistoryDateTo || DB.todayStr();
+        if (effectiveTo < posHistoryDate) {
           posHistoryDateTo = posHistoryDate;
           historyDateToInput.value = posHistoryDate;
         }
@@ -1785,6 +1786,11 @@ if (typeof module !== "undefined") {
       value: posHistoryDateTo || DB.todayStr(),
       onChange: (e) => {
         posHistoryDateTo = e.target.value;
+        const effectiveFrom = posHistoryDate || DB.todayStr();
+        if (posHistoryDateTo < effectiveFrom) {
+          posHistoryDate = posHistoryDateTo;
+          historyDateInput.value = posHistoryDateTo;
+        }
         posHistoryShowAll = false;
         showAllChk.checked = false;
         renderPosSalesHistory();
@@ -1860,7 +1866,7 @@ if (typeof module !== "undefined") {
     let sales = DB.getSales();
     if (!posHistoryShowAll) {
       const fromDate = posHistoryDate || DB.todayStr();
-      const toDate = posHistoryDateTo || fromDate;
+      const toDate = posHistoryDateTo || DB.todayStr();
       sales = sales.filter((s) => {
         const d = s.date.slice(0, 10);
         return d >= fromDate && d <= toDate;
@@ -3305,7 +3311,8 @@ if (typeof module !== "undefined") {
       value: purchaseDate || DB.todayStr(),
       onChange: (e) => {
         purchaseDate = e.target.value;
-        if (!purchaseDateTo || purchaseDateTo < purchaseDate) {
+        const effectiveTo = purchaseDateTo || DB.todayStr();
+        if (effectiveTo < purchaseDate) {
           purchaseDateTo = purchaseDate;
           dateToInput.value = purchaseDate;
         }
@@ -3319,6 +3326,11 @@ if (typeof module !== "undefined") {
       value: purchaseDateTo || DB.todayStr(),
       onChange: (e) => {
         purchaseDateTo = e.target.value;
+        const effectiveFrom = purchaseDate || DB.todayStr();
+        if (purchaseDateTo < effectiveFrom) {
+          purchaseDate = purchaseDateTo;
+          dateInput.value = purchaseDateTo;
+        }
         purchaseShowAll = false;
         showAllChk.checked = false;
         renderPurchaseTable();
@@ -3375,7 +3387,7 @@ if (typeof module !== "undefined") {
     let purchases = DB.getPurchases();
     if (!purchaseShowAll) {
       const fromDate = purchaseDate || DB.todayStr();
-      const toDate = purchaseDateTo || fromDate;
+      const toDate = purchaseDateTo || DB.todayStr();
       purchases = purchases.filter((p) => {
         const d = p.date.slice(0, 10);
         return d >= fromDate && d <= toDate;
