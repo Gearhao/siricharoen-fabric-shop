@@ -1668,8 +1668,10 @@ if (typeof module !== "undefined") {
     const unpaidChk = el("input", {
       type: "checkbox",
       checked: posHistoryUnpaidOnly,
+      style: posHistoryUnpaidOnly ? { accentColor: "var(--danger)" } : {},
       onChange: (e) => {
         posHistoryUnpaidOnly = e.target.checked;
+        unpaidChk.style.accentColor = posHistoryUnpaidOnly ? "var(--danger)" : "";
         renderPosSalesHistory();
       },
     });
