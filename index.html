@@ -2430,7 +2430,6 @@ if (typeof module !== "undefined") {
     lines.push(`${"ยอดสุทธิ".padEnd(24)}${money(sale.total).padStart(14)}`);
     lines.push(`${"รับเงิน".padEnd(24)}${money(sale.paid).padStart(14)}`);
     lines.push(`${"เงินทอน".padEnd(24)}${money(sale.change_amt).padStart(14)}`);
-    lines.push(`${"สถานะการชำระเงิน".padEnd(24)}${sale.status.padStart(14)}`);
     if (sale.payment_method === "โอนเงิน" && (sale.bank_name || sale.bank_account_name)) {
       lines.push(`โอนเข้าธนาคาร: ${sale.bank_name || "-"}`);
       lines.push(`ชื่อบัญชี: ${sale.bank_account_name || "-"}`);
@@ -2473,9 +2472,6 @@ if (typeof module !== "undefined") {
     )}</td></tr>`;
     summaryRows += `<tr><td style="padding:2px 0;color:#555;">รับเงิน</td><td style="padding:2px 0;text-align:right;">${money(sale.paid)}</td></tr>`;
     summaryRows += `<tr><td style="padding:2px 0;color:#555;">เงินทอน</td><td style="padding:2px 0;text-align:right;">${money(sale.change_amt)}</td></tr>`;
-    summaryRows += `<tr><td style="padding:2px 0;color:#555;">สถานะการชำระเงิน</td><td style="padding:2px 0;text-align:right;">${esc(
-      sale.status
-    )}</td></tr>`;
     if (sale.payment_method === "โอนเงิน" && (sale.bank_name || sale.bank_account_name)) {
       summaryRows += `<tr><td style="padding:2px 0;color:#555;">โอนเข้าธนาคาร</td><td style="padding:2px 0;text-align:right;">${esc(
         sale.bank_name || "-"
