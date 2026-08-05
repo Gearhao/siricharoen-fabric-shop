@@ -3317,7 +3317,7 @@ if (typeof module !== "undefined") {
       todayBtn,
       el("label", { class: "chk-label" }, showAllChk, " แสดงทั้งหมดทุกวัน"),
       searchInput,
-      el("button", { class: "btn btn-primary", onClick: () => openPurchaseModal() }, "+ สร้างใบสั่งซื้อใหม่")
+      el("button", { class: "btn btn-primary", onClick: () => openPurchaseModal() }, "+ สร้างใบรับสินค้าเข้าใหม่")
     );
     const summary = el("div", { class: "totals-line" });
     refs.purchaseSummary = summary;
@@ -3700,7 +3700,7 @@ if (typeof module !== "undefined") {
       getItems: () => items,
       getCurrentPo: () => currentPo,
     });
-    openModal(editingPurchase ? `แก้ไขใบสั่งซื้อ ${editingPurchase.po_no}` : "สร้างใบสั่งซื้อใหม่ (รับสินค้า)", body, { wide: true });
+    openModal(editingPurchase ? `แก้ไขใบสั่งซื้อ ${editingPurchase.po_no}` : "สร้างใบรับสินค้าเข้าใหม่", body, { wide: true });
   }
 
   function openPurchaseItemsModal(pid) {
