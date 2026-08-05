@@ -1407,12 +1407,10 @@ if (typeof module !== "undefined") {
     global.URL.revokeObjectURL(url);
   }
 
-  function printReceipt(text) {
+  function printReceiptHtml(html) {
     const w = global.window.open("", "_blank", "width=420,height=640");
     if (!w) return;
-    w.document.write(
-      `<pre style="font-family:'Courier New',monospace;font-size:14px;white-space:pre-wrap;">${text.replace(/</g, "&lt;")}</pre>`
-    );
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${html}</body></html>`);
     w.document.close();
     w.focus();
     w.print();
@@ -2177,15 +2175,15 @@ if (typeof module !== "undefined") {
       : VAT_ENABLED
       ? "ใบกำกับภาษีอย่างย่อ / ใบเสร็จรับเงิน"
       : "ใบเสร็จรับเงิน";
+    const custName = cust ? cust.name : "ลูกค้าทั่วไป";
+
+    // -------- plain text version (สำหรับดาวน์โหลดไฟล์ .txt) --------
     const lines = [];
-    if (shop.address) lines.push(shop.address);
-    if (shop.phone) lines.push(shop.phone);
     if (VAT_ENABLED && !isDeliveryDoc && shop.tax_id) lines.push(`เลขผู้เสียภาษี: ${shop.tax_id}`);
-    lines.push("-".repeat(40));
     lines.push(docTitle);
     lines.push(`เลขที่บิล: ${sale.sale_no}`);
     lines.push(`วันที่: ${sale.date}`);
-    lines.push(`ลูกค้า: ${cust ? cust.name : "ลูกค้าทั่วไป"}`);
+    lines.push(`ลูกค้า: ${custName}`);
     lines.push("-".repeat(40));
     cartItems.forEach((it) => {
       const sub = it.qty * it.unit_price;
@@ -2211,7 +2209,83 @@ if (typeof module !== "undefined") {
     }
     lines.push("-".repeat(40));
     lines.push("ขอบคุณที่ใช้บริการ");
-    return { docTitle, text: lines.join("\n") };
+    const text = lines.join("\n");
+
+    // -------- HTML table version (สำหรับแสดงตัวอย่าง/พิมพ์) --------
+    const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const itemRows = cartItems
+      .map((it) => {
+        const sub = it.qty * it.unit_price;
+        const qtyUnit = `${it.qty}${it.unit ? " " + it.unit : ""}`;
+        const label = it.code || it.name || "";
+        return `<tr style="border-bottom:1px solid #ddd;"><td style="padding:5px 4px;">${esc(label)}</td><td style="padding:5px 4px;text-align:right;">${esc(
+          qtyUnit
+        )}</td><td style="padding:5px 4px;text-align:right;">${it.unit_price.toFixed(2)}</td><td style="padding:5px 4px;text-align:right;">${sub.toFixed(
+          2
+        )}</td></tr>`;
+      })
+      .join("");
+
+    let summaryRows = `<tr><td style="padding:2px 0;color:#555;">ยอดรวมก่อนหักส่วนลด</td><td style="padding:2px 0;text-align:right;">${money(
+      sale.subtotal
+    )}</td></tr>`;
+    if (sale.discount) {
+      summaryRows += `<tr><td style="padding:2px 0;color:#555;">ส่วนลด</td><td style="padding:2px 0;text-align:right;">${money(sale.discount)}</td></tr>`;
+    }
+    if (VAT_ENABLED) {
+      summaryRows += `<tr><td style="padding:2px 0;color:#555;">ภาษีมูลค่าเพิ่ม ${Math.round(
+        VAT_RATE * 100
+      )}%</td><td style="padding:2px 0;text-align:right;">${money(sale.vat_amount)}</td></tr>`;
+    }
+    summaryRows += `<tr style="border-top:1px solid #000;"><td style="padding:6px 0 2px;font-weight:bold;">ยอดสุทธิ</td><td style="padding:6px 0 2px;text-align:right;font-weight:bold;">${money(
+      sale.total
+    )}</td></tr>`;
+    summaryRows += `<tr><td style="padding:2px 0;color:#555;">รับเงิน</td><td style="padding:2px 0;text-align:right;">${money(sale.paid)}</td></tr>`;
+    summaryRows += `<tr><td style="padding:2px 0;color:#555;">เงินทอน</td><td style="padding:2px 0;text-align:right;">${money(sale.change_amt)}</td></tr>`;
+    summaryRows += `<tr><td style="padding:2px 0;color:#555;">สถานะการชำระเงิน</td><td style="padding:2px 0;text-align:right;">${esc(
+      sale.status
+    )}</td></tr>`;
+    if (sale.payment_method === "โอนเงิน" && (sale.bank_name || sale.bank_account_name)) {
+      summaryRows += `<tr><td style="padding:2px 0;color:#555;">โอนเข้าธนาคาร</td><td style="padding:2px 0;text-align:right;">${esc(
+        sale.bank_name || "-"
+      )}</td></tr>`;
+      summaryRows += `<tr><td style="padding:2px 0;color:#555;">ชื่อบัญชี</td><td style="padding:2px 0;text-align:right;">${esc(
+        sale.bank_account_name || "-"
+      )}</td></tr>`;
+    }
+
+    const taxIdLine =
+      VAT_ENABLED && !isDeliveryDoc && shop.tax_id
+        ? `<div style="text-align:center;font-size:11px;color:#555;margin-bottom:6px;">เลขผู้เสียภาษี: ${esc(shop.tax_id)}</div>`
+        : "";
+
+    const html = `
+      <div style="max-width:380px;margin:0 auto;font-family:Tahoma,'Segoe UI',sans-serif;color:#111;">
+        ${taxIdLine}
+        <div style="text-align:center;border-bottom:1px solid #000;padding-bottom:8px;margin-bottom:10px;">
+          <strong style="font-size:15px;">${esc(docTitle)}</strong>
+        </div>
+        <table style="width:100%;font-size:12px;margin-bottom:10px;border-collapse:collapse;">
+          <tr><td style="padding:2px 0;color:#555;">เลขที่บิล</td><td style="padding:2px 0;text-align:right;">${esc(sale.sale_no)}</td></tr>
+          <tr><td style="padding:2px 0;color:#555;">วันที่</td><td style="padding:2px 0;text-align:right;">${esc(sale.date)}</td></tr>
+          <tr><td style="padding:2px 0;color:#555;">ลูกค้า</td><td style="padding:2px 0;text-align:right;">${esc(custName)}</td></tr>
+        </table>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px;">
+          <thead>
+            <tr style="border-top:1px solid #000;border-bottom:1px solid #000;">
+              <th style="text-align:left;padding:5px 4px;">รายการ</th>
+              <th style="text-align:right;padding:5px 4px;">จำนวน</th>
+              <th style="text-align:right;padding:5px 4px;">ราคา</th>
+              <th style="text-align:right;padding:5px 4px;">รวม</th>
+            </tr>
+          </thead>
+          <tbody>${itemRows}</tbody>
+        </table>
+        <table style="width:100%;font-size:12px;border-collapse:collapse;">${summaryRows}</table>
+        <div style="text-align:center;font-size:12px;color:#555;margin-top:12px;">ขอบคุณที่ใช้บริการ</div>
+      </div>`;
+
+    return { docTitle, text, html };
   }
 
   function showReceiptModal(sale, custId, cartItems) {
@@ -2221,18 +2295,19 @@ if (typeof module !== "undefined") {
     let docType = isCredit ? (sale.status === "ค้างชำระ" ? "delivery" : "cash") : "normal";
     let current = buildReceiptDoc(sale, cust, shop, cartItems, docType);
 
-    const pre = el("pre", { class: "receipt-text", text: current.text });
+    const previewBox = el("div", { class: "receipt-preview" });
+    previewBox.innerHTML = current.html;
     const downloadBtn = el(
       "button",
       { class: "btn", onClick: () => downloadTextFile(`${sale.sale_no}.txt`, current.text) },
       "บันทึกเป็นไฟล์ .txt"
     );
-    const printBtn = el("button", { class: "btn", onClick: () => printReceipt(current.text) }, `พิมพ์${current.docTitle}`);
+    const printBtn = el("button", { class: "btn", onClick: () => printReceiptHtml(current.html) }, `พิมพ์${current.docTitle}`);
     const closeBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
 
     function refresh() {
       current = buildReceiptDoc(sale, cust, shop, cartItems, docType);
-      pre.textContent = current.text;
+      previewBox.innerHTML = current.html;
       printBtn.textContent = `พิมพ์${current.docTitle}`;
       modalTitleEl.textContent = current.docTitle;
     }
@@ -2269,10 +2344,10 @@ if (typeof module !== "undefined") {
       "div",
       {},
       docTypeToggle,
-      pre,
+      previewBox,
       el("div", { class: "modal-actions" }, downloadBtn, printBtn, closeBtn)
     );
-    exposeTestRefs("receipt", { get text() { return current.text; }, sale, setDocType: (t) => { docType = t; refresh(); } });
+    exposeTestRefs("receipt", { get text() { return current.text; }, get html() { return current.html; }, sale, setDocType: (t) => { docType = t; refresh(); } });
     openModal(current.docTitle, body, { wide: true });
   }
 
