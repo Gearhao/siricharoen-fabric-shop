@@ -3052,12 +3052,24 @@ if (typeof module !== "undefined") {
   }
 
   // ============================================================== สั่งซื้อ
+  let purchaseSearch = "";
+
   function renderPurchases() {
     const sec = sections.purchases;
     clear(sec);
+    const searchInput = el("input", {
+      type: "text",
+      placeholder: "ค้นหา (เลขที่เอกสาร/ผู้จัดจำหน่าย)",
+      value: purchaseSearch,
+      onInput: (e) => {
+        purchaseSearch = e.target.value;
+        renderPurchaseTable();
+      },
+    });
     const toolbar = el(
       "div",
       { class: "toolbar" },
+      searchInput,
       el("button", { class: "btn btn-primary", onClick: () => openPurchaseModal() }, "+ สร้างใบสั่งซื้อใหม่")
     );
     const tableContainer = el("div", { class: "table-container" });
@@ -3069,7 +3081,15 @@ if (typeof module !== "undefined") {
   function renderPurchaseTable() {
     const container = refs.purchaseTableContainer;
     clear(container);
-    const purchases = DB.getPurchases();
+    let purchases = DB.getPurchases();
+    const pq = purchaseSearch.trim().toLowerCase();
+    if (pq) {
+      purchases = purchases.filter((p) => {
+        const s = DB.getSupplier(p.supplier_id);
+        const supName = s ? s.name : "";
+        return (p.po_no || "").toLowerCase().includes(pq) || supName.toLowerCase().includes(pq);
+      });
+    }
     const rows = purchases.map((p) => {
       const s = DB.getSupplier(p.supplier_id);
       return [p.po_no, p.date, s ? s.name : "", money(p.discount || 0), money(p.total), p.status, p.payment_status];
