@@ -948,11 +948,12 @@ function createDB(storageKey) {
       total,
       paid: 0,
       payment_method: paymentMethod,
-      status: "รอรับสินค้า",
+      status: "รับสินค้าแล้ว",
       payment_status: "ค้างชำระ",
       note: note || "",
     };
     store.purchases.push(purchase);
+    applyPurchaseEffects(purchase);
     save();
     return purchase;
   }
@@ -3106,7 +3107,7 @@ if (typeof module !== "undefined") {
     const autoSaveStatus = el("div", { class: "totals-line", text: "" });
 
     // บันทึกอัตโนมัติทุกครั้งที่มีการเพิ่ม/ลบ/แก้ไขรายการ ไม่ต้องกดปุ่มบันทึกเอง
-    // (ช่วงนี้ยังเป็นใบสั่งซื้อที่ "รอรับสินค้า" อยู่ ยังไม่กระทบสต็อก/ยอดหนี้ จนกว่าจะกดรับสินค้าในหน้ารายการภายหลัง)
+    // และรับสินค้าเข้าสต็อก/ตั้งยอดหนี้ซัพพลายเออร์ให้ทันที ไม่ต้องกดรับสินค้าเองอีกขั้นตอน
     function syncPurchase() {
       if (items.length === 0) {
         if (currentPo) {
