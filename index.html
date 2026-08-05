@@ -863,9 +863,10 @@ function createDB(storageKey) {
       }
     }
   }
-  function createSale(items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName) {
+  function createSale(items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName, shippingFee, shippingMethod) {
     const subtotal = items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
-    const total = subtotal - discount + vatAmount;
+    const shipFee = shippingFee || 0;
+    const total = subtotal - discount + vatAmount + shipFee;
     const changeAmt = paymentMethod !== "เงินเชื่อ" ? Math.max(0, paid - total) : 0;
     let status = "ชำระแล้ว";
     if (paymentMethod === "เงินเชื่อ" && paid < total) {
@@ -880,6 +881,8 @@ function createDB(storageKey) {
       subtotal,
       discount,
       vat_amount: vatAmount,
+      shipping_fee: shipFee,
+      shipping_method: shippingMethod || "",
       total,
       paid,
       change_amt: changeAmt,
@@ -894,13 +897,14 @@ function createDB(storageKey) {
     save();
     return sale;
   }
-  function updateSale(id, items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName) {
+  function updateSale(id, items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName, shippingFee, shippingMethod) {
     const sale = store.sales.find((x) => x.id === id);
     if (!sale) return null;
     revertSaleEffects(sale);
 
     const subtotal = items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
-    const total = subtotal - discount + vatAmount;
+    const shipFee = shippingFee || 0;
+    const total = subtotal - discount + vatAmount + shipFee;
     const changeAmt = paymentMethod !== "เงินเชื่อ" ? Math.max(0, paid - total) : 0;
     let status = "ชำระแล้ว";
     if (paymentMethod === "เงินเชื่อ" && paid < total) {
@@ -913,6 +917,8 @@ function createDB(storageKey) {
     sale.subtotal = subtotal;
     sale.discount = discount;
     sale.vat_amount = vatAmount;
+    sale.shipping_fee = shipFee;
+    sale.shipping_method = shippingMethod || "";
     sale.total = total;
     sale.paid = paid;
     sale.change_amt = changeAmt;
@@ -1701,6 +1707,14 @@ if (typeof module !== "undefined") {
     discountInput.addEventListener("input", updatePosTotals);
     refs.posDiscountInput = discountInput;
 
+    const shippingFeeInput = numberInput(0);
+    shippingFeeInput.addEventListener("input", updatePosTotals);
+    refs.posShippingFeeInput = shippingFeeInput;
+
+    const shippingMethodInput = textInput("");
+    shippingMethodInput.setAttribute("placeholder", "เช่น ไปรษณีย์ไทย, Kerry, มารับเอง");
+    refs.posShippingMethodInput = shippingMethodInput;
+
     const paymentSelect = selectInput(
       [
         { value: "เงินเชื่อ", label: "เงินเชื่อ" },
@@ -1742,6 +1756,8 @@ if (typeof module !== "undefined") {
       vatLbl = el("div", { class: "totals-line", text: `ภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%: 0.00 บาท` });
       refs.posVatLbl = vatLbl;
     }
+    const shippingLbl = el("div", { class: "totals-line", text: "ค่าจัดส่ง: 0.00 บาท" });
+    refs.posShippingLbl = shippingLbl;
     const totalLbl = el("div", { class: "totals-line totals-main", text: "ยอดสุทธิ: 0.00 บาท" });
     refs.posTotalLbl = totalLbl;
     const changeLbl = el("div", { class: "totals-line", text: "เงินทอน: 0.00 บาท" });
@@ -1758,12 +1774,14 @@ if (typeof module !== "undefined") {
         { class: "form-panel" },
         formField("ลูกค้า", customerSelect),
         formField("ส่วนลด (บาท)", discountInput),
+        formField("ค่าจัดส่ง (บาท)", shippingFeeInput),
+        formField("วิธีจัดส่ง", shippingMethodInput),
         formField("ชำระโดย", paymentSelect),
         formField("รับเงิน (บาท)", paidInput),
         bankNameRow,
         accountNameRow
       ),
-      el("div", { class: "totals-box" }, subtotalLbl, vatLbl, totalLbl, changeLbl),
+      el("div", { class: "totals-box" }, subtotalLbl, vatLbl, shippingLbl, totalLbl, changeLbl),
       checkoutBtn
     );
 
@@ -2009,6 +2027,8 @@ if (typeof module !== "undefined") {
     else renderPosItemsTable();
     refs.posCustomerSelect.setCustomerId(sale.customer_id || 0);
     refs.posDiscountInput.value = sale.discount || 0;
+    refs.posShippingFeeInput.value = sale.shipping_fee || 0;
+    refs.posShippingMethodInput.value = sale.shipping_method || "";
     refs.posPaymentSelect.value = sale.payment_method;
     refs.posPaidInput.value = sale.paid;
     refs.posBankNameInput.value = sale.bank_name || "";
@@ -2026,6 +2046,8 @@ if (typeof module !== "undefined") {
     addPosRow();
     refs.posDiscountInput.value = 0;
     refs.posPaidInput.value = 0;
+    refs.posShippingFeeInput.value = 0;
+    refs.posShippingMethodInput.value = "";
     refs.posPaymentSelect.value = "เงินเชื่อ";
     refs.posBankNameInput.value = "";
     refs.posAccountNameInput.value = "";
@@ -2252,15 +2274,19 @@ if (typeof module !== "undefined") {
     const discount = Number(refs.posDiscountInput.value) || 0;
     const base = Math.max(0, subtotal - discount);
     const vat = VAT_ENABLED ? Math.round(base * VAT_RATE * 100) / 100 : 0;
-    const total = base + vat;
-    return { subtotal, discount, vat, total };
+    const shippingFee = Number(refs.posShippingFeeInput.value) || 0;
+    const total = base + vat + shippingFee;
+    return { subtotal, discount, vat, shippingFee, total };
   }
 
   function updatePosTotals() {
-    const { subtotal, discount, vat, total } = calcPosTotals();
+    const { subtotal, discount, vat, shippingFee, total } = calcPosTotals();
     refs.posSubtotalLbl.textContent = `ยอดรวมก่อนภาษี: ${money(subtotal - discount)} บาท`;
     if (VAT_ENABLED && refs.posVatLbl) {
       refs.posVatLbl.textContent = `ภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%: ${money(vat)} บาท`;
+    }
+    if (refs.posShippingLbl) {
+      refs.posShippingLbl.textContent = `ค่าจัดส่ง: ${money(shippingFee)} บาท`;
     }
     refs.posTotalLbl.textContent = `ยอดสุทธิ: ${money(total)} บาท`;
     const paid = Number(refs.posPaidInput.value) || 0;
@@ -2290,10 +2316,11 @@ if (typeof module !== "undefined") {
         }
       }
     }
-    const { subtotal, discount, vat, total } = calcPosTotals();
+    const { subtotal, discount, vat, shippingFee, total } = calcPosTotals();
     const custId = refs.posCustomerSelect.getCustomerId();
     const paymentMethod = refs.posPaymentSelect.value;
     const paid = Number(refs.posPaidInput.value) || 0;
+    const shippingMethod = refs.posShippingMethodInput.value.trim();
 
     if (paymentMethod === "เงินเชื่อ") {
       if (!custId) {
@@ -2334,8 +2361,8 @@ if (typeof module !== "undefined") {
       };
     });
     const sale = editingSaleId
-      ? DB.updateSale(editingSaleId, items, custId || null, discount, vat, paymentMethod, paid, "", undefined, bankName, accountName)
-      : DB.createSale(items, custId || null, discount, vat, paymentMethod, paid, "", undefined, bankName, accountName);
+      ? DB.updateSale(editingSaleId, items, custId || null, discount, vat, paymentMethod, paid, "", undefined, bankName, accountName, shippingFee, shippingMethod)
+      : DB.createSale(items, custId || null, discount, vat, paymentMethod, paid, "", undefined, bankName, accountName, shippingFee, shippingMethod);
 
     showReceiptModal(sale, custId, validItems.slice());
 
@@ -2344,6 +2371,8 @@ if (typeof module !== "undefined") {
     addPosRow();
     refs.posDiscountInput.value = 0;
     refs.posPaidInput.value = 0;
+    refs.posShippingFeeInput.value = 0;
+    refs.posShippingMethodInput.value = "";
     refs.posPaymentSelect.value = "เงินเชื่อ";
     refs.posBankNameInput.value = "";
     refs.posAccountNameInput.value = "";
@@ -2381,6 +2410,7 @@ if (typeof module !== "undefined") {
     lines.push(`เลขที่บิล: ${sale.sale_no}`);
     lines.push(`วันที่: ${fmtDate(sale.date)}`);
     lines.push(`ลูกค้า: ${custName}`);
+    if (sale.shipping_method) lines.push(`วิธีจัดส่ง: ${sale.shipping_method}`);
     lines.push("-".repeat(40));
     cartItems.forEach((it) => {
       const sub = it.qty * it.unit_price;
@@ -2396,6 +2426,7 @@ if (typeof module !== "undefined") {
     lines.push(`${"ยอดรวมก่อนหักส่วนลด".padEnd(24)}${money(sale.subtotal).padStart(14)}`);
     if (sale.discount) lines.push(`${"ส่วนลด".padEnd(24)}${money(sale.discount).padStart(14)}`);
     if (VAT_ENABLED) lines.push(`${("ภาษีมูลค่าเพิ่ม " + Math.round(VAT_RATE * 100) + "%").padEnd(24)}${money(sale.vat_amount).padStart(14)}`);
+    if (sale.shipping_fee) lines.push(`${"ค่าจัดส่ง".padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
     lines.push(`${"ยอดสุทธิ".padEnd(24)}${money(sale.total).padStart(14)}`);
     lines.push(`${"รับเงิน".padEnd(24)}${money(sale.paid).padStart(14)}`);
     lines.push(`${"เงินทอน".padEnd(24)}${money(sale.change_amt).padStart(14)}`);
@@ -2434,6 +2465,9 @@ if (typeof module !== "undefined") {
         VAT_RATE * 100
       )}%</td><td style="padding:2px 0;text-align:right;">${money(sale.vat_amount)}</td></tr>`;
     }
+    if (sale.shipping_fee) {
+      summaryRows += `<tr><td style="padding:2px 0;color:#555;">ค่าจัดส่ง</td><td style="padding:2px 0;text-align:right;">${money(sale.shipping_fee)}</td></tr>`;
+    }
     summaryRows += `<tr style="border-top:1px solid #000;"><td style="padding:6px 0 2px;font-weight:bold;">ยอดสุทธิ</td><td style="padding:6px 0 2px;text-align:right;font-weight:bold;">${money(
       sale.total
     )}</td></tr>`;
@@ -2455,6 +2489,9 @@ if (typeof module !== "undefined") {
       VAT_ENABLED && !isDeliveryDoc && shop.tax_id
         ? `<div style="text-align:left;font-size:11px;color:#555;margin-bottom:6px;">เลขผู้เสียภาษี: ${esc(shop.tax_id)}</div>`
         : "";
+    const shippingMethodRow = sale.shipping_method
+      ? `<tr><td style="padding:2px 0;color:#555;">วิธีจัดส่ง</td><td style="padding:2px 0;text-align:right;">${esc(sale.shipping_method)}</td></tr>`
+      : "";
 
     const html = `
       <div style="max-width:380px;margin:0;font-family:Tahoma,'Segoe UI',sans-serif;color:#111;">
@@ -2466,6 +2503,7 @@ if (typeof module !== "undefined") {
           <tr><td style="padding:2px 0;color:#555;">เลขที่บิล</td><td style="padding:2px 0;text-align:right;">${esc(sale.sale_no)}</td></tr>
           <tr><td style="padding:2px 0;color:#555;">วันที่</td><td style="padding:2px 0;text-align:right;">${esc(fmtDate(sale.date))}</td></tr>
           <tr><td style="padding:2px 0;color:#555;">ลูกค้า</td><td style="padding:2px 0;text-align:right;">${esc(custName)}</td></tr>
+          ${shippingMethodRow}
         </table>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px;">
           <thead>
