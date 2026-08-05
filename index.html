@@ -944,6 +944,29 @@ function createDB(storageKey) {
   function getSale(id) {
     return store.sales.find((x) => x.id === id) || null;
   }
+  function markSalePaid(saleId) {
+    const sale = store.sales.find((x) => x.id === saleId);
+    if (!sale) return;
+    const remain = sale.total - sale.paid;
+    if (remain > 0 && sale.payment_method === "เงินเชื่อ" && sale.customer_id) {
+      const c = getCustomer(sale.customer_id);
+      if (c) {
+        store.customerPayments.push({
+          id: store.customerPayments.length + 1,
+          customer_id: sale.customer_id,
+          date: nowStr(),
+          amount: remain,
+          method: "เงินสด",
+          note: `ชำระตามบิล ${sale.sale_no}`,
+        });
+        c.credit_balance -= remain;
+      }
+    }
+    sale.paid = sale.total;
+    sale.change_amt = 0;
+    sale.status = "ชำระแล้ว";
+    save();
+  }
 
   // ------------------------------------------------------------ purchases
   function genPoNo() {
@@ -1224,7 +1247,7 @@ function createDB(storageKey) {
     paySupplierCredit, getSupplierPayments,
     addFabric, updateFabric, deleteFabric, getFabrics, getFabric,
     adjustStock, getStockMovements,
-    createSale, updateSale, deleteSale, getSales, getSale,
+    createSale, updateSale, deleteSale, getSales, getSale, markSalePaid,
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense,
     salesSummary, cogsSummary, expensesSummary, bestSellers, lowStockList,
@@ -1914,6 +1937,21 @@ if (typeof module !== "undefined") {
         "td",
         { class: "actions-cell" },
         el("button", { class: "btn btn-sm", onClick: () => editSalePOS(s.id) }, "แก้ไข"),
+        s.status !== "ชำระแล้ว"
+          ? el(
+              "button",
+              {
+                class: "btn btn-sm",
+                onClick: () => {
+                  if (global.confirm(`ยืนยันบันทึกว่าบิลเลขที่ ${s.sale_no} ชำระเงินครบแล้ว?`)) {
+                    DB.markSalePaid(s.id);
+                    renderPosSalesHistory();
+                  }
+                },
+              },
+              "ชำระแล้ว"
+            )
+          : null,
         el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, "พิมพ์ใบเสร็จ"),
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOS(s.id) }, "ลบ")
       );
