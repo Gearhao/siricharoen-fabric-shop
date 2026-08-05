@@ -545,17 +545,6 @@ function createDB(storageKey) {
     return todayStr().slice(0, 8) + "01";
   }
 
-  // แปลงวันที่จาก YYYY-MM-DD (หรือ YYYY-MM-DD HH:MM:SS) เก็บในระบบ ให้แสดงผลเป็น วัน/เดือน/ปี
-  function fmtDate(dateStr) {
-    if (!dateStr) return "";
-    const [datePart, timePart] = String(dateStr).split(" ");
-    const parts = datePart.split("-");
-    if (parts.length !== 3) return dateStr;
-    const [y, m, d] = parts;
-    const out = `${d}/${m}/${y}`;
-    return timePart ? `${out} ${timePart}` : out;
-  }
-
   function inRange(dateStr, start, end) {
     const d = dateStr.slice(0, 10);
     if (start && d < start) return false;
@@ -1258,6 +1247,17 @@ if (typeof module !== "undefined") {
     const n = Number(x);
     if (isNaN(n)) return "0.00";
     return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // แปลงวันที่จาก YYYY-MM-DD (หรือ YYYY-MM-DD HH:MM:SS) เก็บในระบบ ให้แสดงผลเป็น วัน/เดือน/ปี
+  function fmtDate(dateStr) {
+    if (!dateStr) return "";
+    const [datePart, timePart] = String(dateStr).split(" ");
+    const parts = datePart.split("-");
+    if (parts.length !== 3) return dateStr;
+    const [y, m, d] = parts;
+    const out = `${d}/${m}/${y}`;
+    return timePart ? `${out} ${timePart}` : out;
   }
 
   function exposeTestRefs(name, obj) {
