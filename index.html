@@ -104,6 +104,26 @@ html, body {
 }
 .chk-label { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 14px; }
 
+.date-input-wrap { position: relative; display: inline-block; vertical-align: middle; }
+.date-native-input { color: transparent; }
+.date-native-input::-webkit-datetime-edit { color: transparent; }
+.date-display-overlay {
+  position: absolute;
+  inset: 0;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  padding-left: 10px;
+  pointer-events: none;
+  color: var(--text);
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.form-row .date-input-wrap { flex: 1; min-width: 0; display: block; }
+.form-row .date-native-input { width: 100%; }
+.form-row .date-display-overlay { padding-left: 9px; }
+
 .btn {
   background: #fff;
   border: 1px solid var(--border);
@@ -1260,6 +1280,35 @@ if (typeof module !== "undefined") {
     return timePart ? `${out} ${timePart}` : out;
   }
 
+  // input[type=date] ของเบราว์เซอร์แสดงผลตาม locale ของเครื่องผู้ใช้เสมอ (แก้ผ่าน HTML/attribute ไม่ได้)
+  // ฟังก์ชันนี้สร้าง input วันที่พร้อมข้อความทับด้านบนที่บังคับให้แสดงเป็น วัน/เดือน/ปี เสมอ
+  // คืนค่าเป็น <span> ที่มี getter/setter ของ .value ชี้ไปที่ input จริงข้างใน จึงใช้แทน el("input", {type:"date", ...}) ได้ทันที
+  function dateInputEl(attrs) {
+    attrs = Object.assign({}, attrs || {});
+    const initialValue = attrs.value || "";
+    const userOnChange = attrs.onChange;
+    delete attrs.value;
+    delete attrs.onChange;
+    delete attrs.type;
+    const display = el("span", { class: "date-display-overlay", text: fmtDate(initialValue) });
+    const input = el("input", Object.assign({ type: "date", class: "date-native-input", value: initialValue }, attrs));
+    input.addEventListener("change", () => {
+      display.textContent = fmtDate(input.value);
+    });
+    if (userOnChange) input.addEventListener("change", userOnChange);
+    const wrap = el("span", { class: "date-input-wrap" }, input, display);
+    Object.defineProperty(wrap, "value", {
+      get() {
+        return input.value;
+      },
+      set(v) {
+        input.value = v;
+        display.textContent = fmtDate(v);
+      },
+    });
+    return wrap;
+  }
+
   function exposeTestRefs(name, obj) {
     if (typeof global.window !== "undefined") {
       global.window.__test = global.window.__test || {};
@@ -1717,9 +1766,7 @@ if (typeof module !== "undefined") {
         renderPosSalesHistory();
       },
     });
-    const historyDateInput = el("input", {
-      type: "date",
-      lang: "en-GB",
+    const historyDateInput = dateInputEl({
       value: posHistoryDate || DB.todayStr(),
       onChange: (e) => {
         posHistoryDate = e.target.value;
@@ -3230,9 +3277,7 @@ if (typeof module !== "undefined") {
         renderPurchaseTable();
       },
     });
-    const dateInput = el("input", {
-      type: "date",
-      lang: "en-GB",
+    const dateInput = dateInputEl({
       value: purchaseDate || DB.todayStr(),
       onChange: (e) => {
         purchaseDate = e.target.value;
@@ -3396,7 +3441,7 @@ if (typeof module !== "undefined") {
     poNoInput.addEventListener("input", () => {
       if (items.length > 0) syncPurchase();
     });
-    const dateInput = el("input", { type: "date", lang: "en-GB", value: editingPurchase ? editingPurchase.date : DB.todayStr() });
+    const dateInput = dateInputEl({ value: editingPurchase ? editingPurchase.date : DB.todayStr() });
     dateInput.addEventListener("change", () => {
       if (items.length > 0) syncPurchase();
     });
@@ -3729,8 +3774,8 @@ if (typeof module !== "undefined") {
     acctStart = DB.monthStartStr();
     acctEnd = DB.todayStr();
 
-    const startInput = el("input", { type: "date", lang: "en-GB", value: acctStart, onChange: (e) => { acctStart = e.target.value; refreshAcctSummary(); } });
-    const endInput = el("input", { type: "date", lang: "en-GB", value: acctEnd, onChange: (e) => { acctEnd = e.target.value; refreshAcctSummary(); } });
+    const startInput = dateInputEl({ value: acctStart, onChange: (e) => { acctStart = e.target.value; refreshAcctSummary(); } });
+    const endInput = dateInputEl({ value: acctEnd, onChange: (e) => { acctEnd = e.target.value; refreshAcctSummary(); } });
     const calcBtn = el("button", { class: "btn", onClick: refreshAcctSummary }, "คำนวณ");
     const toolbar = el("div", { class: "toolbar" }, el("span", { text: "จากวันที่:" }), startInput, el("span", { text: "ถึงวันที่:" }), endInput, calcBtn);
 
@@ -3858,8 +3903,8 @@ if (typeof module !== "undefined") {
     reportEnd = DB.todayStr();
     reportSubTab = "sales";
 
-    const startInput = el("input", { type: "date", lang: "en-GB", value: reportStart, onChange: (e) => { reportStart = e.target.value; } });
-    const endInput = el("input", { type: "date", lang: "en-GB", value: reportEnd, onChange: (e) => { reportEnd = e.target.value; } });
+    const startInput = dateInputEl({ value: reportStart, onChange: (e) => { reportStart = e.target.value; } });
+    const endInput = dateInputEl({ value: reportEnd, onChange: (e) => { reportEnd = e.target.value; } });
     const showBtn = el("button", { class: "btn", onClick: refreshReports }, "แสดงรายงาน");
     const exportSalesBtn = el("button", { class: "btn", onClick: exportSalesCsv }, "ส่งออกยอดขายเป็น CSV");
     const exportBestBtn = el("button", { class: "btn", onClick: exportBestCsv }, "ส่งออกสินค้าขายดีเป็น CSV");
