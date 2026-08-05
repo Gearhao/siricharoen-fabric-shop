@@ -545,6 +545,17 @@ function createDB(storageKey) {
     return todayStr().slice(0, 8) + "01";
   }
 
+  // แปลงวันที่จาก YYYY-MM-DD (หรือ YYYY-MM-DD HH:MM:SS) เก็บในระบบ ให้แสดงผลเป็น วัน/เดือน/ปี
+  function fmtDate(dateStr) {
+    if (!dateStr) return "";
+    const [datePart, timePart] = String(dateStr).split(" ");
+    const parts = datePart.split("-");
+    if (parts.length !== 3) return dateStr;
+    const [y, m, d] = parts;
+    const out = `${d}/${m}/${y}`;
+    return timePart ? `${out} ${timePart}` : out;
+  }
+
   function inRange(dateStr, start, end) {
     const d = dateStr.slice(0, 10);
     if (start && d < start) return false;
@@ -1568,7 +1579,7 @@ if (typeof module !== "undefined") {
         .slice(0, 25)
         .map((s) => {
           const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
-          return [s.sale_no, s.date, c ? c.name : "ลูกค้าทั่วไป", money(s.total), s.status];
+          return [s.sale_no, fmtDate(s.date), c ? c.name : "ลูกค้าทั่วไป", money(s.total), s.status];
         })
     );
 
@@ -1837,7 +1848,7 @@ if (typeof module !== "undefined") {
         "tr",
         {},
         el("td", { text: s.sale_no }),
-        el("td", { text: s.date }),
+        el("td", { text: fmtDate(s.date) }),
         el("td", { text: c ? c.name : "ลูกค้าทั่วไป" }),
         el("td", { text: money(s.total) }),
         statusCell,
@@ -2253,7 +2264,7 @@ if (typeof module !== "undefined") {
     if (VAT_ENABLED && !isDeliveryDoc && shop.tax_id) lines.push(`เลขผู้เสียภาษี: ${shop.tax_id}`);
     lines.push(docTitle);
     lines.push(`เลขที่บิล: ${sale.sale_no}`);
-    lines.push(`วันที่: ${sale.date}`);
+    lines.push(`วันที่: ${fmtDate(sale.date)}`);
     lines.push(`ลูกค้า: ${custName}`);
     lines.push("-".repeat(40));
     cartItems.forEach((it) => {
@@ -2338,7 +2349,7 @@ if (typeof module !== "undefined") {
         </div>
         <table style="width:100%;font-size:12px;margin-bottom:10px;border-collapse:collapse;">
           <tr><td style="padding:2px 0;color:#555;">เลขที่บิล</td><td style="padding:2px 0;text-align:right;">${esc(sale.sale_no)}</td></tr>
-          <tr><td style="padding:2px 0;color:#555;">วันที่</td><td style="padding:2px 0;text-align:right;">${esc(sale.date)}</td></tr>
+          <tr><td style="padding:2px 0;color:#555;">วันที่</td><td style="padding:2px 0;text-align:right;">${esc(fmtDate(sale.date))}</td></tr>
           <tr><td style="padding:2px 0;color:#555;">ลูกค้า</td><td style="padding:2px 0;text-align:right;">${esc(custName)}</td></tr>
         </table>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px;">
@@ -2639,7 +2650,7 @@ if (typeof module !== "undefined") {
     const moves = DB.getStockMovements(fid);
     const table = buildDataTable(
       ["วันที่", "ประเภท", "จำนวน", "หมายเหตุ"],
-      moves.map((m) => [m.date, m.move_type, m.qty, m.note])
+      moves.map((m) => [fmtDate(m.date), m.move_type, m.qty, m.note])
     );
     openModal(`ประวัติการเคลื่อนไหว - ${f.name}`, table, { wide: true });
   }
@@ -2952,7 +2963,7 @@ if (typeof module !== "undefined") {
     const sales = DB.getCustomerSales(cid);
     const table = buildDataTable(
       ["เลขที่บิล", "วันที่", "ยอดรวม", "ชำระแล้ว", "สถานะ"],
-      sales.map((s) => [s.sale_no, s.date, money(s.total), money(s.paid), s.status])
+      sales.map((s) => [s.sale_no, fmtDate(s.date), money(s.total), money(s.paid), s.status])
     );
     openModal(`ประวัติการซื้อ - ${cust.name}`, table, { wide: true });
   }
@@ -3203,6 +3214,8 @@ if (typeof module !== "undefined") {
 
   // ============================================================== สั่งซื้อ
   let purchaseSearch = "";
+  let purchaseDate = "";
+  let purchaseShowAll = false;
 
   function renderPurchases() {
     const sec = sections.purchases;
@@ -3216,15 +3229,54 @@ if (typeof module !== "undefined") {
         renderPurchaseTable();
       },
     });
+    const dateInput = el("input", {
+      type: "date",
+      value: purchaseDate || DB.todayStr(),
+      onChange: (e) => {
+        purchaseDate = e.target.value;
+        purchaseShowAll = false;
+        showAllChk.checked = false;
+        renderPurchaseTable();
+      },
+    });
+    refs.purchaseDateInput = dateInput;
+    const todayBtn = el(
+      "button",
+      {
+        class: "btn btn-sm",
+        onClick: () => {
+          purchaseDate = "";
+          purchaseShowAll = false;
+          dateInput.value = DB.todayStr();
+          showAllChk.checked = false;
+          renderPurchaseTable();
+        },
+      },
+      "วันนี้"
+    );
+    const showAllChk = el("input", {
+      type: "checkbox",
+      checked: purchaseShowAll,
+      onChange: (e) => {
+        purchaseShowAll = e.target.checked;
+        renderPurchaseTable();
+      },
+    });
+    refs.purchaseShowAllChk = showAllChk;
     const toolbar = el(
       "div",
       { class: "toolbar" },
+      dateInput,
+      todayBtn,
+      el("label", { class: "chk-label" }, showAllChk, " แสดงทั้งหมดทุกวัน"),
       searchInput,
       el("button", { class: "btn btn-primary", onClick: () => openPurchaseModal() }, "+ สร้างใบสั่งซื้อใหม่")
     );
+    const summary = el("div", { class: "totals-line" });
+    refs.purchaseSummary = summary;
     const tableContainer = el("div", { class: "table-container" });
     refs.purchaseTableContainer = tableContainer;
-    sec.appendChild(el("div", { class: "section-inner" }, toolbar, tableContainer));
+    sec.appendChild(el("div", { class: "section-inner" }, toolbar, summary, tableContainer));
     renderPurchaseTable();
   }
 
@@ -3232,6 +3284,10 @@ if (typeof module !== "undefined") {
     const container = refs.purchaseTableContainer;
     clear(container);
     let purchases = DB.getPurchases();
+    if (!purchaseShowAll) {
+      const filterDate = purchaseDate || DB.todayStr();
+      purchases = purchases.filter((p) => p.date.slice(0, 10) === filterDate);
+    }
     const pq = purchaseSearch.trim().toLowerCase();
     if (pq) {
       purchases = purchases.filter((p) => {
@@ -3240,9 +3296,13 @@ if (typeof module !== "undefined") {
         return (p.po_no || "").toLowerCase().includes(pq) || supName.toLowerCase().includes(pq);
       });
     }
+    if (refs.purchaseSummary) {
+      const totalAmount = purchases.reduce((sum, p) => sum + p.total, 0);
+      refs.purchaseSummary.textContent = `รวม ${purchases.length} ใบ ยอดรวม ${money(totalAmount)} บาท`;
+    }
     const rows = purchases.map((p) => {
       const s = DB.getSupplier(p.supplier_id);
-      return [p.po_no, p.date, s ? s.name : "", money(p.discount || 0), money(p.total), p.status, p.payment_status];
+      return [p.po_no, fmtDate(p.date), s ? s.name : "", money(p.discount || 0), money(p.total), p.status, p.payment_status];
     });
     const table = buildDataTable(
       ["เลขที่เอกสารรับเข้า", "วันที่", "ผู้จัดจำหน่าย", "ส่วนลด", "ยอดรวม", "สถานะรับของ", "สถานะชำระเงิน"],
@@ -3616,7 +3676,7 @@ if (typeof module !== "undefined") {
     const meta = el(
       "div",
       { class: "form-grid" },
-      formField("วันที่เอกสาร", el("div", { text: p.date })),
+      formField("วันที่เอกสาร", el("div", { text: fmtDate(p.date) })),
       formField("ส่วนลด", el("div", { text: money(p.discount || 0) }))
     );
     openModal(`รายการสินค้าในใบสั่งซื้อ ${p.po_no}`, el("div", {}, meta, table), { wide: true });
@@ -3728,7 +3788,7 @@ if (typeof module !== "undefined") {
     refs.acctExpenseContainer.appendChild(
       buildDataTable(
         ["วันที่", "หมวดหมู่", "รายละเอียด", "จำนวนเงิน"],
-        expenses.map((e) => [e.date, e.category, e.description, money(e.amount)]),
+        expenses.map((e) => [fmtDate(e.date), e.category, e.description, money(e.amount)]),
         {
           actions: (idx) => [
             {
@@ -3837,7 +3897,7 @@ if (typeof module !== "undefined") {
       const sales = DB.getSales(reportStart, reportEnd);
       const rows = sales.map((s) => {
         const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
-        return [s.sale_no, s.date, c ? c.name : "ลูกค้าทั่วไป", money(s.subtotal - s.discount), money(s.vat_amount), money(s.total), s.status];
+        return [s.sale_no, fmtDate(s.date), c ? c.name : "ลูกค้าทั่วไป", money(s.subtotal - s.discount), money(s.vat_amount), money(s.total), s.status];
       });
       container.appendChild(
         buildDataTable(["เลขที่บิล", "วันที่", "ลูกค้า", "ก่อนภาษี", "VAT", "ยอดรวม", "สถานะ"], rows, {
@@ -3859,7 +3919,7 @@ if (typeof module !== "undefined") {
     const rows = [["เลขที่บิล", "วันที่", "ลูกค้า", "ก่อนภาษี", "VAT", "ยอดรวม", "ชำระแล้ว", "สถานะ"]];
     sales.forEach((s) => {
       const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
-      rows.push([s.sale_no, s.date, c ? c.name : "ลูกค้าทั่วไป", s.subtotal - s.discount, s.vat_amount, s.total, s.paid, s.status]);
+      rows.push([s.sale_no, fmtDate(s.date), c ? c.name : "ลูกค้าทั่วไป", s.subtotal - s.discount, s.vat_amount, s.total, s.paid, s.status]);
     });
     downloadCsv("sales_report.csv", rows);
   }
