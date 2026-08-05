@@ -843,7 +843,7 @@ function createDB(storageKey) {
       }
     }
   }
-  function createSale(items, customerId, discount, vatAmount, paymentMethod, paid, note, date) {
+  function createSale(items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName) {
     const subtotal = items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
     const total = subtotal - discount + vatAmount;
     const changeAmt = paymentMethod !== "เงินเชื่อ" ? Math.max(0, paid - total) : 0;
@@ -866,13 +866,15 @@ function createDB(storageKey) {
       payment_method: paymentMethod,
       status,
       note: note || "",
+      bank_name: paymentMethod === "โอนเงิน" ? bankName || "" : "",
+      bank_account_name: paymentMethod === "โอนเงิน" ? accountName || "" : "",
     };
     store.sales.push(sale);
     applySaleEffects(sale);
     save();
     return sale;
   }
-  function updateSale(id, items, customerId, discount, vatAmount, paymentMethod, paid, note, date) {
+  function updateSale(id, items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName) {
     const sale = store.sales.find((x) => x.id === id);
     if (!sale) return null;
     revertSaleEffects(sale);
@@ -897,6 +899,8 @@ function createDB(storageKey) {
     sale.payment_method = paymentMethod;
     sale.status = status;
     sale.note = note || "";
+    sale.bank_name = paymentMethod === "โอนเงิน" ? bankName || "" : "";
+    sale.bank_account_name = paymentMethod === "โอนเงิน" ? accountName || "" : "";
 
     applySaleEffects(sale);
     save();
@@ -1343,7 +1347,10 @@ if (typeof module !== "undefined") {
     const tbody = el("tbody", {});
     dataRows.forEach((row, idx) => {
       const tr = el("tr", {});
-      row.forEach((c) => tr.appendChild(el("td", { text: String(c) })));
+      row.forEach((c, ci) => {
+        const cellStyle = opts.cellStyle ? opts.cellStyle(row, ci, columns[ci]) : null;
+        tr.appendChild(el("td", { text: String(c), style: cellStyle || {} }));
+      });
       if (opts.actions) {
         const actionsCell = el("td", { class: "actions-cell" });
         opts.actions(idx).forEach((a) => {
@@ -1415,6 +1422,7 @@ if (typeof module !== "undefined") {
   let cart = [];
   let editingSaleId = null;
   let posHistoryUnpaidOnly = false;
+  let posHistorySearch = "";
   const refs = {};
   const sections = {};
   const navButtons = {};
@@ -1597,6 +1605,7 @@ if (typeof module !== "undefined") {
     );
     paymentSelect.addEventListener("change", () => {
       if (paymentSelect.value === "เงินเชื่อ") refs.posPaidInput.value = 0;
+      updateBankFieldsVisibility();
       updatePosTotals();
     });
     refs.posPaymentSelect = paymentSelect;
@@ -1604,6 +1613,21 @@ if (typeof module !== "undefined") {
     const paidInput = numberInput(0);
     paidInput.addEventListener("input", updatePosTotals);
     refs.posPaidInput = paidInput;
+
+    const bankNameInput = textInput("");
+    refs.posBankNameInput = bankNameInput;
+    const accountNameInput = textInput("");
+    refs.posAccountNameInput = accountNameInput;
+    const bankNameRow = formField("โอนเข้าธนาคาร", bankNameInput);
+    const accountNameRow = formField("ชื่อบัญชี", accountNameInput);
+    refs.posBankNameRow = bankNameRow;
+    refs.posAccountNameRow = accountNameRow;
+    function updateBankFieldsVisibility() {
+      const isTransfer = paymentSelect.value === "โอนเงิน";
+      bankNameRow.style.display = isTransfer ? "" : "none";
+      accountNameRow.style.display = isTransfer ? "" : "none";
+    }
+    updateBankFieldsVisibility();
 
     const subtotalLbl = el("div", { class: "totals-line", text: "ยอดรวมก่อนภาษี: 0.00 บาท" });
     refs.posSubtotalLbl = subtotalLbl;
@@ -1629,7 +1653,9 @@ if (typeof module !== "undefined") {
         formField("ลูกค้า", customerSelect),
         formField("ส่วนลด (บาท)", discountInput),
         formField("ชำระโดย", paymentSelect),
-        formField("รับเงิน (บาท)", paidInput)
+        formField("รับเงิน (บาท)", paidInput),
+        bankNameRow,
+        accountNameRow
       ),
       el("div", { class: "totals-box" }, subtotalLbl, vatLbl, totalLbl, changeLbl),
       checkoutBtn
@@ -1647,9 +1673,19 @@ if (typeof module !== "undefined") {
         renderPosSalesHistory();
       },
     });
+    const historySearchInput = el("input", {
+      type: "text",
+      placeholder: "ค้นหา (เลขที่บิล/ชื่อลูกค้า)",
+      value: posHistorySearch,
+      onInput: (e) => {
+        posHistorySearch = e.target.value;
+        renderPosSalesHistory();
+      },
+    });
     const historyToolbar = el(
       "div",
       { class: "toolbar" },
+      historySearchInput,
       el("label", { class: "chk-label" }, unpaidChk, " แสดงเฉพาะบิลที่ยังไม่จ่ายเงิน")
     );
     sec.appendChild(panel("ประวัติการขาย (แก้ไขบิลย้อนหลังได้)", el("div", {}, historyToolbar, historyTableContainer)));
@@ -1681,7 +1717,15 @@ if (typeof module !== "undefined") {
     let sales = DB.getSales();
     if (posHistoryUnpaidOnly) {
       sales = sales.filter((s) => s.status !== "ชำระแล้ว");
-    } else {
+    }
+    const historyQ = posHistorySearch.trim().toLowerCase();
+    if (historyQ) {
+      sales = sales.filter((s) => {
+        const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
+        const custName = c ? c.name : "ลูกค้าทั่วไป";
+        return (s.sale_no || "").toLowerCase().includes(historyQ) || custName.toLowerCase().includes(historyQ);
+      });
+    } else if (!posHistoryUnpaidOnly) {
       sales = sales.slice(0, 30);
     }
 
@@ -1770,6 +1814,10 @@ if (typeof module !== "undefined") {
     refs.posDiscountInput.value = sale.discount || 0;
     refs.posPaymentSelect.value = sale.payment_method;
     refs.posPaidInput.value = sale.paid;
+    refs.posBankNameInput.value = sale.bank_name || "";
+    refs.posAccountNameInput.value = sale.bank_account_name || "";
+    refs.posBankNameRow.style.display = sale.payment_method === "โอนเงิน" ? "" : "none";
+    refs.posAccountNameRow.style.display = sale.payment_method === "โอนเงิน" ? "" : "none";
     updatePosTotals();
     updateEditBannerUI();
     sections.pos.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1782,6 +1830,10 @@ if (typeof module !== "undefined") {
     refs.posDiscountInput.value = 0;
     refs.posPaidInput.value = 0;
     refs.posPaymentSelect.value = "เงินสด";
+    refs.posBankNameInput.value = "";
+    refs.posAccountNameInput.value = "";
+    refs.posBankNameRow.style.display = "none";
+    refs.posAccountNameRow.style.display = "none";
     const newCustomerSelect = buildCustomerSelectOptions();
     const oldSelect = refs.posCustomerSelect;
     if (oldSelect.parentNode) oldSelect.parentNode.replaceChild(newCustomerSelect, oldSelect);
@@ -2066,6 +2118,13 @@ if (typeof module !== "undefined") {
       return;
     }
 
+    const bankName = refs.posBankNameInput.value.trim();
+    const accountName = refs.posAccountNameInput.value.trim();
+    if (paymentMethod === "โอนเงิน" && (!bankName || !accountName)) {
+      global.alert("กรุณาระบุธนาคารที่โอนเข้าและชื่อบัญชี");
+      return;
+    }
+
     const items = validItems.map((it) => {
       const f = DB.getFabric(it.fabric_id);
       const factor = f ? unitFactor(it.unit, f.unit) : 1;
@@ -2078,8 +2137,8 @@ if (typeof module !== "undefined") {
       };
     });
     const sale = editingSaleId
-      ? DB.updateSale(editingSaleId, items, custId || null, discount, vat, paymentMethod, paid, "")
-      : DB.createSale(items, custId || null, discount, vat, paymentMethod, paid, "");
+      ? DB.updateSale(editingSaleId, items, custId || null, discount, vat, paymentMethod, paid, "", undefined, bankName, accountName)
+      : DB.createSale(items, custId || null, discount, vat, paymentMethod, paid, "", undefined, bankName, accountName);
 
     showReceiptModal(sale, custId, validItems.slice());
 
@@ -2089,6 +2148,10 @@ if (typeof module !== "undefined") {
     refs.posDiscountInput.value = 0;
     refs.posPaidInput.value = 0;
     refs.posPaymentSelect.value = "เงินสด";
+    refs.posBankNameInput.value = "";
+    refs.posAccountNameInput.value = "";
+    refs.posBankNameRow.style.display = "none";
+    refs.posAccountNameRow.style.display = "none";
 
     const newCustomerSelect = buildCustomerSelectOptions();
     const oldSelect = refs.posCustomerSelect;
@@ -2102,15 +2165,20 @@ if (typeof module !== "undefined") {
     renderPosSalesHistory();
   }
 
-  function showReceiptModal(sale, custId, cartItems) {
-    const cust = custId ? DB.getCustomer(custId) : null;
-    const shop = DB.getShopInfo();
-    const isUnpaid = sale.status === "ค้างชำระ";
-    const docTitle = isUnpaid ? "ใบส่งของ" : VAT_ENABLED ? "ใบกำกับภาษีอย่างย่อ / ใบเสร็จรับเงิน" : "ใบเสร็จรับเงิน";
+  function buildReceiptDoc(sale, cust, shop, cartItems, docType) {
+    // docType: "delivery" (ใบส่งสินค้า) | "cash" (บิลเงินสด) | "normal" (ใบเสร็จปกติ)
+    const isDeliveryDoc = docType === "delivery";
+    const docTitle = isDeliveryDoc
+      ? "ใบส่งสินค้า"
+      : docType === "cash"
+      ? "บิลเงินสด"
+      : VAT_ENABLED
+      ? "ใบกำกับภาษีอย่างย่อ / ใบเสร็จรับเงิน"
+      : "ใบเสร็จรับเงิน";
     const lines = [];
     if (shop.address) lines.push(shop.address);
     if (shop.phone) lines.push(shop.phone);
-    if (VAT_ENABLED && !isUnpaid && shop.tax_id) lines.push(`เลขผู้เสียภาษี: ${shop.tax_id}`);
+    if (VAT_ENABLED && !isDeliveryDoc && shop.tax_id) lines.push(`เลขผู้เสียภาษี: ${shop.tax_id}`);
     lines.push("-".repeat(40));
     lines.push(docTitle);
     lines.push(`เลขที่บิล: ${sale.sale_no}`);
@@ -2135,17 +2203,75 @@ if (typeof module !== "undefined") {
     lines.push(`${"รับเงิน".padEnd(24)}${money(sale.paid).padStart(14)}`);
     lines.push(`${"เงินทอน".padEnd(24)}${money(sale.change_amt).padStart(14)}`);
     lines.push(`${"สถานะการชำระเงิน".padEnd(24)}${sale.status.padStart(14)}`);
+    if (sale.payment_method === "โอนเงิน" && (sale.bank_name || sale.bank_account_name)) {
+      lines.push(`โอนเข้าธนาคาร: ${sale.bank_name || "-"}`);
+      lines.push(`ชื่อบัญชี: ${sale.bank_account_name || "-"}`);
+    }
     lines.push("-".repeat(40));
     lines.push("ขอบคุณที่ใช้บริการ");
-    const text = lines.join("\n");
+    return { docTitle, text: lines.join("\n") };
+  }
 
-    const pre = el("pre", { class: "receipt-text", text });
-    const downloadBtn = el("button", { class: "btn", onClick: () => downloadTextFile(`${sale.sale_no}.txt`, text) }, "บันทึกเป็นไฟล์ .txt");
-    const printBtn = el("button", { class: "btn", onClick: () => printReceipt(text) }, `พิมพ์${docTitle}`);
+  function showReceiptModal(sale, custId, cartItems) {
+    const cust = custId ? DB.getCustomer(custId) : null;
+    const shop = DB.getShopInfo();
+    const isCredit = sale.payment_method === "เงินเชื่อ";
+    let docType = isCredit ? (sale.status === "ค้างชำระ" ? "delivery" : "cash") : "normal";
+    let current = buildReceiptDoc(sale, cust, shop, cartItems, docType);
+
+    const pre = el("pre", { class: "receipt-text", text: current.text });
+    const downloadBtn = el(
+      "button",
+      { class: "btn", onClick: () => downloadTextFile(`${sale.sale_no}.txt`, current.text) },
+      "บันทึกเป็นไฟล์ .txt"
+    );
+    const printBtn = el("button", { class: "btn", onClick: () => printReceipt(current.text) }, `พิมพ์${current.docTitle}`);
     const closeBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
-    const body = el("div", {}, pre, el("div", { class: "modal-actions" }, downloadBtn, printBtn, closeBtn));
-    exposeTestRefs("receipt", { text, sale });
-    openModal(docTitle, body, { wide: true });
+
+    function refresh() {
+      current = buildReceiptDoc(sale, cust, shop, cartItems, docType);
+      pre.textContent = current.text;
+      printBtn.textContent = `พิมพ์${current.docTitle}`;
+      modalTitleEl.textContent = current.docTitle;
+    }
+
+    let docTypeToggle = null;
+    if (isCredit) {
+      const deliveryRadio = el("input", {
+        type: "radio",
+        name: "receiptDocType",
+        checked: docType === "delivery",
+        onChange: () => {
+          docType = "delivery";
+          refresh();
+        },
+      });
+      const cashRadio = el("input", {
+        type: "radio",
+        name: "receiptDocType",
+        checked: docType === "cash",
+        onChange: () => {
+          docType = "cash";
+          refresh();
+        },
+      });
+      docTypeToggle = el(
+        "div",
+        { class: "toolbar" },
+        el("label", { class: "chk-label" }, deliveryRadio, " ใบส่งสินค้า"),
+        el("label", { class: "chk-label" }, cashRadio, " บิลเงินสด")
+      );
+    }
+
+    const body = el(
+      "div",
+      {},
+      docTypeToggle,
+      pre,
+      el("div", { class: "modal-actions" }, downloadBtn, printBtn, closeBtn)
+    );
+    exposeTestRefs("receipt", { get text() { return current.text; }, sale, setDocType: (t) => { docType = t; refresh(); } });
+    openModal(current.docTitle, body, { wide: true });
   }
 
   // ================================================================ คลังผ้า
@@ -3530,7 +3656,12 @@ if (typeof module !== "undefined") {
         const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
         return [s.sale_no, s.date, c ? c.name : "ลูกค้าทั่วไป", money(s.subtotal - s.discount), money(s.vat_amount), money(s.total), s.status];
       });
-      container.appendChild(buildDataTable(["เลขที่บิล", "วันที่", "ลูกค้า", "ก่อนภาษี", "VAT", "ยอดรวม", "สถานะ"], rows));
+      container.appendChild(
+        buildDataTable(["เลขที่บิล", "วันที่", "ลูกค้า", "ก่อนภาษี", "VAT", "ยอดรวม", "สถานะ"], rows, {
+          cellStyle: (row, ci, colName) =>
+            colName === "สถานะ" && row[ci] === "ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : null,
+        })
+      );
     } else if (reportSubTab === "best") {
       const best = DB.bestSellers(reportStart, reportEnd, 30);
       container.appendChild(buildDataTable(["รหัส", "ชื่อผ้า", "จำนวนที่ขาย", "ยอดขายรวม"], best.map((b) => [b.code, b.name, b.qty_sold, money(b.total_sold)])));
