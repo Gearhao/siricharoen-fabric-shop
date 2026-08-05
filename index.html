@@ -950,7 +950,7 @@ function createDB(storageKey) {
   function getSale(id) {
     return store.sales.find((x) => x.id === id) || null;
   }
-  function markSalePaid(saleId) {
+  function markSalePaid(saleId, method, bankName, accountName) {
     const sale = store.sales.find((x) => x.id === saleId);
     if (!sale) return;
     const remain = sale.total - sale.paid;
@@ -962,7 +962,9 @@ function createDB(storageKey) {
           customer_id: sale.customer_id,
           date: nowStr(),
           amount: remain,
-          method: "เงินสด",
+          method: method || "เงินสด",
+          bank_name: method === "โอนเงิน" ? bankName || "" : "",
+          bank_account_name: method === "โอนเงิน" ? accountName || "" : "",
           note: `ชำระตามบิล ${sale.sale_no}`,
         });
         c.credit_balance -= remain;
@@ -1960,12 +1962,7 @@ if (typeof module !== "undefined") {
               "button",
               {
                 class: "btn btn-sm",
-                onClick: () => {
-                  if (global.confirm(`ยืนยันบันทึกว่าบิลเลขที่ ${s.sale_no} ชำระเงินครบแล้ว?`)) {
-                    DB.markSalePaid(s.id);
-                    renderPosSalesHistory();
-                  }
-                },
+                onClick: () => openMarkSalePaidModal(s.id),
               },
               "ชำระแล้ว"
             )
@@ -2004,6 +2001,60 @@ if (typeof module !== "undefined") {
     DB.deleteSale(saleId);
     renderPosSalesHistory();
     global.alert(`ลบบิลเลขที่ ${sale.sale_no} เรียบร้อยแล้ว`);
+  }
+
+  function openMarkSalePaidModal(saleId) {
+    const sale = DB.getSale(saleId);
+    if (!sale) return;
+    const remain = sale.total - sale.paid;
+    const methodSelect = selectInput(
+      [
+        { value: "เงินสด", label: "เงินสด" },
+        { value: "โอนเงิน", label: "โอนเงิน" },
+      ],
+      "เงินสด"
+    );
+    const bankNameInput = textInput("");
+    const accountNameInput = textInput("");
+    const bankNameRow = formField("โอนเข้าธนาคาร", bankNameInput);
+    const accountNameRow = formField("ชื่อบัญชี", accountNameInput);
+    function updateBankRowsVisibility() {
+      const isTransfer = methodSelect.value === "โอนเงิน";
+      bankNameRow.style.display = isTransfer ? "" : "none";
+      accountNameRow.style.display = isTransfer ? "" : "none";
+    }
+    methodSelect.addEventListener("change", updateBankRowsVisibility);
+    updateBankRowsVisibility();
+
+    const form = el(
+      "div",
+      { class: "form-panel" },
+      el("p", { text: `บิลเลขที่ ${sale.sale_no} ยอดค้างชำระ ${money(remain)} บาท` }),
+      formField("ชำระโดย", methodSelect),
+      bankNameRow,
+      accountNameRow
+    );
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          const method = methodSelect.value;
+          const bankName = bankNameInput.value.trim();
+          const accountName = accountNameInput.value.trim();
+          if (method === "โอนเงิน" && (!bankName || !accountName)) {
+            global.alert("กรุณาระบุธนาคารที่โอนเข้าและชื่อบัญชี");
+            return;
+          }
+          DB.markSalePaid(saleId, method, bankName, accountName);
+          closeModal();
+          renderPosSalesHistory();
+        },
+      },
+      "บันทึกการชำระเงิน"
+    );
+    exposeTestRefs("markSalePaid", { methodSelect, bankNameInput, accountNameInput, saveBtn });
+    openModal("บันทึกการชำระเงิน", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
   }
 
   function editSalePOS(saleId) {
@@ -4269,7 +4320,7 @@ if (typeof module !== "undefined") {
     openPurchaseModal, openPurchaseItemsModal, openPurchasePayModal,
     openExpenseModal, openSettingsModal, openBackupModal,
     checkout, addPosRow, posRowSetFabric,
-    editSalePOS, cancelEditSalePOS, reprintSalePOS, deleteSalePOS,
+    editSalePOS, cancelEditSalePOS, reprintSalePOS, deleteSalePOS, openMarkSalePaidModal,
     renderStockTable, renderCustomerTable, renderSupplierTable, renderPurchaseTable,
     renderPosItemsTable, renderPosSalesHistory, refreshAcctSummary, refreshReports,
     closeModal,
