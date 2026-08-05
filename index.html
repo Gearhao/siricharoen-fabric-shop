@@ -1072,6 +1072,28 @@ function createDB(storageKey) {
     p.payment_status = p.paid >= p.total ? "ชำระแล้ว" : "ชำระบางส่วน";
     save();
   }
+  function unpayPurchase(purchaseId) {
+    const p = store.purchases.find((x) => x.id === purchaseId);
+    if (!p) return;
+    const amt = p.paid;
+    if (amt > 0 && p.payment_method === "เงินเชื่อ") {
+      const s = getSupplier(p.supplier_id);
+      if (s) {
+        store.supplierPayments.push({
+          id: store.supplierPayments.length + 1,
+          supplier_id: p.supplier_id,
+          date: nowStr(),
+          amount: -amt,
+          method: "ยกเลิกการชำระ",
+          note: `ยกเลิกการชำระ PO ${p.po_no}`,
+        });
+        s.credit_balance += amt;
+      }
+    }
+    p.paid = 0;
+    p.payment_status = "ค้างชำระ";
+    save();
+  }
   function getPurchases(start, end, supplierId) {
     let rows = store.purchases;
     if (start || end) rows = rows.filter((p) => inRange(p.date, start, end));
@@ -1183,7 +1205,7 @@ function createDB(storageKey) {
     addFabric, updateFabric, deleteFabric, getFabrics, getFabric,
     adjustStock, getStockMovements,
     createSale, updateSale, deleteSale, getSales, getSale,
-    createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, getPurchases, getPurchase, genPoNo,
+    createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense,
     salesSummary, cogsSummary, expensesSummary, bestSellers, lowStockList,
     arAging, apAging,
@@ -1595,11 +1617,11 @@ if (typeof module !== "undefined") {
 
     const paymentSelect = selectInput(
       [
+        { value: "เงินเชื่อ", label: "เงินเชื่อ" },
         { value: "เงินสด", label: "เงินสด" },
         { value: "โอนเงิน", label: "โอนเงิน" },
-        { value: "เงินเชื่อ", label: "เงินเชื่อ" },
       ],
-      "เงินสด"
+      "เงินเชื่อ"
     );
     paymentSelect.addEventListener("change", () => {
       if (paymentSelect.value === "เงินเชื่อ") refs.posPaidInput.value = 0;
@@ -1829,7 +1851,7 @@ if (typeof module !== "undefined") {
     addPosRow();
     refs.posDiscountInput.value = 0;
     refs.posPaidInput.value = 0;
-    refs.posPaymentSelect.value = "เงินสด";
+    refs.posPaymentSelect.value = "เงินเชื่อ";
     refs.posBankNameInput.value = "";
     refs.posAccountNameInput.value = "";
     refs.posBankNameRow.style.display = "none";
@@ -2147,7 +2169,7 @@ if (typeof module !== "undefined") {
     addPosRow();
     refs.posDiscountInput.value = 0;
     refs.posPaidInput.value = 0;
-    refs.posPaymentSelect.value = "เงินสด";
+    refs.posPaymentSelect.value = "เงินเชื่อ";
     refs.posBankNameInput.value = "";
     refs.posAccountNameInput.value = "";
     refs.posBankNameRow.style.display = "none";
@@ -2256,13 +2278,13 @@ if (typeof module !== "undefined") {
 
     const taxIdLine =
       VAT_ENABLED && !isDeliveryDoc && shop.tax_id
-        ? `<div style="text-align:center;font-size:11px;color:#555;margin-bottom:6px;">เลขผู้เสียภาษี: ${esc(shop.tax_id)}</div>`
+        ? `<div style="text-align:left;font-size:11px;color:#555;margin-bottom:6px;">เลขผู้เสียภาษี: ${esc(shop.tax_id)}</div>`
         : "";
 
     const html = `
-      <div style="max-width:380px;margin:0 auto;font-family:Tahoma,'Segoe UI',sans-serif;color:#111;">
+      <div style="max-width:380px;margin:0;font-family:Tahoma,'Segoe UI',sans-serif;color:#111;">
         ${taxIdLine}
-        <div style="text-align:center;border-bottom:1px solid #000;padding-bottom:8px;margin-bottom:10px;">
+        <div style="text-align:left;border-bottom:1px solid #000;padding-bottom:8px;margin-bottom:10px;">
           <strong style="font-size:15px;">${esc(docTitle)}</strong>
         </div>
         <table style="width:100%;font-size:12px;margin-bottom:10px;border-collapse:collapse;">
@@ -2282,7 +2304,7 @@ if (typeof module !== "undefined") {
           <tbody>${itemRows}</tbody>
         </table>
         <table style="width:100%;font-size:12px;border-collapse:collapse;">${summaryRows}</table>
-        <div style="text-align:center;font-size:12px;color:#555;margin-top:12px;">ขอบคุณที่ใช้บริการ</div>
+        <div style="text-align:left;font-size:12px;color:#555;margin-top:12px;">ขอบคุณที่ใช้บริการ</div>
       </div>`;
 
     return { docTitle, text, html };
@@ -3177,6 +3199,8 @@ if (typeof module !== "undefined") {
       ["เลขที่เอกสารรับเข้า", "วันที่", "ผู้จัดจำหน่าย", "ส่วนลด", "ยอดรวม", "สถานะรับของ", "สถานะชำระเงิน"],
       rows,
       {
+        cellStyle: (row, ci, colName) =>
+          colName === "สถานะชำระเงิน" && row[ci] === "ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : null,
         actions: (idx) => {
           const p = purchases[idx];
           const actions = [{ label: "ดูรายการ", onClick: () => openPurchaseItemsModal(p.id) }];
@@ -3193,6 +3217,17 @@ if (typeof module !== "undefined") {
           }
           if (p.paid < p.total) {
             actions.push({ label: "บันทึกจ่ายเงิน", onClick: () => openPurchasePayModal(p.id) });
+          }
+          if (p.payment_status === "ชำระแล้ว") {
+            actions.push({
+              label: "ยกเลิกการชำระ",
+              onClick: () => {
+                if (global.confirm(`ต้องการยกเลิกการชำระเงินของใบสั่งซื้อ ${p.po_no} กลับเป็นสถานะค้างชำระหรือไม่?`)) {
+                  DB.unpayPurchase(p.id);
+                  renderPurchaseTable();
+                }
+              },
+            });
           }
           actions.push({ label: "แก้ไข", onClick: () => openPurchaseModal(p.id) });
           actions.push({
