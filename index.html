@@ -1443,6 +1443,8 @@ if (typeof module !== "undefined") {
   let editingSaleId = null;
   let posHistoryUnpaidOnly = false;
   let posHistorySearch = "";
+  let posHistoryDate = "";
+  let posHistoryShowAll = false;
   const refs = {};
   const sections = {};
   const navButtons = {};
@@ -1704,13 +1706,54 @@ if (typeof module !== "undefined") {
         renderPosSalesHistory();
       },
     });
+    const historyDateInput = el("input", {
+      type: "date",
+      value: posHistoryDate || DB.todayStr(),
+      onChange: (e) => {
+        posHistoryDate = e.target.value;
+        posHistoryShowAll = false;
+        showAllChk.checked = false;
+        renderPosSalesHistory();
+      },
+    });
+    refs.posHistoryDateInput = historyDateInput;
+    const todayBtn = el(
+      "button",
+      {
+        class: "btn btn-sm",
+        onClick: () => {
+          posHistoryDate = "";
+          posHistoryShowAll = false;
+          historyDateInput.value = DB.todayStr();
+          showAllChk.checked = false;
+          renderPosSalesHistory();
+        },
+      },
+      "วันนี้"
+    );
+    const showAllChk = el("input", {
+      type: "checkbox",
+      checked: posHistoryShowAll,
+      onChange: (e) => {
+        posHistoryShowAll = e.target.checked;
+        renderPosSalesHistory();
+      },
+    });
+    refs.posHistoryShowAllChk = showAllChk;
     const historyToolbar = el(
       "div",
       { class: "toolbar" },
+      historyDateInput,
+      todayBtn,
+      el("label", { class: "chk-label" }, showAllChk, " แสดงทั้งหมดทุกวัน"),
       historySearchInput,
       el("label", { class: "chk-label" }, unpaidChk, " แสดงเฉพาะบิลที่ยังไม่จ่ายเงิน")
     );
-    sec.appendChild(panel("ประวัติการขาย (แก้ไขบิลย้อนหลังได้)", el("div", {}, historyToolbar, historyTableContainer)));
+    const historySummary = el("div", { class: "totals-line" });
+    refs.posHistorySummary = historySummary;
+    sec.appendChild(
+      panel("ประวัติการขาย (แก้ไขบิลย้อนหลังได้)", el("div", {}, historyToolbar, historySummary, historyTableContainer))
+    );
 
     if (cart.length === 0) addPosRow();
     else renderPosItemsTable();
@@ -1737,6 +1780,10 @@ if (typeof module !== "undefined") {
     if (!container) return;
     clear(container);
     let sales = DB.getSales();
+    if (!posHistoryShowAll) {
+      const filterDate = posHistoryDate || DB.todayStr();
+      sales = sales.filter((s) => s.date.slice(0, 10) === filterDate);
+    }
     if (posHistoryUnpaidOnly) {
       sales = sales.filter((s) => s.status !== "ชำระแล้ว");
     }
@@ -1747,8 +1794,10 @@ if (typeof module !== "undefined") {
         const custName = c ? c.name : "ลูกค้าทั่วไป";
         return (s.sale_no || "").toLowerCase().includes(historyQ) || custName.toLowerCase().includes(historyQ);
       });
-    } else if (!posHistoryUnpaidOnly) {
-      sales = sales.slice(0, 30);
+    }
+    if (refs.posHistorySummary) {
+      const totalAmount = sales.reduce((sum, s) => sum + s.total, 0);
+      refs.posHistorySummary.textContent = `รวม ${sales.length} บิล ยอดขายรวม ${money(totalAmount)} บาท`;
     }
 
     const thead = el(
