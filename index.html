@@ -900,6 +900,8 @@ function createDB(storageKey) {
     let status = "ชำระแล้ว";
     if (paymentMethod === "เงินเชื่อ" && paid < total) {
       status = paid === 0 ? "ค้างชำระ" : "ชำระบางส่วน";
+    } else if (paymentMethod === "เงินสดแต่ยังไม่จ่าย") {
+      status = "เงินสดแต่ค้างชำระ";
     }
     const sale = {
       id: genId("sale"),
@@ -939,6 +941,8 @@ function createDB(storageKey) {
     let status = "ชำระแล้ว";
     if (paymentMethod === "เงินเชื่อ" && paid < total) {
       status = paid === 0 ? "ค้างชำระ" : "ชำระบางส่วน";
+    } else if (paymentMethod === "เงินสดแต่ยังไม่จ่าย") {
+      status = "เงินสดแต่ค้างชำระ";
     }
 
     sale.date = date || sale.date;
@@ -1836,11 +1840,12 @@ if (typeof module !== "undefined") {
         { value: "เงินเชื่อ", label: "เงินเชื่อ" },
         { value: "เงินสด", label: "เงินสด" },
         { value: "โอนเงิน", label: "โอนเงิน" },
+          { value: "เงินสดแต่ยังไม่จ่าย", label: "เงินสดแต่ยังไม่จ่าย" },
       ],
       "เงินเชื่อ"
     );
     paymentSelect.addEventListener("change", () => {
-      if (paymentSelect.value === "เงินเชื่อ") refs.posPaidInput.value = 0;
+      if (paymentSelect.value === "เงินเชื่อ" || paymentSelect.value === "เงินสดแต่ยังไม่จ่าย") refs.posPaidInput.value = 0;
       updateBankFieldsVisibility();
       updatePosTotals();
     });
@@ -2086,7 +2091,7 @@ if (typeof module !== "undefined") {
       );
       const statusCell = el("td", {
         text: s.status,
-        style: s.status === "ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : {},
+        style: s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : {},
       });
       const tr = el(
         "tr",
@@ -2503,7 +2508,7 @@ if (typeof module !== "undefined") {
         );
         if (!ok) return;
       }
-    } else if (paymentMethod !== "เงินสด" && paid < total) {
+    } else if (paymentMethod !== "เงินสด" && paymentMethod !== "เงินสดแต่ยังไม่จ่าย" && paid < total) {
       global.alert("จำนวนเงินที่รับน้อยกว่ายอดที่ต้องชำระ");
       return;
     }
@@ -2604,11 +2609,12 @@ if (typeof module !== "undefined") {
         { value: "เงินเชื่อ", label: "เงินเชื่อ" },
         { value: "เงินสด", label: "เงินสด" },
         { value: "โอนเงิน", label: "โอนเงิน" },
+          { value: "เงินสดแต่ยังไม่จ่าย", label: "เงินสดแต่ยังไม่จ่าย" },
       ],
       "เงินเชื่อ"
     );
     paymentSelect.addEventListener("change", () => {
-      if (paymentSelect.value === "เงินเชื่อ") refs.posVatPaidInput.value = 0;
+      if (paymentSelect.value === "เงินเชื่อ" || paymentSelect.value === "เงินสดแต่ยังไม่จ่าย") refs.posVatPaidInput.value = 0;
       updateBankFieldsVisibility();
       updatePosTotalsVat();
     });
@@ -2851,7 +2857,7 @@ if (typeof module !== "undefined") {
       );
       const statusCell = el("td", {
         text: s.status,
-        style: s.status === "ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : {},
+        style: s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : {},
       });
       const tr = el(
         "tr",
@@ -3154,7 +3160,7 @@ if (typeof module !== "undefined") {
         );
         if (!ok) return;
       }
-    } else if (paymentMethod !== "เงินสด" && paid < total) {
+    } else if (paymentMethod !== "เงินสด" && paymentMethod !== "เงินสดแต่ยังไม่จ่าย" && paid < total) {
       global.alert("จำนวนเงินที่รับน้อยกว่ายอดที่ต้องชำระ");
       return;
     }
@@ -5015,7 +5021,7 @@ if (typeof module !== "undefined") {
       container.appendChild(
         buildDataTable(["เลขที่บิล", "วันที่", "ลูกค้า", "ก่อนภาษี", "VAT", "ยอดรวม", "สถานะ"], rows, {
           cellStyle: (row, ci, colName) =>
-            colName === "สถานะ" && row[ci] === "ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : null,
+            colName === "สถานะ" && (row[ci] === "ค้างชำระ" || row[ci] === "เงินสดแต่ค้างชำระ") ? { color: "var(--danger)", fontWeight: "600" } : null,
         })
       );
     } else if (reportSubTab === "best") {
