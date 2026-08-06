@@ -9,19 +9,36 @@
 
 /* styles.css - โปรแกรมร้านผ้าศิริเจริญ เวอร์ชันเว็บ */
 :root {
-  --primary: #8a4baf;
-  --primary-dark: #6d3a8c;
-  --primary-light: #f3ebf8;
+  --primary: #2f6fb0;
+  --primary-dark: #1f4f80;
+  --primary-light: #e8f1fb;
   --accent: #c9932f;
-  --bg: #f7f5fa;
+  --bg: #f5f8fb;
   --panel-bg: #ffffff;
-  --border: #e2ddea;
-  --text: #2c2432;
-  --text-muted: #746a80;
+  --border: #dbe4ee;
+  --text: #22303f;
+  --text-muted: #64748b;
   --danger: #c0392b;
   --success: #2e8b57;
   --radius: 10px;
 }
+
+.vat-theme {
+  --primary: #000000;
+  --primary-dark: #000000;
+  --primary-light: #eeeeee;
+  --accent: #000000;
+  --bg: #ffffff;
+  --panel-bg: #ffffff;
+  --border: #bbbbbb;
+  --text: #000000;
+  --text-muted: #555555;
+  --danger: #000000;
+  --success: #000000;
+  background: #ffffff;
+}
+.tab-btn-vat.active { color: #000; border-bottom-color: #000; }
+.tab-btn-vat:hover { color: #000; background: #eeeeee; }
 
 * { box-sizing: border-box; }
 
@@ -1686,7 +1703,7 @@ if (typeof module !== "undefined") {
   function buildLayout() {
     const shopTitleH1 = el("h1", { text: DB.getShopInfo().name || "ร้านผ้าศิริเจริญ" });
     refs.shopTitleH1 = shopTitleH1;
-    const badge = el("span", { class: "badge", text: VAT_ENABLED ? "รุ่นมี VAT (7%)" : "รุ่นไม่มี VAT" });
+    const badge = VAT_ENABLED ? el("span", { class: "badge", text: "รุ่นมี VAT (7%)" }) : null;
     const cloudBadge = el("span", { class: "badge", text: "คลาวด์: ..." });
     refs.cloudBadge = cloudBadge;
     const header = el(
@@ -1703,7 +1720,7 @@ if (typeof module !== "undefined") {
 
     const nav = el("nav", { class: "tabs" });
     TABS.forEach((t) => {
-      const btn = el("button", { class: "tab-btn", onClick: () => switchTab(t.key) }, t.label);
+      const btn = el("button", { class: t.key === "posVat" ? "tab-btn tab-btn-vat" : "tab-btn", onClick: () => switchTab(t.key) }, t.label);
       if (t.key === "backorders") {
         const badge = el("span", { class: "tab-badge", style: { display: "none" } });
         refs.backordersNavBadge = badge;
@@ -1715,7 +1732,7 @@ if (typeof module !== "undefined") {
 
     const main = el("main", { class: "tab-content-wrap" });
     TABS.forEach((t) => {
-      const sec = el("section", { class: "tab-section", style: { display: "none" } });
+      const sec = el("section", { class: t.key === "posVat" ? "tab-section vat-theme" : "tab-section", style: { display: "none" } });
       sections[t.key] = sec;
       main.appendChild(sec);
     });
