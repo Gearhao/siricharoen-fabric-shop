@@ -875,7 +875,7 @@ function createDB(storageKey) {
       }
     }
   }
-  function createSale(items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName, shippingFee, shippingMethod) {
+  function createSale(items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName, shippingFee, shippingMethod, isVat) {
     const subtotal = items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
     const shipFee = shippingFee || 0;
     const total = subtotal - discount + vatAmount + shipFee;
@@ -903,13 +903,14 @@ function createDB(storageKey) {
       note: note || "",
       bank_name: paymentMethod === "โอนเงิน" ? bankName || "" : "",
       bank_account_name: paymentMethod === "โอนเงิน" ? accountName || "" : "",
+      is_vat: !!isVat,
     };
     store.sales.push(sale);
     applySaleEffects(sale);
     save();
     return sale;
   }
-  function updateSale(id, items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName, shippingFee, shippingMethod) {
+  function updateSale(id, items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName, shippingFee, shippingMethod, isVat) {
     const sale = store.sales.find((x) => x.id === id);
     if (!sale) return null;
     revertSaleEffects(sale);
@@ -939,6 +940,7 @@ function createDB(storageKey) {
     sale.note = note || "";
     sale.bank_name = paymentMethod === "โอนเงิน" ? bankName || "" : "";
     sale.bank_account_name = paymentMethod === "โอนเงิน" ? accountName || "" : "";
+    if (isVat !== undefined) sale.is_vat = !!isVat;
 
     applySaleEffects(sale);
     save();
@@ -1605,6 +1607,13 @@ if (typeof module !== "undefined") {
   let posHistoryDate = "";
   let posHistoryDateTo = "";
   let posHistoryShowAll = false;
+  let cartVat = [];
+  let editingSaleIdVat = null;
+  let posHistoryUnpaidOnlyVat = false;
+  let posHistorySearchVat = "";
+  let posHistoryDateVat = "";
+  let posHistoryDateToVat = "";
+  let posHistoryShowAllVat = false;
   const refs = {};
   const sections = {};
   const navButtons = {};
@@ -1614,6 +1623,7 @@ if (typeof module !== "undefined") {
   const TABS = [
     { key: "dashboard", label: "หน้าหลัก" },
     { key: "pos", label: "ขายสินค้า (POS)" },
+    { key: "posVat", label: "ขายสินค้า VAT 7%" },
     { key: "stock", label: "คลังผ้า" },
     { key: "customers", label: "ลูกค้า" },
     { key: "suppliers", label: "ซัพพลายเออร์" },
@@ -2090,7 +2100,8 @@ if (typeof module !== "undefined") {
     global.alert(`ลบบิลเลขที่ ${sale.sale_no} เรียบร้อยแล้ว`);
   }
 
-  function openMarkSalePaidModal(saleId) {
+  function openMarkSalePaidModal(saleId, refreshFn) {
+    const refresh = refreshFn || renderPosSalesHistory;
     const sale = DB.getSale(saleId);
     if (!sale) return;
     const remain = sale.total - sale.paid;
@@ -2135,7 +2146,7 @@ if (typeof module !== "undefined") {
           }
           DB.markSalePaid(saleId, method, bankName, accountName);
           closeModal();
-          renderPosSalesHistory();
+          refresh();
         },
       },
       "บันทึกการชำระเงิน"
@@ -2529,21 +2540,673 @@ if (typeof module !== "undefined") {
     renderPosSalesHistory();
   }
 
+  function renderPOSVat() {
+    const sec = sections.posVat;
+    clear(sec);
+
+    const itemsTableContainer = el("div", { class: "table-container" });
+    refs.posVatItemsTableContainer = itemsTableContainer;
+    const addRowBtn = el("button", { class: "btn btn-secondary", onClick: () => addPosRowVat() }, "+ เพิ่มรายการ");
+
+    const editBannerLabel = el("span", { text: "" });
+    const editBanner = el(
+      "div",
+      { class: "edit-banner", style: { display: "none" } },
+      editBannerLabel,
+      el("button", { class: "btn btn-sm", onClick: () => cancelEditSalePOSVat() }, "ยกเลิกการแก้ไข")
+    );
+    refs.posVatEditBanner = editBanner;
+    refs.posVatEditBannerLabel = editBannerLabel;
+
+    const left = el(
+      "div",
+      { class: "pos-left" },
+      el("h3", { text: "รายการสินค้า" }),
+      editBanner,
+      itemsTableContainer,
+      addRowBtn
+    );
+
+    const customerSelect = buildCustomerSelectOptions();
+    refs.posVatCustomerSelect = customerSelect;
+
+    const discountInput = numberInput(0);
+    discountInput.addEventListener("input", updatePosTotalsVat);
+    refs.posVatDiscountInput = discountInput;
+
+    const shippingFeeInput = numberInput(0);
+    shippingFeeInput.addEventListener("input", updatePosTotalsVat);
+    refs.posVatShippingFeeInput = shippingFeeInput;
+
+    const shippingMethodInput = textInput("");
+    shippingMethodInput.setAttribute("placeholder", "เช่น ไปรษณีย์ไทย, Kerry, มารับเอง");
+    refs.posVatShippingMethodInput = shippingMethodInput;
+
+    const paymentSelect = selectInput(
+      [
+        { value: "เงินเชื่อ", label: "เงินเชื่อ" },
+        { value: "เงินสด", label: "เงินสด" },
+        { value: "โอนเงิน", label: "โอนเงิน" },
+      ],
+      "เงินเชื่อ"
+    );
+    paymentSelect.addEventListener("change", () => {
+      if (paymentSelect.value === "เงินเชื่อ") refs.posVatPaidInput.value = 0;
+      updateBankFieldsVisibility();
+      updatePosTotalsVat();
+    });
+    refs.posVatPaymentSelect = paymentSelect;
+
+    const paidInput = numberInput(0);
+    paidInput.addEventListener("input", updatePosTotalsVat);
+    refs.posVatPaidInput = paidInput;
+
+    const bankNameInput = textInput("");
+    refs.posVatBankNameInput = bankNameInput;
+    const accountNameInput = textInput("");
+    refs.posVatAccountNameInput = accountNameInput;
+    const bankNameRow = formField("โอนเข้าธนาคาร", bankNameInput);
+    const accountNameRow = formField("ชื่อบัญชี", accountNameInput);
+    refs.posVatBankNameRow = bankNameRow;
+    refs.posVatAccountNameRow = accountNameRow;
+    function updateBankFieldsVisibility() {
+      const isTransfer = paymentSelect.value === "โอนเงิน";
+      bankNameRow.style.display = isTransfer ? "" : "none";
+      accountNameRow.style.display = isTransfer ? "" : "none";
+    }
+    updateBankFieldsVisibility();
+
+    const subtotalLbl = el("div", { class: "totals-line", text: "ยอดรวมก่อนภาษี: 0.00 บาท" });
+    refs.posVatSubtotalLbl = subtotalLbl;
+    const vatLbl = el("div", { class: "totals-line", text: `ภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%: 0.00 บาท` });
+    refs.posVatVatLbl = vatLbl;
+    const shippingLbl = el("div", { class: "totals-line", text: "ค่าจัดส่ง: 0.00 บาท" });
+    refs.posVatShippingLbl = shippingLbl;
+    const totalLbl = el("div", { class: "totals-line totals-main", text: "ยอดสุทธิ: 0.00 บาท" });
+    refs.posVatTotalLbl = totalLbl;
+    const changeLbl = el("div", { class: "totals-line", text: "เงินทอน: 0.00 บาท" });
+    refs.posVatChangeLbl = changeLbl;
+
+    const checkoutBtn = el("button", { class: "btn btn-primary btn-block", onClick: checkoutVat }, "ชำระเงิน / บันทึกบิล");
+    refs.posVatCheckoutBtn = checkoutBtn;
+
+    const right = el(
+      "div",
+      { class: "pos-right" },
+      el(
+        "div",
+        { class: "form-panel" },
+        formField("ลูกค้า", customerSelect),
+        formField("ส่วนลด (บาท)", discountInput),
+        formField("ค่าจัดส่ง (บาท)", shippingFeeInput),
+        formField("วิธีจัดส่ง", shippingMethodInput),
+        formField("ชำระโดย", paymentSelect),
+        formField("รับเงิน (บาท)", paidInput),
+        bankNameRow,
+        accountNameRow
+      ),
+      el("div", { class: "totals-box" }, subtotalLbl, vatLbl, shippingLbl, totalLbl, changeLbl),
+      checkoutBtn
+    );
+
+    sec.appendChild(el("div", { class: "pos-grid" }, left, right));
+
+    const historyTableContainer = el("div", { class: "table-container" });
+    refs.posVatHistoryTableContainer = historyTableContainer;
+    const unpaidChk = el("input", {
+      type: "checkbox",
+      checked: posHistoryUnpaidOnlyVat,
+      style: posHistoryUnpaidOnlyVat ? { accentColor: "var(--danger)" } : {},
+      onChange: (e) => {
+        posHistoryUnpaidOnlyVat = e.target.checked;
+        unpaidChk.style.accentColor = posHistoryUnpaidOnlyVat ? "var(--danger)" : "";
+        renderPosSalesHistoryVat();
+      },
+    });
+    const historySearchInput = el("input", {
+      type: "text",
+      placeholder: "ค้นหา (เลขที่บิล/ชื่อลูกค้า)",
+      value: posHistorySearchVat,
+      onInput: (e) => {
+        posHistorySearchVat = e.target.value;
+        renderPosSalesHistoryVat();
+      },
+    });
+    const historyDateInput = dateInputEl({
+      value: posHistoryDateVat || DB.todayStr(),
+      onChange: (e) => {
+        posHistoryDateVat = e.target.value;
+        const effectiveTo = posHistoryDateToVat || DB.todayStr();
+        if (effectiveTo < posHistoryDateVat) {
+          posHistoryDateToVat = posHistoryDateVat;
+          historyDateToInput.value = posHistoryDateVat;
+        }
+        posHistoryShowAllVat = false;
+        showAllChk.checked = false;
+        renderPosSalesHistoryVat();
+      },
+    });
+    refs.posVatHistoryDateInput = historyDateInput;
+    const historyDateToInput = dateInputEl({
+      value: posHistoryDateToVat || DB.todayStr(),
+      onChange: (e) => {
+        posHistoryDateToVat = e.target.value;
+        const effectiveFrom = posHistoryDateVat || DB.todayStr();
+        if (posHistoryDateToVat < effectiveFrom) {
+          posHistoryDateVat = posHistoryDateToVat;
+          historyDateInput.value = posHistoryDateToVat;
+        }
+        posHistoryShowAllVat = false;
+        showAllChk.checked = false;
+        renderPosSalesHistoryVat();
+      },
+    });
+    refs.posVatHistoryDateToInput = historyDateToInput;
+    const todayBtn = el(
+      "button",
+      {
+        class: "btn btn-sm",
+        onClick: () => {
+          posHistoryDateVat = "";
+          posHistoryDateToVat = "";
+          posHistoryShowAllVat = false;
+          historyDateInput.value = DB.todayStr();
+          historyDateToInput.value = DB.todayStr();
+          showAllChk.checked = false;
+          renderPosSalesHistoryVat();
+        },
+      },
+      "วันนี้"
+    );
+    const showAllChk = el("input", {
+      type: "checkbox",
+      checked: posHistoryShowAllVat,
+      onChange: (e) => {
+        posHistoryShowAllVat = e.target.checked;
+        renderPosSalesHistoryVat();
+      },
+    });
+    refs.posVatHistoryShowAllChk = showAllChk;
+    const historyToolbar = el(
+      "div",
+      { class: "toolbar" },
+      historyDateInput,
+      el("span", { text: "ถึง" }),
+      historyDateToInput,
+      todayBtn,
+      el("label", { class: "chk-label" }, showAllChk, " แสดงทั้งหมดทุกวัน"),
+      historySearchInput,
+      el("label", { class: "chk-label" }, unpaidChk, " แสดงเฉพาะบิลที่ยังไม่จ่ายเงิน")
+    );
+    const historySummary = el("div", { class: "totals-line" });
+    refs.posVatHistorySummary = historySummary;
+    sec.appendChild(
+      panel("ประวัติการขาย (แก้ไขบิลย้อนหลังได้)", el("div", {}, historyToolbar, historySummary, historyTableContainer))
+    );
+
+    if (cartVat.length === 0) addPosRowVat();
+    else renderPosItemsTableVat();
+    updatePosTotalsVat();
+    renderPosSalesHistoryVat();
+    updateEditBannerUIVat();
+  }
+
+  function updateEditBannerUIVat() {
+    if (!refs.posVatEditBanner) return;
+    if (editingSaleIdVat) {
+      const sale = DB.getSale(editingSaleIdVat);
+      refs.posVatEditBanner.style.display = "flex";
+      refs.posVatEditBannerLabel.textContent = sale ? `กำลังแก้ไขบิลเลขที่ ${sale.sale_no}` : "กำลังแก้ไขบิล";
+      if (refs.posVatCheckoutBtn) refs.posVatCheckoutBtn.textContent = "บันทึกการแก้ไขบิล";
+    } else {
+      refs.posVatEditBanner.style.display = "none";
+      if (refs.posVatCheckoutBtn) refs.posVatCheckoutBtn.textContent = "ชำระเงิน / บันทึกบิล";
+    }
+  }
+
+  function renderPosSalesHistoryVat() {
+    const container = refs.posVatHistoryTableContainer;
+    if (!container) return;
+    clear(container);
+    let sales = DB.getSales().filter((s) => s.is_vat);
+    if (!posHistoryShowAllVat) {
+      const fromDate = posHistoryDateVat || DB.todayStr();
+      const toDate = posHistoryDateToVat || DB.todayStr();
+      sales = sales.filter((s) => {
+        const d = s.date.slice(0, 10);
+        return d >= fromDate && d <= toDate;
+      });
+    }
+    if (posHistoryUnpaidOnlyVat) {
+      sales = sales.filter((s) => s.status !== "ชำระแล้ว");
+    }
+    const historyQ = posHistorySearchVat.trim().toLowerCase();
+    if (historyQ) {
+      sales = sales.filter((s) => {
+        const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
+        const custName = c ? c.name : "ลูกค้าทั่วไป";
+        return (s.sale_no || "").toLowerCase().includes(historyQ) || custName.toLowerCase().includes(historyQ);
+      });
+    }
+    if (refs.posVatHistorySummary) {
+      const totalAmount = sales.reduce((sum, s) => sum + s.total, 0);
+      refs.posVatHistorySummary.textContent = `รวม ${sales.length} บิล ยอดขายรวม ${money(totalAmount)} บาท`;
+    }
+
+    const thead = el(
+      "thead",
+      {},
+      el(
+        "tr",
+        {},
+        el("th", { text: "เลขที่บิล" }),
+        el("th", { text: "วันที่" }),
+        el("th", { text: "ลูกค้า" }),
+        el("th", { text: "ยอดรวม" }),
+        el("th", { text: "สถานะ" }),
+        el("th", { text: "จัดการ" })
+      )
+    );
+    const tbody = el("tbody", {});
+
+    if (sales.length === 0) {
+      tbody.appendChild(el("tr", {}, el("td", { colspan: 6, class: "empty", text: "ไม่มีข้อมูล" })));
+    }
+
+    sales.forEach((s) => {
+      const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
+      const actionsCell = el(
+        "td",
+        { class: "actions-cell" },
+        el("button", { class: "btn btn-sm", onClick: () => editSalePOSVat(s.id) }, "แก้ไข"),
+        s.status !== "ชำระแล้ว"
+          ? el(
+              "button",
+              {
+                class: "btn btn-sm",
+                onClick: () => openMarkSalePaidModal(s.id, renderPosSalesHistoryVat),
+              },
+              "ชำระแล้ว"
+            )
+          : null,
+        el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, "พิมพ์ใบเสร็จ"),
+        el("button", { class: "btn btn-sm", onClick: () => deleteSalePOSVat(s.id) }, "ลบ")
+      );
+      const statusCell = el("td", {
+        text: s.status,
+        style: s.status === "ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : {},
+      });
+      const tr = el(
+        "tr",
+        {},
+        el("td", { text: s.sale_no }),
+        el("td", { text: fmtDate(s.date) }),
+        el("td", { text: c ? c.name : "ลูกค้าทั่วไป" }),
+        el("td", { text: money(s.total) }),
+        statusCell,
+        actionsCell
+      );
+      tbody.appendChild(tr);
+    });
+
+    const table = el("table", { class: "data-table" }, thead, tbody);
+    container.appendChild(table);
+  }
+
+  function deleteSalePOSVat(saleId) {
+    const sale = DB.getSale(saleId);
+    if (!sale) return;
+    if (!global.confirm(`ยืนยันลบบิลเลขที่ ${sale.sale_no} ยอดรวม ${money(sale.total)} บาท? สต็อกและยอดค้างชำระ (ถ้ามี) จะถูกคืนกลับให้อัตโนมัติ`)) return;
+    if (editingSaleIdVat === saleId) {
+      cancelEditSalePOSVat();
+    }
+    DB.deleteSale(saleId);
+    renderPosSalesHistoryVat();
+    global.alert(`ลบบิลเลขที่ ${sale.sale_no} เรียบร้อยแล้ว`);
+  }
+
+  function editSalePOSVat(saleId) {
+    const sale = DB.getSale(saleId);
+    if (!sale) return;
+    editingSaleIdVat = saleId;
+    cartVat = sale.items.map((it) => {
+      const f = DB.getFabric(it.fabric_id);
+      return {
+        fabric_id: it.fabric_id,
+        code: f ? f.code : "",
+        name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)",
+        unit: it.unit || (f ? f.unit : "หลา"),
+        baseUnit: f ? f.unit : "",
+        qty: it.qty,
+        unit_price: it.unit_price,
+        stock_qty: f ? f.stock_qty : null,
+      };
+    });
+    if (cartVat.length === 0) addPosRowVat();
+    else renderPosItemsTableVat();
+    refs.posVatCustomerSelect.setCustomerId(sale.customer_id || 0);
+    refs.posVatDiscountInput.value = sale.discount || 0;
+    refs.posVatShippingFeeInput.value = sale.shipping_fee || 0;
+    refs.posVatShippingMethodInput.value = sale.shipping_method || "";
+    refs.posVatPaymentSelect.value = sale.payment_method;
+    refs.posVatPaidInput.value = sale.paid;
+    refs.posVatBankNameInput.value = sale.bank_name || "";
+    refs.posVatAccountNameInput.value = sale.bank_account_name || "";
+    refs.posVatBankNameRow.style.display = sale.payment_method === "โอนเงิน" ? "" : "none";
+    refs.posVatAccountNameRow.style.display = sale.payment_method === "โอนเงิน" ? "" : "none";
+    updatePosTotalsVat();
+    updateEditBannerUIVat();
+    sections.posVat.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function cancelEditSalePOSVat() {
+    editingSaleIdVat = null;
+    cartVat = [];
+    addPosRowVat();
+    refs.posVatDiscountInput.value = 0;
+    refs.posVatPaidInput.value = 0;
+    refs.posVatShippingFeeInput.value = 0;
+    refs.posVatShippingMethodInput.value = "";
+    refs.posVatPaymentSelect.value = "เงินเชื่อ";
+    refs.posVatBankNameInput.value = "";
+    refs.posVatAccountNameInput.value = "";
+    refs.posVatBankNameRow.style.display = "none";
+    refs.posVatAccountNameRow.style.display = "none";
+    const newCustomerSelect = buildCustomerSelectOptions();
+    const oldSelect = refs.posVatCustomerSelect;
+    if (oldSelect.parentNode) oldSelect.parentNode.replaceChild(newCustomerSelect, oldSelect);
+    refs.posVatCustomerSelect = newCustomerSelect;
+    updatePosTotalsVat();
+    updateEditBannerUIVat();
+  }
+
+  function addPosRowVat() {
+    cartVat.push({ fabric_id: "", code: "", name: "", unit: "หลา", baseUnit: "", qty: 1, unit_price: 0, stock_qty: null });
+    renderPosItemsTableVat();
+    updatePosTotalsVat();
+  }
+
+  function posRowSetFabricVat(idx, fidStr) {
+    const fid = Number(fidStr) || 0;
+    const f = fid ? DB.getFabric(fid) : null;
+    if (f) {
+      const saleUnit = cartVat[idx].unit || "หลา";
+      cartVat[idx].fabric_id = f.id;
+      cartVat[idx].code = f.code;
+      cartVat[idx].name = f.name;
+      cartVat[idx].unit = saleUnit;
+      cartVat[idx].baseUnit = f.unit;
+      cartVat[idx].stock_qty = f.stock_qty;
+      if (!cartVat[idx].unit_price) cartVat[idx].unit_price = round2(f.sell_price * unitFactor(saleUnit, f.unit));
+    } else {
+      cartVat[idx] = { fabric_id: "", code: "", name: "", unit: cartVat[idx].unit || "หลา", baseUnit: "", qty: cartVat[idx].qty, unit_price: 0, stock_qty: null };
+    }
+    renderPosItemsTableVat();
+    updatePosTotalsVat();
+  }
+
+  function posRowSetUnitVat(idx, unitVal) {
+    const row = cartVat[idx];
+    const f = row.fabric_id ? DB.getFabric(row.fabric_id) : null;
+    if (f) {
+      const oldFactor = unitFactor(row.unit, f.unit);
+      const newFactor = unitFactor(unitVal, f.unit);
+      const pricePerBase = row.unit_price && oldFactor ? row.unit_price / oldFactor : f.sell_price;
+      row.unit_price = round2(pricePerBase * newFactor);
+    }
+    row.unit = unitVal;
+    renderPosItemsTableVat();
+    updatePosTotalsVat();
+  }
+
+  function renderPosItemsTableVat() {
+    const container = refs.posVatItemsTableContainer;
+    clear(container);
+    const { opts: fabricOptions } = fabricSelectOptions();
+    const unitOptions = [
+      { value: "หลา", label: "หลา" },
+      { value: "เมตร", label: "เมตร" },
+    ];
+
+    const thead = el(
+      "thead",
+      {},
+      el(
+        "tr",
+        {},
+        el("th", { text: "#" }),
+        el("th", { text: "สินค้า (รหัส - ชื่อ)" }),
+        el("th", { text: "หน่วย" }),
+        el("th", { text: "คงเหลือ" }),
+        el("th", { text: "จำนวน" }),
+        el("th", { text: "ราคา/หน่วย" }),
+        el("th", { text: "รวม" }),
+        el("th", { text: "" })
+      )
+    );
+    const tbody = el("tbody", {});
+
+    if (cartVat.length === 0) {
+      tbody.appendChild(el("tr", {}, el("td", { colspan: 8, class: "empty", text: 'ยังไม่มีรายการ กด "+ เพิ่มรายการ"' })));
+    }
+
+    cartVat.forEach((row, idx) => {
+      const fabricSelect = searchSelectInput(fabricOptions, row.fabric_id ? String(row.fabric_id) : "", "พิมพ์รหัส/ชื่อผ้า");
+      fabricSelect.inputEl.addEventListener("change", () => {
+        const v = fabricSelect.getMatchedValue();
+        if (v === null) {
+          global.alert("ไม่พบผ้าตามที่พิมพ์ กรุณาเลือกจากรายการที่ปรากฏ");
+          const cur = fabricOptions.find((o) => o.value === (row.fabric_id ? String(row.fabric_id) : ""));
+          fabricSelect.setLabel(cur ? cur.label : "");
+          return;
+        }
+        posRowSetFabricVat(idx, v);
+      });
+
+      const unitSelect = selectInput(unitOptions, row.unit || "หลา");
+      unitSelect.addEventListener("change", (e) => posRowSetUnitVat(idx, e.target.value));
+
+      const qtyInput = numberInput(row.qty);
+      qtyInput.addEventListener("input", (e) => {
+        cartVat[idx].qty = Number(e.target.value) || 0;
+        updatePosRowAmountVat(idx);
+        updatePosTotalsVat();
+      });
+
+      const priceInput = numberInput(row.unit_price);
+      priceInput.addEventListener("input", (e) => {
+        cartVat[idx].unit_price = Number(e.target.value) || 0;
+        updatePosRowAmountVat(idx);
+        updatePosTotalsVat();
+      });
+
+      let stockText = "-";
+      if (row.stock_qty !== null && row.stock_qty !== undefined && row.baseUnit) {
+        stockText = `${row.stock_qty} ${row.baseUnit}`;
+        if (row.unit && row.unit !== row.baseUnit) {
+          const factor = unitFactor(row.unit, row.baseUnit);
+          const equiv = factor ? row.stock_qty / factor : row.stock_qty;
+          stockText += ` (≈ ${round2(equiv)} ${row.unit})`;
+        }
+      }
+      const amountCell = el("td", { text: money(row.qty * row.unit_price) });
+      refs["posVatRowAmount_" + idx] = amountCell;
+
+      const removeBtn = el(
+        "button",
+        {
+          class: "btn btn-sm",
+          onClick: () => {
+            cartVat.splice(idx, 1);
+            renderPosItemsTableVat();
+            updatePosTotalsVat();
+          },
+        },
+        "ลบ"
+      );
+
+      const tr = el(
+        "tr",
+        {},
+        el("td", { text: String(idx + 1) }),
+        el("td", {}, fabricSelect),
+        el("td", {}, unitSelect),
+        el("td", { text: stockText }),
+        el("td", {}, qtyInput),
+        el("td", {}, priceInput),
+        amountCell,
+        el("td", {}, removeBtn)
+      );
+      tbody.appendChild(tr);
+    });
+
+    const table = el("table", { class: "data-table pos-item-table" }, thead, tbody);
+    container.appendChild(table);
+  }
+
+  function updatePosRowAmountVat(idx) {
+    const cell = refs["posVatRowAmount_" + idx];
+    if (cell) cell.textContent = money(cartVat[idx].qty * cartVat[idx].unit_price);
+  }
+
+  function calcPosTotalsVat() {
+    const subtotal = cartVat.reduce((s, it) => s + it.qty * it.unit_price, 0);
+    const discount = Number(refs.posVatDiscountInput.value) || 0;
+    const base = Math.max(0, subtotal - discount);
+    const vat = Math.round(base * VAT_RATE * 100) / 100;
+    const shippingFee = Number(refs.posVatShippingFeeInput.value) || 0;
+    const total = base + vat + shippingFee;
+    return { subtotal, discount, vat, shippingFee, total };
+  }
+
+  function updatePosTotalsVat() {
+    const { subtotal, discount, vat, shippingFee, total } = calcPosTotalsVat();
+    refs.posVatSubtotalLbl.textContent = `ยอดรวมก่อนภาษี: ${money(subtotal - discount)} บาท`;
+    if (refs.posVatVatLbl) {
+      refs.posVatVatLbl.textContent = `ภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%: ${money(vat)} บาท`;
+    }
+    if (refs.posVatShippingLbl) {
+      refs.posVatShippingLbl.textContent = `ค่าจัดส่ง: ${money(shippingFee)} บาท`;
+    }
+    refs.posVatTotalLbl.textContent = `ยอดสุทธิ: ${money(total)} บาท`;
+    const paid = Number(refs.posVatPaidInput.value) || 0;
+    const change = refs.posVatPaymentSelect.value !== "เงินเชื่อ" ? Math.max(0, paid - total) : 0;
+    refs.posVatChangeLbl.textContent = `เงินทอน: ${money(change)} บาท`;
+  }
+
+  function checkoutVat() {
+    const validItems = cartVat.filter((it) => it.fabric_id && it.qty > 0);
+    if (validItems.length === 0) {
+      global.alert("กรุณาเลือกสินค้าและระบุจำนวนอย่างน้อย 1 รายการ");
+      return;
+    }
+    const oldSale = editingSaleIdVat ? DB.getSale(editingSaleIdVat) : null;
+    function oldStockQtyFor(fabricId) {
+      if (!oldSale) return 0;
+      return oldSale.items.filter((it) => it.fabric_id === fabricId).reduce((s, it) => s + it.stock_qty, 0);
+    }
+    for (const it of validItems) {
+      const f = DB.getFabric(it.fabric_id);
+      if (f) {
+        const qtyInBase = it.qty * unitFactor(it.unit, f.unit);
+        const availableStock = f.stock_qty + oldStockQtyFor(it.fabric_id);
+        if (qtyInBase > availableStock) {
+          const shownQty = it.unit === f.unit ? `${it.qty} ${it.unit}` : `${it.qty} ${it.unit} (≈ ${round2(qtyInBase)} ${f.unit})`;
+          if (!global.confirm(`สินค้า "${f.name}" มีสต็อกไม่พอ (คงเหลือ ${round2(availableStock)} ${f.unit}, ต้องการขาย ${shownQty}) ต้องการขายต่อหรือไม่?`)) return;
+        }
+      }
+    }
+    const { subtotal, discount, vat, shippingFee, total } = calcPosTotalsVat();
+    const custId = refs.posVatCustomerSelect.getCustomerId();
+    const paymentMethod = refs.posVatPaymentSelect.value;
+    const paid = Number(refs.posVatPaidInput.value) || 0;
+    const shippingMethod = refs.posVatShippingMethodInput.value.trim();
+
+    if (paymentMethod === "เงินเชื่อ") {
+      if (!custId) {
+        global.alert("การขายแบบเงินเชื่อต้องเลือกลูกค้า");
+        return;
+      }
+      const customer = DB.getCustomer(custId);
+      const newBalance = customer.credit_balance + (total - paid);
+      if (customer.credit_limit > 0 && newBalance > customer.credit_limit) {
+        const ok = global.confirm(
+          `ลูกค้ารายนี้มีวงเงินเครดิต ${money(customer.credit_limit)} บาท ยอดหลังขายจะเป็น ${money(
+            newBalance
+          )} บาท เกินวงเงินที่กำหนด ต้องการดำเนินการต่อหรือไม่?`
+        );
+        if (!ok) return;
+      }
+    } else if (paymentMethod !== "เงินสด" && paid < total) {
+      global.alert("จำนวนเงินที่รับน้อยกว่ายอดที่ต้องชำระ");
+      return;
+    }
+
+    const bankName = refs.posVatBankNameInput.value.trim();
+    const accountName = refs.posVatAccountNameInput.value.trim();
+    if (paymentMethod === "โอนเงิน" && (!bankName || !accountName)) {
+      global.alert("กรุณาระบุธนาคารที่โอนเข้าและชื่อบัญชี");
+      return;
+    }
+
+    const items = validItems.map((it) => {
+      const f = DB.getFabric(it.fabric_id);
+      const factor = f ? unitFactor(it.unit, f.unit) : 1;
+      return {
+        fabric_id: it.fabric_id,
+        qty: it.qty,
+        unit_price: it.unit_price,
+        unit: it.unit,
+        stock_qty: it.qty * factor,
+      };
+    });
+    const sale = editingSaleIdVat
+      ? DB.updateSale(editingSaleIdVat, items, custId || null, discount, vat, paymentMethod, paid, "", undefined, bankName, accountName, shippingFee, shippingMethod, true)
+      : DB.createSale(items, custId || null, discount, vat, paymentMethod, paid, "", undefined, bankName, accountName, shippingFee, shippingMethod, true);
+
+    showReceiptModal(sale, custId, validItems.slice());
+
+    editingSaleIdVat = null;
+    cartVat = [];
+    addPosRowVat();
+    refs.posVatDiscountInput.value = 0;
+    refs.posVatPaidInput.value = 0;
+    refs.posVatShippingFeeInput.value = 0;
+    refs.posVatShippingMethodInput.value = "";
+    refs.posVatPaymentSelect.value = "เงินเชื่อ";
+    refs.posVatBankNameInput.value = "";
+    refs.posVatAccountNameInput.value = "";
+    refs.posVatBankNameRow.style.display = "none";
+    refs.posVatAccountNameRow.style.display = "none";
+
+    const newCustomerSelect = buildCustomerSelectOptions();
+    const oldSelect = refs.posVatCustomerSelect;
+    if (oldSelect.parentNode) {
+      oldSelect.parentNode.replaceChild(newCustomerSelect, oldSelect);
+    }
+    refs.posVatCustomerSelect = newCustomerSelect;
+
+    updatePosTotalsVat();
+    updateEditBannerUIVat();
+    renderPosSalesHistoryVat();
+  }
+
   function buildReceiptDoc(sale, cust, shop, cartItems, docType) {
+    const showVat = VAT_ENABLED || !!(sale && sale.is_vat);
     // docType: "delivery" (ใบส่งสินค้า) | "cash" (บิลเงินสด) | "normal" (ใบเสร็จปกติ)
     const isDeliveryDoc = docType === "delivery";
     const docTitle = isDeliveryDoc
       ? "ใบส่งสินค้า"
       : docType === "cash"
       ? "บิลเงินสด"
-      : VAT_ENABLED
+      : showVat
       ? "ใบกำกับภาษีอย่างย่อ / ใบเสร็จรับเงิน"
       : "ใบเสร็จรับเงิน";
     const custName = cust ? cust.name : "ลูกค้าทั่วไป";
 
     // -------- plain text version (สำหรับดาวน์โหลดไฟล์ .txt) --------
     const lines = [];
-    if (VAT_ENABLED && !isDeliveryDoc && shop.tax_id) lines.push(`เลขผู้เสียภาษี: ${shop.tax_id}`);
+    if (showVat && !isDeliveryDoc && shop.tax_id) lines.push(`เลขผู้เสียภาษี: ${shop.tax_id}`);
     lines.push(docTitle);
     lines.push(`เลขที่บิล: ${sale.sale_no}`);
     lines.push(`วันที่: ${fmtDate(sale.date)}`);
@@ -2563,7 +3226,7 @@ if (typeof module !== "undefined") {
     lines.push("-".repeat(40));
     lines.push(`${"ยอดรวมก่อนหักส่วนลด".padEnd(24)}${money(sale.subtotal).padStart(14)}`);
     if (sale.discount) lines.push(`${"ส่วนลด".padEnd(24)}${money(sale.discount).padStart(14)}`);
-    if (VAT_ENABLED) lines.push(`${("ภาษีมูลค่าเพิ่ม " + Math.round(VAT_RATE * 100) + "%").padEnd(24)}${money(sale.vat_amount).padStart(14)}`);
+    if (showVat) lines.push(`${("ภาษีมูลค่าเพิ่ม " + Math.round(VAT_RATE * 100) + "%").padEnd(24)}${money(sale.vat_amount).padStart(14)}`);
     if (sale.shipping_fee) lines.push(`${"ค่าจัดส่ง".padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
     lines.push(`${"ยอดสุทธิ".padEnd(24)}${money(sale.total).padStart(14)}`);
     lines.push(`${"รับเงิน".padEnd(24)}${money(sale.paid).padStart(14)}`);
@@ -2604,7 +3267,7 @@ if (typeof module !== "undefined") {
     if (sale.discount) {
       summaryRows += `<tr><td style="padding:2px 0;color:#555;">ส่วนลด</td><td style="padding:2px 0;text-align:right;">${money(sale.discount)}</td></tr>`;
     }
-    if (VAT_ENABLED) {
+    if (showVat) {
       summaryRows += `<tr><td style="padding:2px 0;color:#555;">ภาษีมูลค่าเพิ่ม ${Math.round(
         VAT_RATE * 100
       )}%</td><td style="padding:2px 0;text-align:right;">${money(sale.vat_amount)}</td></tr>`;
@@ -2627,7 +3290,7 @@ if (typeof module !== "undefined") {
     }
 
     const taxIdLine =
-      VAT_ENABLED && !isDeliveryDoc && shop.tax_id
+      showVat && !isDeliveryDoc && shop.tax_id
         ? `<div style="text-align:left;font-size:11px;color:#555;margin-bottom:6px;">เลขผู้เสียภาษี: ${esc(shop.tax_id)}</div>`
         : "";
     const shippingMethodRow = sale.shipping_method
@@ -4459,6 +5122,7 @@ if (typeof module !== "undefined") {
 
     renderers.dashboard = renderDashboard;
     renderers.pos = renderPOS;
+    renderers.posVat = renderPOSVat;
     renderers.stock = renderStock;
     renderers.customers = renderCustomers;
     renderers.suppliers = renderSuppliers;
