@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="th">
 <head>
 <meta charset="UTF-8">
@@ -80,6 +81,10 @@ html, body {
 }
 .tab-btn:hover { color: var(--primary-dark); background: var(--primary-light); }
 .tab-btn.active { color: var(--primary-dark); border-bottom-color: var(--primary); font-weight: 700; }
+.tab-badge {
+  display: inline-block; margin-left: 6px; background: var(--danger); color: #fff;
+  font-size: 11px; font-weight: 700; line-height: 1; padding: 3px 6px; border-radius: 999px; vertical-align: middle;
+}
 
 .tab-content-wrap { flex: 1; }
 .tab-section { padding: 0; }
@@ -456,6 +461,9 @@ function createDB(storageKey) {
           Object.keys(store).forEach((k) => delete store[k]);
           Object.assign(store, row.data);
           if (!store.shopInfo) store.shopInfo = emptyStore().shopInfo;
+          if (!store.backorders) store.backorders = [];
+          if (!store.nextId) store.nextId = {};
+          if (!store.nextId.backorder) store.nextId.backorder = store.backorders.length + 1;
           migrateCodes(store);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
           cloudStatus = "synced";
@@ -477,7 +485,7 @@ function createDB(storageKey) {
 
   function emptyStore() {
     return {
-      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1 },
+      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1 },
       shopInfo: { name: "ร้านผ้าศิริเจริญ", address: "", phone: "", tax_id: "" },
       suppliers: [],
       customers: [],
@@ -488,6 +496,7 @@ function createDB(storageKey) {
       supplierPayments: [],
       expenses: [],
       stockMovements: [],
+      backorders: [],
     };
   }
 
@@ -499,6 +508,9 @@ function createDB(storageKey) {
       if (raw) {
         const data = JSON.parse(raw);
         if (!data.shopInfo) data.shopInfo = emptyStore().shopInfo;
+        if (!data.backorders) data.backorders = [];
+        if (!data.nextId) data.nextId = {};
+        if (!data.nextId.backorder) data.nextId.backorder = data.backorders.length + 1;
         migrateCodes(data);
         return data;
       }
@@ -1178,6 +1190,61 @@ function createDB(storageKey) {
     save();
   }
 
+  // -------------------------------------------------------------- backorders (รายการรอสินค้า)
+  function addBackorder(data) {
+    const item = {
+      id: genId("backorder"),
+      date: nowStr(),
+      customer_name: (data && data.customer_name) || "",
+      customer_phone: (data && data.customer_phone) || "",
+      fabric_name: (data && data.fabric_name) || "",
+      qty: (data && data.qty) || 0,
+      unit: (data && data.unit) || "หลา",
+      status: (data && data.status) || "สินค้าหมด",
+      note: (data && data.note) || "",
+      done: false,
+      resolved_date: null,
+    };
+    store.backorders.push(item);
+    save();
+    return item;
+  }
+  function updateBackorder(id, data) {
+    const b = store.backorders.find((x) => x.id === id);
+    if (!b) return null;
+    Object.assign(b, data);
+    save();
+    return b;
+  }
+  function markBackorderDone(id) {
+    const b = store.backorders.find((x) => x.id === id);
+    if (!b) return;
+    b.done = true;
+    b.resolved_date = nowStr();
+    save();
+  }
+  function markBackorderUndone(id) {
+    const b = store.backorders.find((x) => x.id === id);
+    if (!b) return;
+    b.done = false;
+    b.resolved_date = null;
+    save();
+  }
+  function deleteBackorder(id) {
+    const idx = store.backorders.findIndex((x) => x.id === id);
+    if (idx === -1) return false;
+    store.backorders.splice(idx, 1);
+    save();
+    return true;
+  }
+  function getBackorders() {
+    return [...(store.backorders || [])].sort((a, b) => (a.date < b.date ? 1 : -1));
+  }
+  function getBackorder(id) {
+    return store.backorders.find((x) => x.id === id) || null;
+  }
+
+
   // -------------------------------------------------------------- reports
   function salesSummary(start, end) {
     const rows = getSales(start, end);
@@ -1258,6 +1325,7 @@ function createDB(storageKey) {
     createSale, updateSale, deleteSale, getSales, getSale, markSalePaid,
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense,
+    addBackorder, updateBackorder, deleteBackorder, markBackorderDone, markBackorderUndone, getBackorders, getBackorder,
     salesSummary, cogsSummary, expensesSummary, bestSellers, lowStockList,
     arAging, apAging,
     exportBackup, importBackup, resetAll,
@@ -1550,6 +1618,7 @@ if (typeof module !== "undefined") {
     { key: "customers", label: "ลูกค้า" },
     { key: "suppliers", label: "ซัพพลายเออร์" },
     { key: "purchases", label: "รับสินค้าเข้า" },
+      { key: "backorders", label: "รายการรอสินค้า" },
     { key: "accounting", label: "บัญชี" },
     { key: "reports", label: "รายงาน" },
   ];
@@ -1591,8 +1660,19 @@ if (typeof module !== "undefined") {
       navButtons[t.key].classList.toggle("active", t.key === key);
     });
     if (renderers[key]) renderers[key]();
+    updateBackordersBadge();
   }
-
+  function updateBackordersBadge() {
+    if (!refs.backordersNavBadge) return;
+    const n = DB.getBackorders().filter((b) => !b.done).length;
+    if (n > 0) {
+      refs.backordersNavBadge.textContent = String(n);
+      refs.backordersNavBadge.style.display = "";
+    } else {
+      refs.backordersNavBadge.style.display = "none";
+    }
+  }
+  
   function buildLayout() {
     const shopTitleH1 = el("h1", { text: DB.getShopInfo().name || "ร้านผ้าศิริเจริญ" });
     refs.shopTitleH1 = shopTitleH1;
@@ -1614,6 +1694,11 @@ if (typeof module !== "undefined") {
     const nav = el("nav", { class: "tabs" });
     TABS.forEach((t) => {
       const btn = el("button", { class: "tab-btn", onClick: () => switchTab(t.key) }, t.label);
+      if (t.key === "backorders") {
+        const badge = el("span", { class: "tab-badge", style: { display: "none" } });
+        refs.backordersNavBadge = badge;
+        btn.appendChild(badge);
+                     }
       navButtons[t.key] = btn;
       nav.appendChild(btn);
     });
@@ -1640,6 +1725,7 @@ if (typeof module !== "undefined") {
     const ap = DB.apAging();
     const arTotal = ar.reduce((s, c) => s + c.credit_balance, 0);
     const apTotal = ap.reduce((s, c) => s + c.credit_balance, 0);
+    const pendingBackorders = DB.getBackorders().filter((b) => !b.done);
 
     const statsRow = el(
       "div",
@@ -1647,7 +1733,8 @@ if (typeof module !== "undefined") {
       statCard("ยอดขายวันนี้", `${money(sToday.total_sales)} บาท`, `${sToday.n_sales} บิล`),
       statCard("ยอดขายเดือนนี้", `${money(sMonth.total_sales)} บาท`, `${sMonth.n_sales} บิล`),
       statCard("ลูกหนี้การค้าคงค้าง", `${money(arTotal)} บาท`, `${ar.length} ราย`),
-      statCard("เจ้าหนี้การค้าคงค้าง", `${money(apTotal)} บาท`, `${ap.length} ราย`)
+      statCard("เจ้าหนี้การค้าคงค้าง", `${money(apTotal)} บาท`, `${ap.length} ราย`),
+      statCard("รายการรอสินค้า", `${pendingBackorders.length} รายการ`, "ยังไม่เสร็จ")
     );
 
     const lowStockTable = buildTable(
@@ -3945,6 +4032,106 @@ if (typeof module !== "undefined") {
     openModal("บันทึกจ่ายเงิน", body);
   }
 
+  // =================================================================== รายการรอสินค้า
+  let backorderSearch = "";
+  let backorderShowDone = false;
+
+  function renderBackorders() {
+    const sec = sections.backorders;
+    clear(sec);
+    const searchInput = el("input", { type: "text", placeholder: "ค้นหา (ชื่อลูกค้า/ชื่อผ้า)", value: backorderSearch,
+      onInput: (e) => { backorderSearch = e.target.value; renderBackorderTable(); } });
+    const showDoneChk = el("input", { type: "checkbox", checked: backorderShowDone,
+      onChange: (e) => { backorderShowDone = e.target.checked; renderBackorderTable(); } });
+    const toolbar = el("div", { class: "toolbar" }, searchInput,
+      el("label", { class: "chk-label" }, showDoneChk, " แสดงที่เสร็จแล้วด้วย"),
+      el("button", { class: "btn btn-primary", onClick: () => openBackorderModal() }, "+ เพิ่มรายการ"));
+    const tableContainer = el("div", { class: "table-container" });
+    refs.backorderTableContainer = tableContainer;
+    sec.appendChild(el("div", { class: "section-inner" }, toolbar, tableContainer));
+    renderBackorderTable();
+  }
+
+  function renderBackorderTable() {
+    const container = refs.backorderTableContainer;
+    if (!container) return;
+    clear(container);
+    let rows = DB.getBackorders();
+    if (!backorderShowDone) rows = rows.filter((b) => !b.done);
+    const q = backorderSearch.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter((b) => (b.customer_name || "").toLowerCase().includes(q) || (b.fabric_name || "").toLowerCase().includes(q));
+    }
+    const table = buildDataTable(
+      ["วันที่", "ลูกค้า", "เบอร์โทร", "ผ้าที่ต้องการ", "จำนวน", "สถานะ", "หมายเหตุ"],
+      rows.map((b) => [fmtDate(b.date), b.customer_name || "-", b.customer_phone || "-", b.fabric_name || "-",
+        `${b.qty || 0} ${b.unit || ""}`, b.done ? "เสร็จแล้ว" : b.status, b.note || ""]),
+      {
+        cellStyle: (row, ci, colName) => {
+          if (colName === "สถานะ" && row[ci] === "สินค้าหมด") return { color: "var(--danger)", fontWeight: "600" };
+          if (colName === "สถานะ" && row[ci] === "เสร็จแล้ว") return { color: "var(--text-muted)" };
+          return null;
+        },
+        actions: (idx) => {
+          const b = rows[idx];
+          const actions = [{ label: "แก้ไข", onClick: () => openBackorderModal(b.id) }];
+          if (b.done) {
+            actions.push({ label: "ยกเลิกเสร็จแล้ว", onClick: () => { DB.markBackorderUndone(b.id); renderBackorderTable(); updateBackordersBadge(); } });
+          } else {
+            actions.push({ label: "เสร็จแล้ว", onClick: () => { DB.markBackorderDone(b.id); renderBackorderTable(); updateBackordersBadge(); } });
+          }
+          actions.push({ label: "ลบ", onClick: () => {
+            if (global.confirm(`ต้องการลบรายการของ "${b.customer_name || "-"}" หรือไม่?`)) {
+              DB.deleteBackorder(b.id); renderBackorderTable(); updateBackordersBadge();
+            }
+          }});
+          return actions;
+        },
+      }
+    );
+    container.appendChild(table);
+  }
+
+  function openBackorderModal(id) {
+    const existing = id ? DB.getBackorder(id) : null;
+    const customerNameInput = textInput(existing ? existing.customer_name : "");
+    const customerPhoneInput = textInput(existing ? existing.customer_phone : "");
+    const fabrics = DB.getFabrics();
+    const fabricListId = "dl_backorder_fabric";
+    const fabricDatalist = el("datalist", { id: fabricListId },
+      ...fabrics.map((f) => el("option", { value: `${f.code} - ${f.name}` })));
+    const fabricNameInput = el("input", { type: "text", value: existing ? existing.fabric_name : "",
+      list: fabricListId, placeholder: "ชื่อ/รหัสผ้าที่ลูกค้าต้องการ" });
+    const qtyInput = numberInput(existing ? existing.qty : 1);
+    const unitInput = textInput(existing ? existing.unit : "หลา");
+    const statusSelect = selectInput(
+      [{ value: "สินค้าหมด", label: "สินค้าหมด" }, { value: "รอย้อม", label: "รอย้อม" }, { value: "อื่นๆ", label: "อื่นๆ" }],
+      existing ? existing.status : "สินค้าหมด");
+    const noteInput = textInput(existing ? existing.note : "");
+    const form = el("div", { class: "form-panel" },
+      formField("ชื่อลูกค้า", customerNameInput), formField("เบอร์โทร", customerPhoneInput),
+      fabricDatalist, formField("ผ้าที่ต้องการ", fabricNameInput),
+      formField("จำนวน", qtyInput), formField("หน่วย", unitInput),
+      formField("สถานะ", statusSelect), formField("หมายเหตุ", noteInput));
+    const saveBtn = el("button", { class: "btn btn-primary", onClick: () => {
+      const customerName = customerNameInput.value.trim();
+      const fabricName = fabricNameInput.value.trim();
+      if (!customerName || !fabricName) { global.alert("กรุณาระบุชื่อลูกค้าและผ้าที่ต้องการ"); return; }
+      const data = {
+        customer_name: customerName, customer_phone: customerPhoneInput.value.trim(),
+        fabric_name: fabricName, qty: Number(qtyInput.value) || 0,
+        unit: unitInput.value.trim() || "หลา", status: statusSelect.value, note: noteInput.value.trim(),
+      };
+      if (existing) DB.updateBackorder(existing.id, data);
+      else DB.addBackorder(data);
+      closeModal();
+      renderBackorderTable();
+      updateBackordersBadge();
+    }}, "บันทึก");
+    exposeTestRefs("backorderForm", { customerNameInput, customerPhoneInput, fabricNameInput, qtyInput, unitInput, statusSelect, noteInput, saveBtn });
+    openModal(existing ? "แก้ไขรายการรอสินค้า" : "เพิ่มรายการรอสินค้า", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
+      }
+
   // =================================================================== บัญชี
   let acctStart = "";
   let acctEnd = "";
@@ -4258,6 +4445,7 @@ if (typeof module !== "undefined") {
     renderers.customers = renderCustomers;
     renderers.suppliers = renderSuppliers;
     renderers.purchases = renderPurchases;
+    renderers.backorders = renderBackorders;
     renderers.accounting = renderAccounting;
     renderers.reports = renderReports;
 
