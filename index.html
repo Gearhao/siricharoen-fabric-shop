@@ -916,6 +916,7 @@ function createDB(storageKey) {
     } else if (paymentMethod === "เงินสดแต่ยังไม่จ่าย") {
       status = "เงินสดแต่ค้างชำระ";
     }
+    const paidMethod = status === "ชำระแล้ว" && (paymentMethod === "เงินสด" || paymentMethod === "โอนเงิน") ? paymentMethod : null;
     const sale = {
       id: genId("sale"),
       sale_no: genSaleNo(),
@@ -931,6 +932,7 @@ function createDB(storageKey) {
       paid,
       change_amt: changeAmt,
       payment_method: paymentMethod,
+      paid_method: paidMethod,
       status,
       note: note || "",
       bank_name: paymentMethod === "โอนเงิน" ? bankName || "" : "",
@@ -970,6 +972,11 @@ function createDB(storageKey) {
     sale.paid = paid;
     sale.change_amt = changeAmt;
     sale.payment_method = paymentMethod;
+    if (status !== "ชำระแล้ว") {
+      sale.paid_method = null;
+    } else if (paymentMethod === "เงินสด" || paymentMethod === "โอนเงิน") {
+      sale.paid_method = paymentMethod;
+    }
     sale.status = status;
     sale.note = note || "";
     sale.bank_name = paymentMethod === "โอนเงิน" ? bankName || "" : "";
@@ -1021,6 +1028,7 @@ function createDB(storageKey) {
     sale.paid = sale.total;
     sale.change_amt = 0;
     sale.status = "ชำระแล้ว";
+    sale.paid_method = method || "เงินสด";
     save();
   }
 
@@ -2193,7 +2201,7 @@ if (typeof module !== "undefined") {
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOS(s.id) }, "ลบ")
       );
       const statusCell = el("td", {
-        text: s.status,
+        text: s.status === "ชำระแล้ว" && s.paid_method ? `${s.status} (${s.paid_method})` : s.status,
         style: s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : {},
       });
       const tr = el(
@@ -2997,7 +3005,7 @@ if (typeof module !== "undefined") {
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOSVat(s.id) }, "ลบ")
       );
       const statusCell = el("td", {
-        text: s.status,
+        text: s.status === "ชำระแล้ว" && s.paid_method ? `${s.status} (${s.paid_method})` : s.status,
         style: s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : {},
       });
       const tr = el(
@@ -3656,10 +3664,25 @@ if (typeof module !== "undefined") {
     if (fabric) stockInput.disabled = true;
     const reorderInput = numberInput(fabric ? fabric.reorder_point : 0);
     const noteInput = textInput(fabric ? fabric.note : "");
-    const supplierOptions = [{ value: "", label: "(ไม่ระบุ)" }].concat(
-      suppliers.map((s) => ({ value: String(s.id), label: `${s.code} - ${s.name}` }))
+    const supplierOptions = suppliers.map((s) => ({ value: String(s.id), label: `${s.code} - ${s.name}` }));
+    const initialSupplierValue = fabric && fabric.supplier_id ? String(fabric.supplier_id) : "";
+    const supplierSelect = searchSelectInput(
+      supplierOptions,
+      initialSupplierValue,
+      "พิมพ์รหัส/ชื่อซัพพลายเออร์เพื่อค้นหา... (เว้นว่างได้ถ้าไม่ระบุ)"
     );
-    const supplierSelect = selectInput(supplierOptions, fabric && fabric.supplier_id ? String(fabric.supplier_id) : "");
+    supplierSelect._supplierId = Number(initialSupplierValue) || 0;
+    supplierSelect.inputEl.addEventListener("change", () => {
+      const v = supplierSelect.getMatchedValue();
+      if (v === null) {
+        global.alert("ไม่พบซัพพลายเออร์ตามที่พิมพ์ กรุณาเลือกจากรายการที่ปรากฏ หรือเว้นว่างไว้ถ้าไม่ระบุ");
+        const cur = supplierOptions.find((o) => o.value === String(supplierSelect._supplierId));
+        supplierSelect.setLabel(cur ? cur.label : "(ไม่ระบุ)");
+        return;
+      }
+      supplierSelect._supplierId = v ? Number(v) : 0;
+    });
+    supplierSelect.getSupplierId = () => supplierSelect._supplierId;
 
     const form = el(
       "div",
@@ -3710,7 +3733,7 @@ if (typeof module !== "undefined") {
             sell_price: Number(sellInput.value) || 0,
             reorder_point: Number(reorderInput.value) || 0,
             note: noteInput.value.trim(),
-            supplier_id: supplierSelect.value ? Number(supplierSelect.value) : null,
+            supplier_id: supplierSelect.getSupplierId() || null,
           };
           if (fabric) {
             DB.updateFabric(fabric.id, data);
