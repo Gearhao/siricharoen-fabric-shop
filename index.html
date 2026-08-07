@@ -231,6 +231,19 @@ html, body {
   max-width: none;
 }
 
+.discount-input-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.discount-input-row input[type="number"] {
+  flex: 1;
+  min-width: 0;
+}
+.discount-input-row select {
+  flex: 0 0 auto;
+  width: 70px;
+}
 .pos-grid {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
@@ -1017,7 +1030,7 @@ function createDB(storageKey) {
     const n = store.purchases.filter((p) => p.po_no.startsWith("PO" + d)).length;
     return "PO" + d + pad(n + 1, 3);
   }
-  function createPurchase(items, supplierId, discount, vatAmount, paymentMethod, note, date, poNo) {
+  function createPurchase(items, supplierId, discount, vatAmount, paymentMethod, note, date, poNo, dueDate) {
     const subtotal = items.reduce((sum, it) => sum + it.qty * it.unit_cost, 0);
     const disc = discount || 0;
     const total = Math.max(0, subtotal - disc) + vatAmount;
@@ -1025,6 +1038,7 @@ function createDB(storageKey) {
       id: genId("purchase"),
       po_no: poNo || genPoNo(),
       date: date || nowStr(),
+      due_date: dueDate || "",
       supplier_id: supplierId,
       items: items.map((it) => ({
         fabric_id: it.fabric_id,
@@ -1094,7 +1108,7 @@ function createDB(storageKey) {
   }
   // บันทึกอัตโนมัติ/แก้ไขใบสั่งซื้อ: ถ้ายังไม่รับสินค้าจะแก้ตรงๆ ได้เลย
   // ถ้ารับสินค้าไปแล้วจะย้อนผลเดิมก่อนแล้วค่อยใส่ผลใหม่ตามรายการที่แก้ไข เพื่อให้สต็อก/ยอดหนี้ถูกต้องเสมอ
-  function updatePurchase(id, items, supplierId, discount, vatAmount, paymentMethod, note, date, poNo) {
+  function updatePurchase(id, items, supplierId, discount, vatAmount, paymentMethod, note, date, poNo, dueDate) {
     const purchase = store.purchases.find((x) => x.id === id);
     if (!purchase) return null;
     const wasReceived = purchase.status === "รับสินค้าแล้ว";
@@ -1105,6 +1119,7 @@ function createDB(storageKey) {
     const total = Math.max(0, subtotal - disc) + vatAmount;
     purchase.po_no = poNo || purchase.po_no;
     purchase.date = date || purchase.date;
+    purchase.due_date = dueDate !== undefined ? dueDate : purchase.due_date || "";
     purchase.supplier_id = supplierId;
     purchase.items = items.map((it) => ({
       fabric_id: it.fabric_id,
@@ -1884,6 +1899,17 @@ if (typeof module !== "undefined") {
     discountInput.addEventListener("input", updatePosTotals);
     refs.posDiscountInput = discountInput;
 
+    const discountUnitSelect = selectInput(
+      [
+        { value: "บาท", label: "บาท" },
+        { value: "%", label: "%" },
+      ],
+      "บาท"
+    );
+    discountUnitSelect.addEventListener("change", updatePosTotals);
+    refs.posDiscountUnitSelect = discountUnitSelect;
+    const discountRow = el("div", { class: "discount-input-row" }, discountInput, discountUnitSelect);
+
     const shippingFeeInput = numberInput(0);
     shippingFeeInput.addEventListener("input", updatePosTotals);
     refs.posShippingFeeInput = shippingFeeInput;
@@ -1951,7 +1977,7 @@ if (typeof module !== "undefined") {
         "div",
         { class: "form-panel" },
         formField("ลูกค้า", customerSelect),
-        formField("ส่วนลด (บาท)", discountInput),
+        formField("ส่วนลด", discountRow),
         formField("ค่าจัดส่ง (บาท)", shippingFeeInput),
         formField("วิธีจัดส่ง", shippingMethodInput),
         formField("ชำระโดย", paymentSelect),
@@ -2270,6 +2296,7 @@ if (typeof module !== "undefined") {
     else renderPosItemsTable();
     refs.posCustomerSelect.setCustomerId(sale.customer_id || 0);
     refs.posDiscountInput.value = sale.discount || 0;
+    if (refs.posDiscountUnitSelect) refs.posDiscountUnitSelect.value = "บาท";
     refs.posShippingFeeInput.value = sale.shipping_fee || 0;
     refs.posShippingMethodInput.value = sale.shipping_method || "";
     refs.posPaymentSelect.value = sale.payment_method;
@@ -2288,6 +2315,7 @@ if (typeof module !== "undefined") {
     cart = [];
     addPosRow();
     refs.posDiscountInput.value = 0;
+    if (refs.posDiscountUnitSelect) refs.posDiscountUnitSelect.value = "บาท";
     refs.posPaidInput.value = 0;
     refs.posShippingFeeInput.value = 0;
     refs.posShippingMethodInput.value = "";
@@ -2514,7 +2542,8 @@ if (typeof module !== "undefined") {
 
   function calcPosTotals() {
     const subtotal = cart.reduce((s, it) => s + it.qty * it.unit_price, 0);
-    const discount = Number(refs.posDiscountInput.value) || 0;
+    const discountRaw = Number(refs.posDiscountInput.value) || 0;
+    const discount = refs.posDiscountUnitSelect && refs.posDiscountUnitSelect.value === "%" ? round2((subtotal * discountRaw) / 100) : discountRaw;
     const base = Math.max(0, subtotal - discount);
     const vat = VAT_ENABLED ? Math.round(base * VAT_RATE * 100) / 100 : 0;
     const shippingFee = Number(refs.posShippingFeeInput.value) || 0;
@@ -2613,6 +2642,7 @@ if (typeof module !== "undefined") {
     cart = [];
     addPosRow();
     refs.posDiscountInput.value = 0;
+    if (refs.posDiscountUnitSelect) refs.posDiscountUnitSelect.value = "บาท";
     refs.posPaidInput.value = 0;
     refs.posShippingFeeInput.value = 0;
     refs.posShippingMethodInput.value = "";
@@ -2667,6 +2697,17 @@ if (typeof module !== "undefined") {
     const discountInput = numberInput(0);
     discountInput.addEventListener("input", updatePosTotalsVat);
     refs.posVatDiscountInput = discountInput;
+
+    const discountUnitSelect = selectInput(
+      [
+        { value: "บาท", label: "บาท" },
+        { value: "%", label: "%" },
+      ],
+      "บาท"
+    );
+    discountUnitSelect.addEventListener("change", updatePosTotalsVat);
+    refs.posVatDiscountUnitSelect = discountUnitSelect;
+    const discountRow = el("div", { class: "discount-input-row" }, discountInput, discountUnitSelect);
 
     const shippingFeeInput = numberInput(0);
     shippingFeeInput.addEventListener("input", updatePosTotalsVat);
@@ -2732,7 +2773,7 @@ if (typeof module !== "undefined") {
         "div",
         { class: "form-panel" },
         formField("ลูกค้า", customerSelect),
-        formField("ส่วนลด (บาท)", discountInput),
+        formField("ส่วนลด", discountRow),
         formField("ค่าจัดส่ง (บาท)", shippingFeeInput),
         formField("วิธีจัดส่ง", shippingMethodInput),
         formField("ชำระโดย", paymentSelect),
@@ -2996,6 +3037,7 @@ if (typeof module !== "undefined") {
     else renderPosItemsTableVat();
     refs.posVatCustomerSelect.setCustomerId(sale.customer_id || 0);
     refs.posVatDiscountInput.value = sale.discount || 0;
+    if (refs.posVatDiscountUnitSelect) refs.posVatDiscountUnitSelect.value = "บาท";
     refs.posVatShippingFeeInput.value = sale.shipping_fee || 0;
     refs.posVatShippingMethodInput.value = sale.shipping_method || "";
     refs.posVatPaymentSelect.value = sale.payment_method;
@@ -3014,6 +3056,7 @@ if (typeof module !== "undefined") {
     cartVat = [];
     addPosRowVat();
     refs.posVatDiscountInput.value = 0;
+    if (refs.posVatDiscountUnitSelect) refs.posVatDiscountUnitSelect.value = "บาท";
     refs.posVatPaidInput.value = 0;
     refs.posVatShippingFeeInput.value = 0;
     refs.posVatShippingMethodInput.value = "";
@@ -3181,7 +3224,8 @@ if (typeof module !== "undefined") {
 
   function calcPosTotalsVat() {
     const subtotal = cartVat.reduce((s, it) => s + it.qty * it.unit_price, 0);
-    const discount = Number(refs.posVatDiscountInput.value) || 0;
+    const discountRaw = Number(refs.posVatDiscountInput.value) || 0;
+    const discount = refs.posVatDiscountUnitSelect && refs.posVatDiscountUnitSelect.value === "%" ? round2((subtotal * discountRaw) / 100) : discountRaw;
     const base = Math.max(0, subtotal - discount);
     const vat = Math.round(base * VAT_RATE * 100) / 100;
     const shippingFee = Number(refs.posVatShippingFeeInput.value) || 0;
@@ -3280,6 +3324,7 @@ if (typeof module !== "undefined") {
     cartVat = [];
     addPosRowVat();
     refs.posVatDiscountInput.value = 0;
+    if (refs.posVatDiscountUnitSelect) refs.posVatDiscountUnitSelect.value = "บาท";
     refs.posVatPaidInput.value = 0;
     refs.posVatShippingFeeInput.value = 0;
     refs.posVatShippingMethodInput.value = "";
@@ -4478,6 +4523,10 @@ if (typeof module !== "undefined") {
     dateInput.addEventListener("change", () => {
       if (items.length > 0) syncPurchase();
     });
+    const dueDateInput = dateInputEl({ value: editingPurchase ? editingPurchase.due_date || "" : "" });
+    dueDateInput.addEventListener("change", () => {
+      if (items.length > 0) syncPurchase();
+    });
     const supplierOptions = suppliers.map((s) => ({ value: String(s.id), label: `${s.code} - ${s.name}` }));
     const initialSupplierValue = editingPurchase
       ? String(editingPurchase.supplier_id)
@@ -4595,7 +4644,8 @@ if (typeof module !== "undefined") {
           paymentSelect.value,
           "",
           dateInput.value || DB.todayStr(),
-          poNo
+          poNo,
+          dueDateInput.value || ""
         );
       } else {
         currentPo = DB.updatePurchase(
@@ -4607,7 +4657,8 @@ if (typeof module !== "undefined") {
           paymentSelect.value,
           "",
           dateInput.value || DB.todayStr(),
-          poNo
+          poNo,
+          dueDateInput.value || ""
         );
       }
       if (poNoInput.value.trim() !== currentPo.po_no) poNoInput.value = currentPo.po_no;
@@ -4714,9 +4765,10 @@ if (typeof module !== "undefined") {
       el(
         "div",
         { class: "form-grid" },
-        formField("เลขที่เอกสารรับเข้า", poNoInput),
         formField("ร้านผู้จัดจำหน่าย", supplierSelect),
+        formField("เลขที่เอกสารรับเข้า", poNoInput),
         formField("วันที่เอกสาร", dateInput),
+        formField("วันที่ครบกำหนดชำระเงิน", dueDateInput),
         formField("ชำระโดย", paymentSelect),
         formField("ส่วนลด (บาท)", discountInput)
       ),
@@ -4728,7 +4780,7 @@ if (typeof module !== "undefined") {
       el("div", { class: "modal-actions" }, saveBtn)
     );
     exposeTestRefs("purchaseForm", {
-      poNoInput, dateInput, supplierSelect, paymentSelect, discountInput,
+      poNoInput, dateInput, dueDateInput, supplierSelect, paymentSelect, discountInput,
       fabricSelect, qtyInput, unitSelect, costInput, addItemBtn, saveBtn,
       getItems: () => items,
       getCurrentPo: () => currentPo,
