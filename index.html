@@ -1623,14 +1623,16 @@ if (typeof module !== "undefined") {
   // --------------------------------------------------------------- state
   let cart = [];
   let editingSaleId = null;
-  let posHistoryUnpaidOnly = false;
+  let posHistoryUnpaidOnly = false; // ค้างชำระ
+  let posHistoryUnpaidOnlyCash = false; // เงินสดแต่ค้างชำระ
   let posHistorySearch = "";
   let posHistoryDate = "";
   let posHistoryDateTo = "";
   let posHistoryShowAll = false;
   let cartVat = [];
   let editingSaleIdVat = null;
-  let posHistoryUnpaidOnlyVat = false;
+  let posHistoryUnpaidOnlyVat = false; // ค้างชำระ
+  let posHistoryUnpaidOnlyCashVat = false; // เงินสดแต่ค้างชำระ
   let posHistorySearchVat = "";
   let posHistoryDateVat = "";
   let posHistoryDateToVat = "";
@@ -1920,6 +1922,16 @@ if (typeof module !== "undefined") {
         renderPosSalesHistory();
       },
     });
+    const unpaidCashChk = el("input", {
+      type: "checkbox",
+      checked: posHistoryUnpaidOnlyCash,
+      style: posHistoryUnpaidOnlyCash ? { accentColor: "var(--danger)" } : {},
+      onChange: (e) => {
+        posHistoryUnpaidOnlyCash = e.target.checked;
+        unpaidCashChk.style.accentColor = posHistoryUnpaidOnlyCash ? "var(--danger)" : "";
+        renderPosSalesHistory();
+      },
+    });
     const historySearchInput = el("input", {
       type: "text",
       placeholder: "ค้นหา (เลขที่บิล/ชื่อลูกค้า)",
@@ -1993,7 +2005,8 @@ if (typeof module !== "undefined") {
       todayBtn,
       el("label", { class: "chk-label" }, showAllChk, " แสดงทั้งหมดทุกวัน"),
       historySearchInput,
-      el("label", { class: "chk-label" }, unpaidChk, " แสดงเฉพาะบิลที่ยังไม่จ่ายเงิน")
+      el("label", { class: "chk-label" }, unpaidChk, " ค้างชำระ"),
+      el("label", { class: "chk-label" }, unpaidCashChk, " เงินสดแต่ค้างชำระ")
     );
     const historySummary = el("div", { class: "totals-line" });
     refs.posHistorySummary = historySummary;
@@ -2034,8 +2047,12 @@ if (typeof module !== "undefined") {
         return d >= fromDate && d <= toDate;
       });
     }
-    if (posHistoryUnpaidOnly) {
-      sales = sales.filter((s) => s.status !== "ชำระแล้ว");
+    if (posHistoryUnpaidOnly || posHistoryUnpaidOnlyCash) {
+      sales = sales.filter(
+        (s) =>
+          (posHistoryUnpaidOnly && s.status === "ค้างชำระ") ||
+          (posHistoryUnpaidOnlyCash && s.status === "เงินสดแต่ค้างชำระ")
+      );
     }
     const historyQ = posHistorySearch.trim().toLowerCase();
     if (historyQ) {
@@ -2686,6 +2703,16 @@ if (typeof module !== "undefined") {
         renderPosSalesHistoryVat();
       },
     });
+    const unpaidCashChk = el("input", {
+      type: "checkbox",
+      checked: posHistoryUnpaidOnlyCashVat,
+      style: posHistoryUnpaidOnlyCashVat ? { accentColor: "var(--danger)" } : {},
+      onChange: (e) => {
+        posHistoryUnpaidOnlyCashVat = e.target.checked;
+        unpaidCashChk.style.accentColor = posHistoryUnpaidOnlyCashVat ? "var(--danger)" : "";
+        renderPosSalesHistoryVat();
+      },
+    });
     const historySearchInput = el("input", {
       type: "text",
       placeholder: "ค้นหา (เลขที่บิล/ชื่อลูกค้า)",
@@ -2759,7 +2786,8 @@ if (typeof module !== "undefined") {
       todayBtn,
       el("label", { class: "chk-label" }, showAllChk, " แสดงทั้งหมดทุกวัน"),
       historySearchInput,
-      el("label", { class: "chk-label" }, unpaidChk, " แสดงเฉพาะบิลที่ยังไม่จ่ายเงิน")
+      el("label", { class: "chk-label" }, unpaidChk, " ค้างชำระ"),
+      el("label", { class: "chk-label" }, unpaidCashChk, " เงินสดแต่ค้างชำระ")
     );
     const historySummary = el("div", { class: "totals-line" });
     refs.posVatHistorySummary = historySummary;
@@ -2800,9 +2828,13 @@ if (typeof module !== "undefined") {
         return d >= fromDate && d <= toDate;
       });
     }
-    if (posHistoryUnpaidOnlyVat) {
-      sales = sales.filter((s) => s.status !== "ชำระแล้ว");
-    }
+    if (posHistoryUnpaidOnlyVat || posHistoryUnpaidOnlyCashVat) {
+      sales = sales.filter(
+        (s) =>
+          (posHistoryUnpaidOnlyVat && s.status === "ค้างชำระ") ||
+          (posHistoryUnpaidOnlyCashVat && s.status === "เงินสดแต่ค้างชำระ")
+      );
+           }
     const historyQ = posHistorySearchVat.trim().toLowerCase();
     if (historyQ) {
       sales = sales.filter((s) => {
@@ -3365,7 +3397,7 @@ if (typeof module !== "undefined") {
     const cust = custId ? DB.getCustomer(custId) : null;
     const shop = DB.getShopInfo();
     const isCredit = sale.payment_method === "เงินเชื่อ";
-    let docType = isCredit ? (sale.status === "ค้างชำระ" ? "delivery" : "cash") : "normal";
+    let docType = isCredit ? "delivery" : "normal";
     let current = buildReceiptDoc(sale, cust, shop, cartItems, docType);
 
     const previewBox = el("div", { class: "receipt-preview" });
@@ -3385,33 +3417,7 @@ if (typeof module !== "undefined") {
       modalTitleEl.textContent = current.docTitle;
     }
 
-    let docTypeToggle = null;
-    if (isCredit) {
-      const deliveryRadio = el("input", {
-        type: "radio",
-        name: "receiptDocType",
-        checked: docType === "delivery",
-        onChange: () => {
-          docType = "delivery";
-          refresh();
-        },
-      });
-      const cashRadio = el("input", {
-        type: "radio",
-        name: "receiptDocType",
-        checked: docType === "cash",
-        onChange: () => {
-          docType = "cash";
-          refresh();
-        },
-      });
-      docTypeToggle = el(
-        "div",
-        { class: "toolbar" },
-        el("label", { class: "chk-label" }, deliveryRadio, " ใบส่งสินค้า"),
-        el("label", { class: "chk-label" }, cashRadio, " บิลเงินสด")
-      );
-    }
+    const docTypeToggle = null;
 
     const body = el(
       "div",
