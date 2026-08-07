@@ -1748,6 +1748,8 @@ if (typeof module !== "undefined") {
   }
 
   // =============================================================== หน้าหลัก
+  let dashboardRangeFrom = "";
+  let dashboardRangeTo = "";
   function renderDashboard() {
     const sec = sections.dashboard;
     clear(sec);
@@ -1768,6 +1770,59 @@ if (typeof module !== "undefined") {
       statCard("ลูกหนี้การค้าคงค้าง", `${money(arTotal)} บาท`, `${ar.length} ราย`),
       statCard("เจ้าหนี้การค้าคงค้าง", `${money(apTotal)} บาท`, `${ap.length} ราย`),
       statCard("รายการรอสินค้า", `${pendingBackorders.length} รายการ`, "ยังไม่เสร็จ")
+    );
+
+    const rangeFrom = dashboardRangeFrom || today;
+    const rangeTo = dashboardRangeTo || today;
+    const sRange = DB.salesSummary(rangeFrom, rangeTo);
+    const rangeFromInput = dateInputEl({
+      value: rangeFrom,
+      onChange: (e) => {
+        dashboardRangeFrom = e.target.value;
+        if (dashboardRangeTo && dashboardRangeTo < dashboardRangeFrom) dashboardRangeTo = dashboardRangeFrom;
+        renderDashboard();
+      },
+    });
+    const rangeToInput = dateInputEl({
+      value: rangeTo,
+      onChange: (e) => {
+        dashboardRangeTo = e.target.value;
+        if (dashboardRangeFrom && dashboardRangeTo < dashboardRangeFrom) dashboardRangeFrom = dashboardRangeTo;
+        renderDashboard();
+      },
+    });
+    const rangeTodayBtn = el(
+      "button",
+      {
+        class: "btn btn-sm",
+        onClick: () => {
+          dashboardRangeFrom = "";
+          dashboardRangeTo = "";
+          renderDashboard();
+        },
+      },
+      "วันนี้"
+    );
+    const rangeToolbar = el(
+      "div",
+      { class: "toolbar" },
+      el("span", { text: "ดูยอดขายช่วง" }),
+      rangeFromInput,
+      el("span", { text: "ถึง" }),
+      rangeToInput,
+      rangeTodayBtn
+    );
+    const rangeRow = el(
+      "div",
+      { class: "stats-grid" },
+      el(
+        "div",
+        { class: "stat-card" },
+        el("div", { class: "stat-title", text: "ยอดขายช่วงที่เลือก" }),
+        el("div", { class: "stat-value", text: `${money(sRange.total_sales)} บาท` }),
+        el("div", { class: "stat-sub", text: `${sRange.n_sales} บิล` }),
+        rangeToolbar
+      )
     );
 
     const lowStockTable = buildTable(
@@ -1791,7 +1846,7 @@ if (typeof module !== "undefined") {
       panel("รายการขายล่าสุด", recentTable)
     );
 
-    sec.appendChild(el("div", { class: "section-inner" }, statsRow, grid));
+    sec.appendChild(el("div", { class: "section-inner" }, statsRow, rangeRow, grid));
   }
 
   // =================================================================== POS
@@ -1844,7 +1899,7 @@ if (typeof module !== "undefined") {
         { value: "โอนเงิน", label: "โอนเงิน" },
           { value: "เงินสดแต่ยังไม่จ่าย", label: "เงินสดแต่ยังไม่จ่าย" },
       ],
-      "เงินเชื่อ"
+      "เงินสดแต่ยังไม่จ่าย"
     );
     paymentSelect.addEventListener("change", () => {
       if (paymentSelect.value === "เงินเชื่อ" || paymentSelect.value === "เงินสดแต่ยังไม่จ่าย") refs.posPaidInput.value = 0;
@@ -2236,7 +2291,7 @@ if (typeof module !== "undefined") {
     refs.posPaidInput.value = 0;
     refs.posShippingFeeInput.value = 0;
     refs.posShippingMethodInput.value = "";
-    refs.posPaymentSelect.value = "เงินเชื่อ";
+    refs.posPaymentSelect.value = "เงินสดแต่ยังไม่จ่าย";
     refs.posBankNameInput.value = "";
     refs.posAccountNameInput.value = "";
     refs.posBankNameRow.style.display = "none";
@@ -2561,7 +2616,7 @@ if (typeof module !== "undefined") {
     refs.posPaidInput.value = 0;
     refs.posShippingFeeInput.value = 0;
     refs.posShippingMethodInput.value = "";
-    refs.posPaymentSelect.value = "เงินเชื่อ";
+    refs.posPaymentSelect.value = "เงินสดแต่ยังไม่จ่าย";
     refs.posBankNameInput.value = "";
     refs.posAccountNameInput.value = "";
     refs.posBankNameRow.style.display = "none";
@@ -2628,7 +2683,7 @@ if (typeof module !== "undefined") {
         { value: "โอนเงิน", label: "โอนเงิน" },
           { value: "เงินสดแต่ยังไม่จ่าย", label: "เงินสดแต่ยังไม่จ่าย" },
       ],
-      "เงินเชื่อ"
+      "เงินสดแต่ยังไม่จ่าย"
     );
     paymentSelect.addEventListener("change", () => {
       if (paymentSelect.value === "เงินเชื่อ" || paymentSelect.value === "เงินสดแต่ยังไม่จ่าย") refs.posVatPaidInput.value = 0;
@@ -2962,7 +3017,7 @@ if (typeof module !== "undefined") {
     refs.posVatPaidInput.value = 0;
     refs.posVatShippingFeeInput.value = 0;
     refs.posVatShippingMethodInput.value = "";
-    refs.posVatPaymentSelect.value = "เงินเชื่อ";
+    refs.posVatPaymentSelect.value = "เงินสดแต่ยังไม่จ่าย";
     refs.posVatBankNameInput.value = "";
     refs.posVatAccountNameInput.value = "";
     refs.posVatBankNameRow.style.display = "none";
@@ -3228,7 +3283,7 @@ if (typeof module !== "undefined") {
     refs.posVatPaidInput.value = 0;
     refs.posVatShippingFeeInput.value = 0;
     refs.posVatShippingMethodInput.value = "";
-    refs.posVatPaymentSelect.value = "เงินเชื่อ";
+    refs.posVatPaymentSelect.value = "เงินสดแต่ยังไม่จ่าย";
     refs.posVatBankNameInput.value = "";
     refs.posVatAccountNameInput.value = "";
     refs.posVatBankNameRow.style.display = "none";
@@ -3535,13 +3590,14 @@ if (typeof module !== "undefined") {
     const reorderInput = numberInput(fabric ? fabric.reorder_point : 0);
     const noteInput = textInput(fabric ? fabric.note : "");
     const supplierOptions = [{ value: "", label: "(ไม่ระบุ)" }].concat(
-      suppliers.map((s) => ({ value: String(s.id), label: s.name }))
+      suppliers.map((s) => ({ value: String(s.id), label: `${s.code} - ${s.name}` }))
     );
     const supplierSelect = selectInput(supplierOptions, fabric && fabric.supplier_id ? String(fabric.supplier_id) : "");
 
     const form = el(
       "div",
       { class: "form-grid" },
+      formField("ซัพพลายเออร์", supplierSelect),
       formField("รหัสสินค้า *", codeInput),
       formField("ชื่อผ้า *", nameInput),
       formField("ประเภท", categoryInput),
@@ -3552,7 +3608,6 @@ if (typeof module !== "undefined") {
       formField("ราคาขาย", sellInput),
       formField(fabric ? 'จำนวนคงเหลือ (แก้ไขผ่าน "ปรับสต็อก")' : "จำนวนคงเหลือเริ่มต้น", stockInput),
       formField("จุดสั่งซื้อขั้นต่ำ", reorderInput),
-      formField("ซัพพลายเออร์", supplierSelect),
       formField("หมายเหตุ", noteInput)
     );
     const saveBtn = el(
