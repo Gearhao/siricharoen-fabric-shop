@@ -1664,6 +1664,7 @@ if (typeof module !== "undefined") {
   let posHistoryDateVat = "";
   let posHistoryDateToVat = "";
   let posHistoryShowAllVat = false;
+  let customerHistorySearch = "";
   const refs = {};
   const sections = {};
   const navButtons = {};
@@ -4116,13 +4117,142 @@ if (typeof module !== "undefined") {
   }
 
   function openCustomerHistoryModal(cid) {
+    customerHistorySearch = "";
+    renderCustomerHistoryModalBody(cid);
+  }
+
+  function renderCustomerHistoryModalBody(cid) {
     const cust = DB.getCustomer(cid);
     const sales = DB.getCustomerSales(cid);
-    const table = buildDataTable(
-      ["เลขที่บิล", "วันที่", "ยอดรวม", "ชำระแล้ว", "สถานะ"],
-      sales.map((s) => [s.sale_no, fmtDate(s.date), money(s.total), money(s.paid), s.status])
+
+    const billsTable = el(
+      "table",
+      { class: "data-table" },
+      el(
+        "thead",
+        {},
+        el(
+          "tr",
+          {},
+          el("th", { text: "เลขที่บิล" }),
+          el("th", { text: "วันที่" }),
+          el("th", { text: "ยอดรวม" }),
+          el("th", { text: "ชำระแล้ว" }),
+          el("th", { text: "สถานะ" })
+        )
+      ),
+      el(
+        "tbody",
+        {},
+        ...(sales.length
+          ? sales.map((s) =>
+              el(
+                "tr",
+                {},
+                el(
+                  "td",
+                  {},
+                  el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, s.sale_no)
+                ),
+                el("td", { text: fmtDate(s.date) }),
+                el("td", { text: money(s.total) }),
+                el("td", { text: money(s.paid) }),
+                el("td", { text: s.status })
+              )
+            )
+          : [el("tr", {}, el("td", { colspan: 5, class: "empty", text: "ไม่มีข้อมูล" }))])
+      )
     );
-    openModal(`ประวัติการซื้อ - ${cust.name}`, table, { wide: true });
+
+    const purchasedItems = [];
+    sales.forEach((s) => {
+      (s.items || []).forEach((it) => {
+        const f = DB.getFabric(it.fabric_id);
+        purchasedItems.push({
+          sale_id: s.id,
+          sale_no: s.sale_no,
+          date: s.date,
+          code: f ? f.code : it.code || "",
+          name: f ? f.name : it.name || "(สินค้านี้ถูกลบแล้ว)",
+          qty: it.qty,
+          unit: it.unit,
+          unit_price: it.unit_price,
+        });
+      });
+    });
+    purchasedItems.sort((a, b) => (a.date < b.date ? 1 : -1));
+
+    const q = customerHistorySearch.trim().toLowerCase();
+    const filteredItems = q
+      ? purchasedItems.filter(
+          (it) => (it.name || "").toLowerCase().includes(q) || (it.code || "").toLowerCase().includes(q)
+        )
+      : purchasedItems;
+
+    const searchInput = el("input", {
+      type: "text",
+      placeholder: "ค้นหาผ้าที่เคยซื้อ (ชื่อ/รหัส)",
+      value: customerHistorySearch,
+      onInput: (e) => {
+        customerHistorySearch = e.target.value;
+        renderCustomerHistoryModalBody(cid);
+      },
+    });
+
+    const itemsTable = el(
+      "table",
+      { class: "data-table" },
+      el(
+        "thead",
+        {},
+        el(
+          "tr",
+          {},
+          el("th", { text: "เลขที่บิล" }),
+          el("th", { text: "วันที่" }),
+          el("th", { text: "รหัสผ้า" }),
+          el("th", { text: "ชื่อผ้า" }),
+          el("th", { text: "จำนวน" }),
+          el("th", { text: "หน่วย" }),
+          el("th", { text: "ราคา/หน่วย" })
+        )
+      ),
+      el(
+        "tbody",
+        {},
+        ...(filteredItems.length
+          ? filteredItems.map((it) =>
+              el(
+                "tr",
+                {},
+                el(
+                  "td",
+                  {},
+                  el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(it.sale_id) }, it.sale_no)
+                ),
+                el("td", { text: fmtDate(it.date) }),
+                el("td", { text: it.code }),
+                el("td", { text: it.name }),
+                el("td", { text: String(it.qty) }),
+                el("td", { text: it.unit || "" }),
+                el("td", { text: money(it.unit_price) })
+              )
+            )
+          : [el("tr", {}, el("td", { colspan: 7, class: "empty", text: "ไม่มีข้อมูล" }))])
+      )
+    );
+
+    const body = el(
+      "div",
+      {},
+      el("h4", { text: "รายการบิลทั้งหมด (คลิกเลขที่บิลเพื่อดูรายละเอียด)", style: { marginTop: "0" } }),
+      billsTable,
+      el("h4", { text: "ค้นหาผ้าที่เคยซื้อ" }),
+      searchInput,
+      itemsTable
+    );
+
+    openModal(`ประวัติการซื้อ - ${cust.name}`, body, { wide: true });
   }
 
   function openCustomerPayModal(cid) {
