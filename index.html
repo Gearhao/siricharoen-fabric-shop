@@ -1029,6 +1029,10 @@ function createDB(storageKey) {
     sale.change_amt = 0;
     sale.status = "ชำระแล้ว";
     sale.paid_method = method || "เงินสด";
+    if (sale.paid_method === "โอนเงิน") {
+      sale.bank_name = bankName || sale.bank_name || "";
+      sale.bank_account_name = accountName || sale.bank_account_name || "";
+    }
     save();
   }
 
@@ -2200,8 +2204,14 @@ if (typeof module !== "undefined") {
         el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, "พิมพ์ใบเสร็จ"),
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOS(s.id) }, "ลบ")
       );
+      const paidLabel =
+        s.status === "ชำระแล้ว" && s.paid_method
+          ? s.paid_method === "โอนเงิน" && (s.bank_name || s.bank_account_name)
+            ? `${s.status} (${s.paid_method}: ${[s.bank_name, s.bank_account_name].filter(Boolean).join(" ")})`
+            : `${s.status} (${s.paid_method})`
+          : s.status;
       const statusCell = el("td", {
-        text: s.status === "ชำระแล้ว" && s.paid_method ? `${s.status} (${s.paid_method})` : s.status,
+        text: paidLabel,
         style: s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : {},
       });
       const tr = el(
@@ -3004,8 +3014,14 @@ if (typeof module !== "undefined") {
         el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, "พิมพ์ใบเสร็จ"),
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOSVat(s.id) }, "ลบ")
       );
+      const paidLabel =
+        s.status === "ชำระแล้ว" && s.paid_method
+          ? s.paid_method === "โอนเงิน" && (s.bank_name || s.bank_account_name)
+            ? `${s.status} (${s.paid_method}: ${[s.bank_name, s.bank_account_name].filter(Boolean).join(" ")})`
+            : `${s.status} (${s.paid_method})`
+          : s.status;
       const statusCell = el("td", {
-        text: s.status === "ชำระแล้ว" && s.paid_method ? `${s.status} (${s.paid_method})` : s.status,
+        text: paidLabel,
         style: s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : {},
       });
       const tr = el(
