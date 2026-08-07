@@ -3397,9 +3397,7 @@ if (typeof module !== "undefined") {
       const qtyUnit = `${it.qty}${it.unit ? " " + it.unit : ""}`;
       const label = it.code || it.name || "";
       lines.push(
-        `${label.slice(0, 20).padEnd(20)}${qtyUnit.padStart(10)} x ${it.unit_price.toFixed(2).padStart(7)} = ${sub
-          .toFixed(2)
-          .padStart(9)}`
+        `${label.slice(0, 20).padEnd(20)}${qtyUnit.padStart(10)} x ${money(it.unit_price).padStart(9)} = ${money(sub).padStart(11)}`
       );
     });
     lines.push("-".repeat(40));
@@ -3439,9 +3437,7 @@ if (typeof module !== "undefined") {
         const label = it.code || it.name || "";
         return `<tr style="border-bottom:1px solid #ddd;"><td style="padding:5px 4px;">${esc(label)}</td><td style="padding:5px 4px;text-align:right;">${esc(
           qtyUnit
-        )}</td><td style="padding:5px 4px;text-align:right;">${it.unit_price.toFixed(2)}</td><td style="padding:5px 4px;text-align:right;">${sub.toFixed(
-          2
-        )}</td></tr>`;
+        )}</td><td style="padding:5px 4px;text-align:right;">${money(it.unit_price)}</td><td style="padding:5px 4px;text-align:right;">${money(sub)}</td></tr>`;
       })
       .join("");
 
