@@ -1056,6 +1056,7 @@ function createDB(storageKey) {
         fabric_id: it.fabric_id,
         qty: it.qty,
         unit_cost: it.unit_cost,
+        discount: it.discount || 0,
         subtotal: it.qty * it.unit_cost,
       })),
       subtotal,
@@ -1137,6 +1138,7 @@ function createDB(storageKey) {
       fabric_id: it.fabric_id,
       qty: it.qty,
       unit_cost: it.unit_cost,
+      discount: it.discount || 0,
       subtotal: it.qty * it.unit_cost,
     }));
     purchase.subtotal = subtotal;
@@ -4712,6 +4714,7 @@ if (typeof module !== "undefined") {
             unit: f ? f.unit : "หลา",
             qty: it.qty,
             unit_cost: it.unit_cost,
+            discount: it.discount || 0,
           };
         })
       : [];
@@ -4765,23 +4768,7 @@ if (typeof module !== "undefined") {
     paymentSelect.addEventListener("change", () => {
       if (items.length > 0) syncPurchase();
     });
-    const discountInput = numberInput(editingPurchase ? editingPurchase.discount : 0);
-    discountInput.addEventListener("input", () => {
-      if (items.length > 0) syncPurchase();
-    });
-    const discountUnitSelect = selectInput(
-      [
-        { value: "บาท", label: "บาท" },
-        { value: "%", label: "%" },
-      ],
-      "บาท"
-    );
-    discountUnitSelect.addEventListener("change", () => {
-      if (items.length > 0) syncPurchase();
-    });
-    const discountRow = el("div", { class: "discount-input-row" }, discountInput, discountUnitSelect);
-
-    const fabricOptions = [{ value: "", label: "-- เลือกผ้า --" }].concat(
+        const fabricOptions = [{ value: "", label: "-- เลือกผ้า --" }].concat(
       fabrics.map((f) => ({ value: String(f.id), label: `${f.code} - ${f.name}` }))
     );
     const fabricSelect = searchSelectInput(fabricOptions, "", "พิมพ์รหัส/ชื่อผ้าเพื่อค้นหา...");
@@ -4811,6 +4798,18 @@ if (typeof module !== "undefined") {
     const costInput = numberInput("");
     costInput.setAttribute("placeholder", "ราคาทุน/หน่วย");
     costInput.addEventListener("change", () => tryAddItemFromRow({ alertOnInvalid: false }));
+    const itemDiscInput = numberInput("");
+    itemDiscInput.setAttribute("placeholder", "ส่วนลด");
+    itemDiscInput.addEventListener("change", () => tryAddItemFromRow({ alertOnInvalid: false }));
+    const itemDiscUnitSelect = selectInput(
+      [
+        { value: "บาท", label: "บาท" },
+        { value: "%", label: "%" },
+      ],
+      "บาท"
+    );
+    itemDiscUnitSelect.addEventListener("change", () => tryAddItemFromRow({ alertOnInvalid: false }));
+    const itemDiscRow = el("div", { class: "discount-input-row" }, itemDiscInput, itemDiscUnitSelect);
     const itemsContainer = el("div", { class: "table-container" });
     const vatChk = el("input", { type: "checkbox", checked: editingPurchase ? editingPurchase.vat_amount > 0 : true });
     vatChk.addEventListener("change", () => {
@@ -4836,8 +4835,7 @@ if (typeof module !== "undefined") {
         poNo = currentPo ? currentPo.po_no : DB.genPoNo();
       }
       const subtotal = items.reduce((s, it) => s + it.qty * it.unit_cost, 0);
-      const discountRaw = Number(discountInput.value) || 0;
-      const discount = discountUnitSelect.value === "%" ? round2((subtotal * discountRaw) / 100) : discountRaw;
+      const discount = items.reduce((s, it) => s + (it.discount || 0), 0);
       const vatBase = Math.max(0, subtotal - discount);
       const vat = VAT_ENABLED && vatChk.checked ? Math.round(vatBase * VAT_RATE * 100) / 100 : 0;
       // แปลงจำนวน/ราคาทุนที่กรอก (หน่วยที่เลือกรับ) ให้เป็นหน่วยฐานของสินค้าก่อนบันทึก เพื่อให้สต็อกถูกต้อง
@@ -4848,6 +4846,7 @@ if (typeof module !== "undefined") {
           fabric_id: it.fabric_id,
           qty: it.qty * factor,
           unit_cost: factor ? it.unit_cost / factor : it.unit_cost,
+          discount: it.discount || 0,
         };
       });
       if (!currentPo) {
@@ -4884,8 +4883,17 @@ if (typeof module !== "undefined") {
     function refreshItemsTable() {
       clear(itemsContainer);
       const table = buildDataTable(
-        ["รหัสสินค้า", "ชื่อผ้า", "ชนิดผ้า", "จำนวน", "หน่วย", "ราคาทุน/หน่วย", "รวม"],
-        items.map((it) => [it.code, it.name, it.category || "-", it.qty, it.unit, money(it.unit_cost), money(it.qty * it.unit_cost)]),
+        ["รหัสสินค้า", "ชื่อผ้า", "ชนิดผ้า", "จำนวน", "หน่วย", "ราคาทุน/หน่วย", "ส่วนลด", "รวม"],
+        items.map((it) => [
+          it.code,
+          it.name,
+          it.category || "-",
+          it.qty,
+          it.unit,
+          money(it.unit_cost),
+          money(it.discount || 0),
+          money(it.qty * it.unit_cost - (it.discount || 0)),
+        ]),
         {
           actions: (idx) => [
             {
@@ -4933,6 +4941,9 @@ if (typeof module !== "undefined") {
         if (opts.alertOnInvalid) global.alert("กรุณากรอกราคาทุน");
         return false;
       }
+      const discRaw = Number(itemDiscInput.value) || 0;
+      const lineSubtotal = qty * cost;
+      const discount = itemDiscUnitSelect.value === "%" ? round2((lineSubtotal * discRaw) / 100) : discRaw;
       items.push({
         fabric_id: fid,
         code: fab.code,
@@ -4941,10 +4952,13 @@ if (typeof module !== "undefined") {
         unit: unitSelect.value || "หลา",
         qty,
         unit_cost: cost,
+        discount,
       });
       fabricSelect.setLabel("");
       qtyInput.value = "";
       costInput.value = "";
+      itemDiscInput.value = "";
+      itemDiscUnitSelect.value = "บาท";
       refreshItemsTable();
       syncPurchase();
       return true;
@@ -4959,7 +4973,7 @@ if (typeof module !== "undefined") {
       "เพิ่มรายการ"
     );
 
-    const addRow = el("div", { class: "toolbar" }, fabricSelect, qtyInput, unitSelect, costInput, addItemBtn);
+    const addRow = el("div", { class: "toolbar" }, fabricSelect, qtyInput, unitSelect, costInput, itemDiscRow, addItemBtn);
 
     const saveBtn = el(
       "button",
@@ -4984,8 +4998,7 @@ if (typeof module !== "undefined") {
         formField("เลขที่เอกสารรับเข้า", poNoInput),
         formField("วันที่เอกสาร", dateInput),
         formField("วันที่ครบกำหนดชำระเงิน", dueDateInput),
-        formField("ชำระโดย", paymentSelect),
-        formField("ส่วนลด", discountRow)
+        formField("ชำระโดย", paymentSelect)
       ),
       el("h4", { text: "รายการสินค้า" }),
       addRow,
@@ -4995,8 +5008,8 @@ if (typeof module !== "undefined") {
       el("div", { class: "modal-actions" }, saveBtn)
     );
     exposeTestRefs("purchaseForm", {
-      poNoInput, dateInput, dueDateInput, supplierSelect, paymentSelect, discountInput,
-      fabricSelect, qtyInput, unitSelect, costInput, addItemBtn, saveBtn,
+      poNoInput, dateInput, dueDateInput, supplierSelect, paymentSelect,
+      fabricSelect, qtyInput, unitSelect, costInput, itemDiscInput, itemDiscUnitSelect, addItemBtn, saveBtn,
       getItems: () => items,
       getCurrentPo: () => currentPo,
     });
