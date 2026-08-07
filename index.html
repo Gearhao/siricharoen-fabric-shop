@@ -905,7 +905,7 @@ function createDB(storageKey) {
       }
     }
   }
-  function createSale(items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName, shippingFee, shippingMethod, isVat) {
+  function createSale(items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName, shippingFee, shippingMethod, dueDate, isVat) {
     const subtotal = items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
     const shipFee = shippingFee || 0;
     const total = subtotal - discount + vatAmount + shipFee;
@@ -928,6 +928,7 @@ function createDB(storageKey) {
       vat_amount: vatAmount,
       shipping_fee: shipFee,
       shipping_method: shippingMethod || "",
+      due_date: dueDate || "",
       total,
       paid,
       change_amt: changeAmt,
@@ -944,7 +945,7 @@ function createDB(storageKey) {
     save();
     return sale;
   }
-  function updateSale(id, items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName, shippingFee, shippingMethod, isVat) {
+  function updateSale(id, items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName, shippingFee, shippingMethod, dueDate, isVat) {
     const sale = store.sales.find((x) => x.id === id);
     if (!sale) return null;
     revertSaleEffects(sale);
@@ -968,6 +969,7 @@ function createDB(storageKey) {
     sale.vat_amount = vatAmount;
     sale.shipping_fee = shipFee;
     sale.shipping_method = shippingMethod || "";
+    sale.due_date = dueDate !== undefined ? dueDate : sale.due_date || "";
     sale.total = total;
     sale.paid = paid;
     sale.change_amt = changeAmt;
@@ -1951,6 +1953,9 @@ if (typeof module !== "undefined") {
     shippingMethodInput.setAttribute("placeholder", "เช่น ไปรษณีย์ไทย, Kerry, มารับเอง");
     refs.posShippingMethodInput = shippingMethodInput;
 
+    const dueDateInput = dateInputEl({ value: "" });
+    refs.posDueDateInput = dueDateInput;
+
     const paymentSelect = selectInput(
       [
         { value: "เงินเชื่อ", label: "เงินเชื่อ" },
@@ -2021,6 +2026,7 @@ if (typeof module !== "undefined") {
         formField("รับเงิน (บาท)", paidInput),
         bankNameRow,
         accountNameRow,
+        formField("วันที่ครบกำหนดชำระเงิน", dueDateInput),
         formField("หมายเหตุ", noteInput)
       ),
       el("div", { class: "totals-box" }, subtotalLbl, vatLbl, shippingLbl, totalLbl, changeLbl),
@@ -2225,15 +2231,18 @@ if (typeof module !== "undefined") {
         el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, "พิมพ์ใบเสร็จ"),
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOS(s.id) }, "ลบ")
       );
+      const isUnpaidStatus = s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ";
       const paidLabel =
         s.status === "ชำระแล้ว" && s.paid_method
           ? s.paid_method === "โอนเงิน" && (s.bank_name || s.bank_account_name)
             ? `${s.status} (${s.paid_method}: ${[s.bank_name, s.bank_account_name].filter(Boolean).join(" ")})`
             : `${s.status} (${s.paid_method})`
+          : isUnpaidStatus && s.due_date
+          ? `${s.status} (ครบกำหนด ${fmtDate(s.due_date)})`
           : s.status;
       const statusCell = el("td", {
         text: paidLabel,
-        style: s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : {},
+        style: isUnpaidStatus ? { color: "var(--danger)", fontWeight: "600" } : {},
       });
       const tr = el(
         "tr",
@@ -2343,6 +2352,7 @@ if (typeof module !== "undefined") {
     if (refs.posDiscountUnitSelect) refs.posDiscountUnitSelect.value = "บาท";
     refs.posShippingFeeInput.value = sale.shipping_fee || 0;
     refs.posShippingMethodInput.value = sale.shipping_method || "";
+    refs.posDueDateInput.value = sale.due_date || "";
     refs.posPaymentSelect.value = sale.payment_method;
     refs.posPaidInput.value = sale.paid;
     refs.posBankNameInput.value = sale.bank_name || "";
@@ -2364,6 +2374,7 @@ if (typeof module !== "undefined") {
     refs.posPaidInput.value = 0;
     refs.posShippingFeeInput.value = 0;
     refs.posShippingMethodInput.value = "";
+    refs.posDueDateInput.value = "";
     refs.posPaymentSelect.value = "เงินสดแต่ยังไม่จ่าย";
     refs.posBankNameInput.value = "";
     refs.posAccountNameInput.value = "";
@@ -2679,8 +2690,8 @@ if (typeof module !== "undefined") {
       };
     });
     const sale = editingSaleId
-      ? DB.updateSale(editingSaleId, items, custId || null, discount, vat, paymentMethod, paid, refs.posNoteInput.value.trim(), undefined, bankName, accountName, shippingFee, shippingMethod)
-      : DB.createSale(items, custId || null, discount, vat, paymentMethod, paid, refs.posNoteInput.value.trim(), undefined, bankName, accountName, shippingFee, shippingMethod);
+      ? DB.updateSale(editingSaleId, items, custId || null, discount, vat, paymentMethod, paid, refs.posNoteInput.value.trim(), undefined, bankName, accountName, shippingFee, shippingMethod, refs.posDueDateInput.value)
+      : DB.createSale(items, custId || null, discount, vat, paymentMethod, paid, refs.posNoteInput.value.trim(), undefined, bankName, accountName, shippingFee, shippingMethod, refs.posDueDateInput.value);
 
     showReceiptModal(sale, custId, validItems.slice());
 
@@ -2692,6 +2703,7 @@ if (typeof module !== "undefined") {
     refs.posPaidInput.value = 0;
     refs.posShippingFeeInput.value = 0;
     refs.posShippingMethodInput.value = "";
+    refs.posDueDateInput.value = "";
     refs.posPaymentSelect.value = "เงินสดแต่ยังไม่จ่าย";
     refs.posBankNameInput.value = "";
     refs.posAccountNameInput.value = "";
@@ -2764,6 +2776,9 @@ if (typeof module !== "undefined") {
     shippingMethodInput.setAttribute("placeholder", "เช่น ไปรษณีย์ไทย, Kerry, มารับเอง");
     refs.posVatShippingMethodInput = shippingMethodInput;
 
+    const dueDateInput = dateInputEl({ value: "" });
+    refs.posVatDueDateInput = dueDateInput;
+
     const paymentSelect = selectInput(
       [
         { value: "เงินเชื่อ", label: "เงินเชื่อ" },
@@ -2831,6 +2846,7 @@ if (typeof module !== "undefined") {
         formField("รับเงิน (บาท)", paidInput),
         bankNameRow,
         accountNameRow,
+        formField("วันที่ครบกำหนดชำระเงิน", dueDateInput),
         formField("หมายเหตุ", noteInput)
       ),
       el("div", { class: "totals-box" }, subtotalLbl, vatLbl, shippingLbl, totalLbl, changeLbl),
@@ -3035,15 +3051,18 @@ if (typeof module !== "undefined") {
         el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, "พิมพ์ใบเสร็จ"),
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOSVat(s.id) }, "ลบ")
       );
+      const isUnpaidStatus = s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ";
       const paidLabel =
         s.status === "ชำระแล้ว" && s.paid_method
           ? s.paid_method === "โอนเงิน" && (s.bank_name || s.bank_account_name)
             ? `${s.status} (${s.paid_method}: ${[s.bank_name, s.bank_account_name].filter(Boolean).join(" ")})`
             : `${s.status} (${s.paid_method})`
+          : isUnpaidStatus && s.due_date
+          ? `${s.status} (ครบกำหนด ${fmtDate(s.due_date)})`
           : s.status;
       const statusCell = el("td", {
         text: paidLabel,
-        style: s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : {},
+        style: isUnpaidStatus ? { color: "var(--danger)", fontWeight: "600" } : {},
       });
       const tr = el(
         "tr",
@@ -3098,6 +3117,7 @@ if (typeof module !== "undefined") {
     if (refs.posVatDiscountUnitSelect) refs.posVatDiscountUnitSelect.value = "บาท";
     refs.posVatShippingFeeInput.value = sale.shipping_fee || 0;
     refs.posVatShippingMethodInput.value = sale.shipping_method || "";
+    refs.posVatDueDateInput.value = sale.due_date || "";
     refs.posVatPaymentSelect.value = sale.payment_method;
     refs.posVatPaidInput.value = sale.paid;
     refs.posVatBankNameInput.value = sale.bank_name || "";
@@ -3119,6 +3139,7 @@ if (typeof module !== "undefined") {
     refs.posVatPaidInput.value = 0;
     refs.posVatShippingFeeInput.value = 0;
     refs.posVatShippingMethodInput.value = "";
+    refs.posVatDueDateInput.value = "";
     refs.posVatPaymentSelect.value = "เงินสดแต่ยังไม่จ่าย";
     refs.posVatBankNameInput.value = "";
     refs.posVatAccountNameInput.value = "";
@@ -3375,8 +3396,8 @@ if (typeof module !== "undefined") {
       };
     });
     const sale = editingSaleIdVat
-      ? DB.updateSale(editingSaleIdVat, items, custId || null, discount, vat, paymentMethod, paid, refs.posVatNoteInput.value.trim(), undefined, bankName, accountName, shippingFee, shippingMethod, true)
-      : DB.createSale(items, custId || null, discount, vat, paymentMethod, paid, refs.posVatNoteInput.value.trim(), undefined, bankName, accountName, shippingFee, shippingMethod, true);
+      ? DB.updateSale(editingSaleIdVat, items, custId || null, discount, vat, paymentMethod, paid, refs.posVatNoteInput.value.trim(), undefined, bankName, accountName, shippingFee, shippingMethod, refs.posVatDueDateInput.value, true)
+      : DB.createSale(items, custId || null, discount, vat, paymentMethod, paid, refs.posVatNoteInput.value.trim(), undefined, bankName, accountName, shippingFee, shippingMethod, refs.posVatDueDateInput.value, true);
 
     showReceiptModal(sale, custId, validItems.slice());
 
@@ -3388,6 +3409,7 @@ if (typeof module !== "undefined") {
     refs.posVatPaidInput.value = 0;
     refs.posVatShippingFeeInput.value = 0;
     refs.posVatShippingMethodInput.value = "";
+    refs.posVatDueDateInput.value = "";
     refs.posVatPaymentSelect.value = "เงินสดแต่ยังไม่จ่าย";
     refs.posVatBankNameInput.value = "";
     refs.posVatAccountNameInput.value = "";
