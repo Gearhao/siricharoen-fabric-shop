@@ -1840,6 +1840,8 @@ if (typeof module !== "undefined") {
       rangeToInput,
       rangeTodayBtn
     );
+    const rangeCogs = DB.cogsSummary(rangeFrom, rangeTo);
+    const rangeProfit = sRange.total_sales - sRange.total_vat - rangeCogs;
     const rangeRow = el(
       "div",
       { class: "stats-grid" },
@@ -1850,6 +1852,17 @@ if (typeof module !== "undefined") {
         el("div", { class: "stat-value", text: `${money(sRange.total_sales)} บาท` }),
         el("div", { class: "stat-sub", text: `${sRange.n_sales} บิล` }),
         rangeToolbar
+      ),
+      el(
+        "div",
+        { class: "stat-card" },
+        el("div", { class: "stat-title", text: "กำไรช่วงที่เลือก (ประมาณการ)" }),
+        el("div", {
+          class: "stat-value",
+          text: `${money(rangeProfit)} บาท`,
+          style: { color: rangeProfit < 0 ? "var(--danger)" : "" },
+        }),
+        el("div", { class: "stat-sub", text: `ต้นทุนขาย ${money(rangeCogs)} บาท` })
       )
     );
 
@@ -4756,6 +4769,17 @@ if (typeof module !== "undefined") {
     discountInput.addEventListener("input", () => {
       if (items.length > 0) syncPurchase();
     });
+    const discountUnitSelect = selectInput(
+      [
+        { value: "บาท", label: "บาท" },
+        { value: "%", label: "%" },
+      ],
+      "บาท"
+    );
+    discountUnitSelect.addEventListener("change", () => {
+      if (items.length > 0) syncPurchase();
+    });
+    const discountRow = el("div", { class: "discount-input-row" }, discountInput, discountUnitSelect);
 
     const fabricOptions = [{ value: "", label: "-- เลือกผ้า --" }].concat(
       fabrics.map((f) => ({ value: String(f.id), label: `${f.code} - ${f.name}` }))
@@ -4812,7 +4836,8 @@ if (typeof module !== "undefined") {
         poNo = currentPo ? currentPo.po_no : DB.genPoNo();
       }
       const subtotal = items.reduce((s, it) => s + it.qty * it.unit_cost, 0);
-      const discount = Number(discountInput.value) || 0;
+      const discountRaw = Number(discountInput.value) || 0;
+      const discount = discountUnitSelect.value === "%" ? round2((subtotal * discountRaw) / 100) : discountRaw;
       const vatBase = Math.max(0, subtotal - discount);
       const vat = VAT_ENABLED && vatChk.checked ? Math.round(vatBase * VAT_RATE * 100) / 100 : 0;
       // แปลงจำนวน/ราคาทุนที่กรอก (หน่วยที่เลือกรับ) ให้เป็นหน่วยฐานของสินค้าก่อนบันทึก เพื่อให้สต็อกถูกต้อง
@@ -4960,7 +4985,7 @@ if (typeof module !== "undefined") {
         formField("วันที่เอกสาร", dateInput),
         formField("วันที่ครบกำหนดชำระเงิน", dueDateInput),
         formField("ชำระโดย", paymentSelect),
-        formField("ส่วนลด (บาท)", discountInput)
+        formField("ส่วนลด", discountRow)
       ),
       el("h4", { text: "รายการสินค้า" }),
       addRow,
