@@ -1321,6 +1321,10 @@ function createDB(storageKey) {
   function expensesSummary(start, end) {
     return getExpenses(start, end).reduce((s, e) => s + e.amount, 0);
   }
+  // ค่าจัดส่งที่เก็บจากลูกค้า ไม่ใช่กำไรของร้าน (ส่วนใหญ่จ่ายต่อให้ขนส่ง) จึงต้องหักออกตอนคำนวณกำไร
+  function shippingSummary(start, end) {
+    return getSales(start, end).reduce((s, r) => s + (r.shipping_fee || 0), 0);
+  }
   function bestSellers(start, end, limit) {
     const rows = getSales(start, end);
     const map = {};
@@ -1378,7 +1382,7 @@ function createDB(storageKey) {
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense,
     addBackorder, updateBackorder, deleteBackorder, markBackorderDone, markBackorderUndone, getBackorders, getBackorder,
-    salesSummary, cogsSummary, expensesSummary, bestSellers, lowStockList,
+    salesSummary, cogsSummary, expensesSummary, shippingSummary, bestSellers, lowStockList,
     arAging, apAging,
     exportBackup, importBackup, resetAll,
     pullFromCloud, pushToCloud, setCloudSyncListener, getCloudStatus,
@@ -1843,7 +1847,8 @@ if (typeof module !== "undefined") {
       rangeTodayBtn
     );
     const rangeCogs = DB.cogsSummary(rangeFrom, rangeTo);
-    const rangeProfit = sRange.total_sales - sRange.total_vat - rangeCogs;
+    const rangeShipping = DB.shippingSummary(rangeFrom, rangeTo);
+    const rangeProfit = sRange.total_sales - sRange.total_vat - rangeShipping - rangeCogs;
     const rangeRow = el(
       "div",
       { class: "stats-grid" },
@@ -1864,7 +1869,7 @@ if (typeof module !== "undefined") {
           text: `${money(rangeProfit)} บาท`,
           style: { color: rangeProfit < 0 ? "var(--danger)" : "" },
         }),
-        el("div", { class: "stat-sub", text: `ต้นทุนขาย ${money(rangeCogs)} บาท` })
+        el("div", { class: "stat-sub", text: `ต้นทุนขาย ${money(rangeCogs)} บาท (ไม่รวมค่าจัดส่ง ${money(rangeShipping)} บาท)` })
       )
     );
 
@@ -5229,14 +5234,16 @@ if (typeof module !== "undefined") {
     const s = DB.salesSummary(acctStart, acctEnd);
     const cogs = DB.cogsSummary(acctStart, acctEnd);
     const exp = DB.expensesSummary(acctStart, acctEnd);
-    const income = s.total_sales - s.total_vat;
+    const shipping = DB.shippingSummary(acctStart, acctEnd);
+    const income = s.total_sales - s.total_vat - shipping;
     const netProfit = income - cogs - exp;
     clear(refs.acctSummaryBox);
     refs.acctSummaryBox.appendChild(
       el(
         "div",
         {},
-        el("div", { class: "totals-line", text: `รายรับจากการขาย (ไม่รวม VAT): ${money(income)} บาท (${s.n_sales} บิล)` }),
+        el("div", { class: "totals-line", text: `รายรับจากการขาย (ไม่รวม VAT และค่าจัดส่ง): ${money(income)} บาท (${s.n_sales} บิล)` }),
+        el("div", { class: "totals-line", text: `ค่าจัดส่งที่เก็บจากลูกค้า (ไม่นับเป็นกำไร): ${money(shipping)} บาท` }),
         el("div", { class: "totals-line", text: `ต้นทุนขาย (โดยประมาณจากราคาทุนปัจจุบัน): ${money(cogs)} บาท` }),
         el("div", { class: "totals-line", text: `รายจ่ายอื่นๆ: ${money(exp)} บาท` }),
         el("div", { class: "totals-line totals-main", text: `กำไรสุทธิโดยประมาณ: ${money(netProfit)} บาท` })
