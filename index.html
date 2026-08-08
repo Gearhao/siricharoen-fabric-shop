@@ -3736,7 +3736,7 @@ if (typeof module !== "undefined") {
     renderStockTable();
   }
 
-  function getRollBreakdownText(fabricId) {
+  function getLatestRollBreakdown(fabricId) {
     const moves = DB.getStockMovements(fabricId); // เรียงใหม่สุดก่อน
     let baseIdx = -1;
     let baseRolls = null;
@@ -3748,8 +3748,8 @@ if (typeof module !== "undefined") {
         break;
       }
     }
-    if (baseRolls === null) return "";
-    // รายการรับสินค้าเข้าที่เกิดขึ้นหลังจากนับสต็อกครั้งล่าสุด ให้แสดงเป็นไม้ใหม่ต่อท้าย
+    if (baseRolls === null) return null;
+    // รายการรับสินค้าเข้าที่เกิดขึ้นหลังจากนับสต็อกครั้งล่าสุด ให้นับเป็นไม้ใหม่ต่อท้าย
     // (รวมยอดสุทธิต่อใบรับสินค้า เผื่อกรณีมีการแก้ไข/ย้อนรายการรับสินค้านั้นภายหลัง)
     const afterBase = moves.slice(0, baseIdx).filter((m) => m.ref_type === "purchase");
     const netByRef = {};
@@ -3760,8 +3760,13 @@ if (typeof module !== "undefined") {
     });
     order.reverse();
     const extraRolls = order.map((ref) => netByRef[ref]).filter((q) => q > 0.001);
-    const allRolls = baseRolls.concat(extraRolls);
-    return allRolls.map((r) => round2(r)).join(", ");
+    return baseRolls.concat(extraRolls);
+  }
+
+  function getRollBreakdownText(fabricId) {
+    const rolls = getLatestRollBreakdown(fabricId);
+    if (!rolls) return "";
+    return rolls.map((r) => round2(r)).join(", ");
   }
 
   function renderStockTable() {
@@ -3954,11 +3959,14 @@ if (typeof module !== "undefined") {
     const f = DB.getFabric(fid);
     const editingMovement = movementId ? DB.getStockMovements(fid).find((m) => m.id === movementId) : null;
     const legacyRolls = editingMovement && !(editingMovement.rolls && editingMovement.rolls.length) ? parseRollsFromNote(editingMovement.note) : null;
+    const existingRolls = !editingMovement ? getLatestRollBreakdown(fid) : null;
     let rolls =
       editingMovement && editingMovement.rolls && editingMovement.rolls.length
         ? editingMovement.rolls.map((qty) => ({ qty }))
         : legacyRolls
         ? legacyRolls.map((qty) => ({ qty }))
+        : existingRolls && existingRolls.length
+        ? existingRolls.map((qty) => ({ qty }))
         : [{ qty: 0 }];
     const originalTotal = round2(rolls.reduce((s, r) => s + r.qty, 0));
     const rollsContainer = el("div", {});
