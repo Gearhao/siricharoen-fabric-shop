@@ -3680,6 +3680,7 @@ if (typeof module !== "undefined") {
           return [
             { label: "แก้ไข", onClick: () => openFabricModal(f.id) },
             { label: "ปรับสต็อก", onClick: () => openAdjustStockModal(f.id) },
+            { label: "นับสต็อกแยกไม้", onClick: () => openRollCountModal(f.id) },
             { label: "ประวัติ", onClick: () => openMovementsModal(f.id) },
             {
               label: "ลบ",
@@ -3840,6 +3841,99 @@ if (typeof module !== "undefined") {
     );
     exposeTestRefs("adjustStock", { deltaInput, noteInput, saveBtn });
     openModal("ปรับสต็อก", body);
+  }
+
+  function openRollCountModal(fid) {
+    const f = DB.getFabric(fid);
+    let rolls = [{ qty: 0 }];
+    const rollsContainer = el("div", {});
+    const totalLbl = el("div", { class: "totals-line totals-main", text: `รวม: 0 ${f.unit} (0 ไม้)` });
+
+    function updateTotal() {
+      const valid = rolls.filter((r) => r.qty > 0);
+      const total = valid.reduce((s, r) => s + r.qty, 0);
+      totalLbl.textContent = `รวม: ${money(total)} ${f.unit} (${valid.length} ไม้)`;
+    }
+
+    function renderRolls() {
+      clear(rollsContainer);
+      rolls.forEach((r, idx) => {
+        const rollInput = numberInput(r.qty);
+        rollInput.addEventListener("input", (e) => {
+          rolls[idx].qty = Number(e.target.value) || 0;
+          updateTotal();
+        });
+        const removeBtn = el(
+          "button",
+          {
+            class: "btn btn-sm",
+            onClick: () => {
+              rolls.splice(idx, 1);
+              if (rolls.length === 0) rolls.push({ qty: 0 });
+              renderRolls();
+              updateTotal();
+            },
+          },
+          "ลบ"
+        );
+        rollsContainer.appendChild(
+          formField(`ไม้ที่ ${idx + 1}`, el("div", { class: "discount-input-row" }, rollInput, removeBtn))
+        );
+      });
+    }
+
+    const addRollBtn = el(
+      "button",
+      {
+        class: "btn btn-sm",
+        onClick: () => {
+          rolls.push({ qty: 0 });
+          renderRolls();
+          updateTotal();
+        },
+      },
+      "+ เพิ่มไม้"
+    );
+
+    renderRolls();
+    updateTotal();
+
+    const noteInput = textInput("");
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          const valid = rolls.filter((r) => r.qty > 0);
+          if (valid.length === 0) {
+            global.alert("กรุณาระบุจำนวนอย่างน้อย 1 ไม้");
+            return;
+          }
+          const total = round2(valid.reduce((s, r) => s + r.qty, 0));
+          const delta = round2(total - f.stock_qty);
+          const rollsText = valid.map((r) => r.qty).join(", ");
+          let note = `นับสต็อกแยกไม้ (${valid.length} ไม้: ${rollsText} ${f.unit} รวม ${money(total)} ${f.unit})`;
+          if (noteInput.value.trim()) note += " - " + noteInput.value.trim();
+          DB.adjustStock(fid, delta, note);
+          closeModal();
+          renderStockTable();
+        },
+      },
+      "บันทึกยอดนับ"
+    );
+
+    const body = el(
+      "div",
+      {},
+      el("p", { text: `${f.name} ยอดในระบบปัจจุบัน: ${f.stock_qty} ${f.unit}` }),
+      rollsContainer,
+      addRollBtn,
+      totalLbl,
+      formField("หมายเหตุเพิ่มเติม", noteInput),
+      el("div", { class: "modal-actions" }, saveBtn)
+    );
+    exposeTestRefs("rollCount", { rollsContainer, addRollBtn, noteInput, saveBtn, getRolls: () => rolls });
+    openModal(`นับสต็อกแยกไม้ - ${f.name}`, body, { wide: true });
   }
 
   function openMovementsModal(fid) {
@@ -5577,7 +5671,7 @@ if (typeof module !== "undefined") {
     switchTab,
     refs,
     getCart: () => cart,
-    openFabricModal, openAdjustStockModal, openMovementsModal,
+    openFabricModal, openAdjustStockModal, openMovementsModal, openRollCountModal,
     openCustomerModal, openCustomerHistoryModal, openCustomerPayModal,
     openSupplierModal, openSupplierPayModal,
     openPurchaseModal, openPurchaseItemsModal, openPurchasePayModal,
