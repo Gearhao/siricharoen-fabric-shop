@@ -2344,13 +2344,21 @@ if (typeof module !== "undefined") {
         text: paidLabel,
         style: isUnpaidStatus ? { color: "var(--danger)", fontWeight: "600" } : {},
       });
+      const totalCell = s.shipping_fee
+        ? el(
+            "td",
+            {},
+            el("div", { text: `ก่อนค่าส่ง ${money(s.total - s.shipping_fee)}` }),
+            el("div", { text: `รวมค่าส่ง ${money(s.total)}` })
+          )
+        : el("td", { text: money(s.total) });
       const tr = el(
         "tr",
         {},
         el("td", { text: s.sale_no }),
         el("td", { text: fmtDate(s.date) }),
         el("td", { text: c ? c.name : "ลูกค้าทั่วไป" }),
-        el("td", { text: money(s.total) + (s.shipping_fee ? ` (ค่าส่ง ${money(s.shipping_fee)})` : "") }),
+        totalCell,
         statusCell,
         actionsCell
       );
@@ -3152,7 +3160,6 @@ if (typeof module !== "undefined") {
         el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, "พิมพ์ใบเสร็จ"),
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOSVat(s.id) }, "ลบ")
       );
-      const displayTotalVat = money(s.total) + (s.shipping_fee ? ` (ค่าส่ง ${money(s.shipping_fee)})` : "");
       const isUnpaidStatus = s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ";
       const paidLabel =
         s.status === "ชำระแล้ว" && s.paid_method
@@ -3166,13 +3173,21 @@ if (typeof module !== "undefined") {
         text: paidLabel,
         style: isUnpaidStatus ? { color: "var(--danger)", fontWeight: "600" } : {},
       });
+      const totalCell = s.shipping_fee
+        ? el(
+            "td",
+            {},
+            el("div", { text: `ก่อนค่าส่ง ${money(s.total - s.shipping_fee)}` }),
+            el("div", { text: `รวมค่าส่ง ${money(s.total)}` })
+          )
+        : el("td", { text: money(s.total) });
       const tr = el(
         "tr",
         {},
         el("td", { text: s.sale_no }),
         el("td", { text: fmtDate(s.date) }),
         el("td", { text: c ? c.name : "ลูกค้าทั่วไป" }),
-        el("td", { text: displayTotalVat }),
+        totalCell,
         statusCell,
         actionsCell
       );
