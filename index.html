@@ -2300,9 +2300,9 @@ if (typeof module !== "undefined") {
         el("th", { text: "เลขที่บิล" }),
         el("th", { text: "วันที่" }),
         el("th", { text: "ลูกค้า" }),
-        el("th", { text: "วิธีจัดส่ง" }),
         el("th", { text: "ยอดรวม" }),
         el("th", { text: "สถานะ" }),
+        el("th", { text: "วิธีจัดส่ง" }),
         el("th", { text: "จัดการ" })
       )
     );
@@ -2363,9 +2363,9 @@ if (typeof module !== "undefined") {
         saleNoCell,
         el("td", { text: fmtDate(s.date) }),
         el("td", { text: c ? c.name : "ลูกค้าทั่วไป" }),
-        el("td", { text: s.shipping_method || "-" }),
         totalCell,
         statusCell,
+        el("td", { text: s.shipping_method || "-" }),
         actionsCell
       );
       tbody.appendChild(tr);
@@ -3135,9 +3135,9 @@ if (typeof module !== "undefined") {
         el("th", { text: "เลขที่บิล" }),
         el("th", { text: "วันที่" }),
         el("th", { text: "ลูกค้า" }),
-        el("th", { text: "วิธีจัดส่ง" }),
         el("th", { text: "ยอดรวม" }),
         el("th", { text: "สถานะ" }),
+        el("th", { text: "วิธีจัดส่ง" }),
         el("th", { text: "จัดการ" })
       )
     );
@@ -3198,9 +3198,9 @@ if (typeof module !== "undefined") {
         saleNoCell,
         el("td", { text: fmtDate(s.date) }),
         el("td", { text: c ? c.name : "ลูกค้าทั่วไป" }),
-        el("td", { text: s.shipping_method || "-" }),
         totalCell,
         statusCell,
+        el("td", { text: s.shipping_method || "-" }),
         actionsCell
       );
       tbody.appendChild(tr);
