@@ -2285,7 +2285,10 @@ if (typeof module !== "undefined") {
     }
     if (refs.posHistorySummary) {
       const totalAmount = sales.reduce((sum, s) => sum + s.total, 0);
-      refs.posHistorySummary.textContent = `รวม ${sales.length} บิล ยอดขายรวม ${money(totalAmount)} บาท`;
+      const totalShipping = sales.reduce((sum, s) => sum + (s.shipping_fee || 0), 0);
+      refs.posHistorySummary.textContent =
+        `รวม ${sales.length} บิล ยอดขายรวม ${money(totalAmount)} บาท` +
+        (totalShipping ? ` (ค่าส่งรวม ${money(totalShipping)} บาท)` : "");
     }
 
     const thead = el(
@@ -2347,7 +2350,7 @@ if (typeof module !== "undefined") {
         el("td", { text: s.sale_no }),
         el("td", { text: fmtDate(s.date) }),
         el("td", { text: c ? c.name : "ลูกค้าทั่วไป" }),
-        el("td", { text: money(s.total) }),
+        el("td", { text: money(s.total) + (s.shipping_fee ? ` (ค่าส่ง ${money(s.shipping_fee)})` : "") }),
         statusCell,
         actionsCell
       );
@@ -3102,8 +3105,11 @@ if (typeof module !== "undefined") {
       });
     }
     if (refs.posVatHistorySummary) {
-      const totalAmount = sales.reduce((sum, s) => sum + (s.total - (s.shipping_fee || 0)), 0);
-      refs.posVatHistorySummary.textContent = `รวม ${sales.length} บิล ยอดขายรวม ${money(totalAmount)} บาท`;
+      const totalAmount = sales.reduce((sum, s) => sum + s.total, 0);
+      const totalShipping = sales.reduce((sum, s) => sum + (s.shipping_fee || 0), 0);
+      refs.posVatHistorySummary.textContent =
+        `รวม ${sales.length} บิล ยอดขายรวม ${money(totalAmount)} บาท` +
+        (totalShipping ? ` (ค่าส่งรวม ${money(totalShipping)} บาท)` : "");
     }
 
     const thead = el(
@@ -3146,7 +3152,7 @@ if (typeof module !== "undefined") {
         el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, "พิมพ์ใบเสร็จ"),
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOSVat(s.id) }, "ลบ")
       );
-      const displayTotalVat = s.total - (s.shipping_fee || 0);
+      const displayTotalVat = money(s.total) + (s.shipping_fee ? ` (ค่าส่ง ${money(s.shipping_fee)})` : "");
       const isUnpaidStatus = s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ";
       const paidLabel =
         s.status === "ชำระแล้ว" && s.paid_method
@@ -3166,7 +3172,7 @@ if (typeof module !== "undefined") {
         el("td", { text: s.sale_no }),
         el("td", { text: fmtDate(s.date) }),
         el("td", { text: c ? c.name : "ลูกค้าทั่วไป" }),
-        el("td", { text: money(displayTotalVat) }),
+        el("td", { text: displayTotalVat }),
         statusCell,
         actionsCell
       );
