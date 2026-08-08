@@ -879,6 +879,18 @@ function createDB(storageKey) {
       .filter((m) => m.fabric_id === fabricId)
       .sort((a, b) => (a.date < b.date ? 1 : -1));
   }
+  function deleteStockMovement(movementId) {
+    const idx = store.stockMovements.findIndex((x) => x.id === movementId);
+    if (idx === -1) return false;
+    const m = store.stockMovements[idx];
+    const f = getFabric(m.fabric_id);
+    if (f) {
+      f.stock_qty = Math.round((f.stock_qty - m.qty) * 100) / 100;
+    }
+    store.stockMovements.splice(idx, 1);
+    save();
+    return true;
+  }
 
   // ---------------------------------------------------------------- sales
   function genSaleNo() {
@@ -1416,7 +1428,7 @@ function createDB(storageKey) {
     getCustomerSales, payCustomerCredit, getCustomerPayments,
     paySupplierCredit, getSupplierPayments,
     addFabric, updateFabric, deleteFabric, getFabrics, getFabric,
-    adjustStock, recordRollCount, updateRollCount, getStockMovements,
+    adjustStock, recordRollCount, updateRollCount, getStockMovements, deleteStockMovement,
     createSale, updateSale, deleteSale, getSales, getSale, markSalePaid,
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense,
@@ -3707,6 +3719,17 @@ if (typeof module !== "undefined") {
     renderStockTable();
   }
 
+  function getRollBreakdownText(fabricId) {
+    const moves = DB.getStockMovements(fabricId);
+    for (const m of moves) {
+      const rolls = m.rolls && m.rolls.length ? m.rolls : parseRollsFromNote(m.note);
+      if (rolls && rolls.length) {
+        return rolls.map((r) => round2(r)).join(", ");
+      }
+    }
+    return "";
+  }
+
   function renderStockTable() {
     const container = refs.stockTableContainer;
     clear(container);
@@ -3715,12 +3738,12 @@ if (typeof module !== "undefined") {
       const sup = f.supplier_id ? DB.getSupplier(f.supplier_id) : null;
       return [
         f.code, f.name, f.category, f.color, f.unit,
-        money(f.cost_price), money(f.sell_price), f.stock_qty, f.reorder_point,
+        money(f.cost_price), money(f.sell_price), f.stock_qty, getRollBreakdownText(f.id), f.reorder_point,
         sup ? sup.name : "",
       ];
     });
     const table = buildDataTable(
-      ["รหัส", "ชื่อผ้า", "ประเภท", "สี", "หน่วย", "ราคาทุน", "ราคาขาย", "คงเหลือ", "จุดสั่งซื้อ", "ซัพพลายเออร์"],
+      ["รหัส", "ชื่อผ้า", "ประเภท", "สี", "หน่วย", "ราคาทุน", "ราคาขาย", "คงเหลือ", "แยกไม้", "จุดสั่งซื้อ", "ซัพพลายเออร์"],
       rows,
       {
         cellStyle: (row, ci, colName) =>
@@ -4021,16 +4044,30 @@ if (typeof module !== "undefined") {
         actions: (idx) => {
           const m = moves[idx];
           const isEditableRollCount = m.ref_type === "roll_count" || !!parseRollsFromNote(m.note);
-          if (!isEditableRollCount) return [];
-          return [
-            {
+          const isDeletable = m.ref_type === "adjust" || m.ref_type === "roll_count";
+          const acts = [];
+          if (isEditableRollCount) {
+            acts.push({
               label: "แก้ไข",
               onClick: () => {
                 closeModal();
                 openRollCountModal(fid, m.id);
               },
-            },
-          ];
+            });
+          }
+          if (isDeletable) {
+            acts.push({
+              label: "ลบ",
+              onClick: () => {
+                if (!global.confirm("ต้องการลบประวัตินี้หรือไม่? ยอดคงเหลือจะถูกปรับกลับตามรายการนี้")) return;
+                DB.deleteStockMovement(m.id);
+                renderStockTable();
+                closeModal();
+                openMovementsModal(fid);
+              },
+            });
+          }
+          return acts;
         },
       }
     );
