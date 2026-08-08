@@ -3102,7 +3102,7 @@ if (typeof module !== "undefined") {
       });
     }
     if (refs.posVatHistorySummary) {
-      const totalAmount = sales.reduce((sum, s) => sum + s.total, 0);
+      const totalAmount = sales.reduce((sum, s) => sum + (s.total - (s.shipping_fee || 0)), 0);
       refs.posVatHistorySummary.textContent = `รวม ${sales.length} บิล ยอดขายรวม ${money(totalAmount)} บาท`;
     }
 
@@ -3146,6 +3146,7 @@ if (typeof module !== "undefined") {
         el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, "พิมพ์ใบเสร็จ"),
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOSVat(s.id) }, "ลบ")
       );
+      const displayTotalVat = s.total - (s.shipping_fee || 0);
       const isUnpaidStatus = s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ";
       const paidLabel =
         s.status === "ชำระแล้ว" && s.paid_method
@@ -3165,7 +3166,7 @@ if (typeof module !== "undefined") {
         el("td", { text: s.sale_no }),
         el("td", { text: fmtDate(s.date) }),
         el("td", { text: c ? c.name : "ลูกค้าทั่วไป" }),
-        el("td", { text: money(s.total) }),
+        el("td", { text: money(displayTotalVat) }),
         statusCell,
         actionsCell
       );
