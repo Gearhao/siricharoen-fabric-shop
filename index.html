@@ -3720,14 +3720,31 @@ if (typeof module !== "undefined") {
   }
 
   function getRollBreakdownText(fabricId) {
-    const moves = DB.getStockMovements(fabricId);
-    for (const m of moves) {
-      const rolls = m.rolls && m.rolls.length ? m.rolls : parseRollsFromNote(m.note);
+    const moves = DB.getStockMovements(fabricId); // เรียงใหม่สุดก่อน
+    let baseIdx = -1;
+    let baseRolls = null;
+    for (let i = 0; i < moves.length; i++) {
+      const rolls = moves[i].rolls && moves[i].rolls.length ? moves[i].rolls : parseRollsFromNote(moves[i].note);
       if (rolls && rolls.length) {
-        return rolls.map((r) => round2(r)).join(", ");
+        baseIdx = i;
+        baseRolls = rolls;
+        break;
       }
     }
-    return "";
+    if (baseRolls === null) return "";
+    // รายการรับสินค้าเข้าที่เกิดขึ้นหลังจากนับสต็อกครั้งล่าสุด ให้แสดงเป็นไม้ใหม่ต่อท้าย
+    // (รวมยอดสุทธิต่อใบรับสินค้า เผื่อกรณีมีการแก้ไข/ย้อนรายการรับสินค้านั้นภายหลัง)
+    const afterBase = moves.slice(0, baseIdx).filter((m) => m.ref_type === "purchase");
+    const netByRef = {};
+    const order = [];
+    afterBase.forEach((m) => {
+      if (!(m.ref_id in netByRef)) order.push(m.ref_id);
+      netByRef[m.ref_id] = (netByRef[m.ref_id] || 0) + m.qty;
+    });
+    order.reverse();
+    const extraRolls = order.map((ref) => netByRef[ref]).filter((q) => q > 0.001);
+    const allRolls = baseRolls.concat(extraRolls);
+    return allRolls.map((r) => round2(r)).join(", ");
   }
 
   function renderStockTable() {
@@ -5020,6 +5037,22 @@ if (typeof module !== "undefined") {
         const fabricOptions = [{ value: "", label: "-- เลือกผ้า --" }].concat(
       fabrics.map((f) => ({ value: String(f.id), label: `${f.code} - ${f.name}` }))
     );
+    // หน่วงเวลาก่อนบันทึกอัตโนมัติ เพื่อให้พิมพ์ครบทุกช่อง (รวมส่วนลด) ก่อนที่ระบบจะบันทึกรายการให้
+    let addRowTimer = null;
+    function scheduleAddItemFromRow() {
+      if (addRowTimer) clearTimeout(addRowTimer);
+      addRowTimer = setTimeout(() => {
+        addRowTimer = null;
+        tryAddItemFromRow({ alertOnInvalid: false });
+      }, 1200);
+    }
+    function addItemFromRowNow(opts) {
+      if (addRowTimer) {
+        clearTimeout(addRowTimer);
+        addRowTimer = null;
+      }
+      tryAddItemFromRow(opts || { alertOnInvalid: false });
+    }
     const fabricSelect = searchSelectInput(fabricOptions, "", "พิมพ์รหัส/ชื่อผ้าเพื่อค้นหา...");
     fabricSelect.getFabricId = () => {
       const v = fabricSelect.getMatchedValue();
@@ -5032,11 +5065,11 @@ if (typeof module !== "undefined") {
         fabricSelect.setLabel("");
         return;
       }
-      tryAddItemFromRow({ alertOnInvalid: false });
+      addItemFromRowNow({ alertOnInvalid: false });
     });
     const qtyInput = numberInput("");
     qtyInput.setAttribute("placeholder", "จำนวน");
-    qtyInput.addEventListener("change", () => tryAddItemFromRow({ alertOnInvalid: false }));
+    qtyInput.addEventListener("input", scheduleAddItemFromRow);
     const unitSelect = selectInput(
       [
         { value: "หลา", label: "หลา" },
@@ -5046,10 +5079,10 @@ if (typeof module !== "undefined") {
     );
     const costInput = numberInput("");
     costInput.setAttribute("placeholder", "ราคาทุน/หน่วย");
-    costInput.addEventListener("change", () => tryAddItemFromRow({ alertOnInvalid: false }));
+    costInput.addEventListener("input", scheduleAddItemFromRow);
     const itemDiscInput = numberInput("");
     itemDiscInput.setAttribute("placeholder", "ส่วนลด");
-    itemDiscInput.addEventListener("change", () => tryAddItemFromRow({ alertOnInvalid: false }));
+    itemDiscInput.addEventListener("input", scheduleAddItemFromRow);
     const itemDiscUnitSelect = selectInput(
       [
         { value: "บาท", label: "บาท" },
@@ -5057,7 +5090,7 @@ if (typeof module !== "undefined") {
       ],
       "บาท"
     );
-    itemDiscUnitSelect.addEventListener("change", () => tryAddItemFromRow({ alertOnInvalid: false }));
+    itemDiscUnitSelect.addEventListener("change", () => addItemFromRowNow({ alertOnInvalid: false }));
     const itemDiscRow = el("div", { class: "discount-input-row" }, itemDiscInput, itemDiscUnitSelect);
     const itemsContainer = el("div", { class: "table-container" });
     const vatChk = el("input", { type: "checkbox", checked: editingPurchase ? editingPurchase.vat_amount > 0 : true });
@@ -5173,6 +5206,10 @@ if (typeof module !== "undefined") {
     // (ใช้เรียกอัตโนมัติทุกครั้งที่กรอกครบทั้งเลือกผ้า/จำนวน/ราคาทุน โดยไม่ต้องกดปุ่ม "เพิ่มรายการ" เอง)
     function tryAddItemFromRow(opts) {
       opts = opts || {};
+      if (addRowTimer) {
+        clearTimeout(addRowTimer);
+        addRowTimer = null;
+      }
       const matched = fabricSelect.getMatchedValue();
       if (!matched) {
         if (opts.alertOnInvalid) global.alert("กรุณาเลือกสินค้าและกรอกจำนวนให้ถูกต้อง");
