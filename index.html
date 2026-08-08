@@ -2208,6 +2208,53 @@ if (typeof module !== "undefined") {
     }
   }
 
+  function openSaleDetailModal(saleId) {
+    const s = DB.getSale(saleId);
+    if (!s) return;
+    const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
+    const itemRows = s.items.map((it) => {
+      const f = DB.getFabric(it.fabric_id);
+      return [
+        f ? f.code : "-",
+        f ? f.name : "(สินค้านี้ถูกลบแล้ว)",
+        it.qty,
+        it.unit || (f ? f.unit : ""),
+        money(it.unit_price),
+        money(it.qty * it.unit_price),
+      ];
+    });
+    const itemsTable = buildDataTable(["รหัสผ้า", "ชื่อผ้า", "จำนวน", "หน่วย", "ราคา/หน่วย", "รวม"], itemRows);
+    const infoLines = [
+      `เลขที่บิล: ${s.sale_no}`,
+      `วันที่: ${fmtDate(s.date)}`,
+      `ลูกค้า: ${c ? c.name : "ลูกค้าทั่วไป"}`,
+      `ชำระโดย: ${s.payment_method}`,
+      `สถานะ: ${s.status}`,
+    ];
+    if (s.due_date) infoLines.push(`วันที่ครบกำหนดชำระเงิน: ${fmtDate(s.due_date)}`);
+    if (s.shipping_method) infoLines.push(`วิธีจัดส่ง: ${s.shipping_method}`);
+    if (s.note) infoLines.push(`หมายเหตุ: ${s.note}`);
+    const infoBlock = el("div", { style: { marginBottom: "10px" } }, ...infoLines.map((t) => el("div", { text: t })));
+    const totalsBlock = el(
+      "div",
+      { class: "totals-line", style: { marginTop: "10px" } },
+      el("div", { text: `ยอดรวมก่อนหักส่วนลด: ${money(s.subtotal)} บาท` }),
+      s.discount ? el("div", { text: `ส่วนลด: ${money(s.discount)} บาท` }) : null,
+      s.shipping_fee ? el("div", { text: `ค่าจัดส่ง: ${money(s.shipping_fee)} บาท` }) : null,
+      s.vat_amount ? el("div", { text: `ภาษีมูลค่าเพิ่ม: ${money(s.vat_amount)} บาท` }) : null,
+      el("div", { text: `ยอดสุทธิ: ${money(s.total)} บาท`, style: { fontWeight: "600" } }),
+      el("div", { text: `ชำระแล้ว: ${money(s.paid)} บาท` }),
+      s.total - s.paid > 0
+        ? el("div", {
+            text: `ค้างชำระ: ${money(s.total - s.paid)} บาท`,
+            style: { color: "var(--danger)", fontWeight: "600" },
+          })
+        : null
+    );
+    const body = el("div", {}, infoBlock, itemsTable, totalsBlock);
+    openModal(`รายละเอียดบิล - ${s.sale_no}`, body, { wide: true });
+  }
+
   function renderPosSalesHistory() {
     const container = refs.posHistoryTableContainer;
     if (!container) return;
@@ -2266,6 +2313,7 @@ if (typeof module !== "undefined") {
       const actionsCell = el(
         "td",
         { class: "actions-cell" },
+        el("button", { class: "btn btn-sm", onClick: () => openSaleDetailModal(s.id) }, "รายละเอียด"),
         el("button", { class: "btn btn-sm", onClick: () => editSalePOS(s.id) }, "แก้ไข"),
         s.status !== "ชำระแล้ว"
           ? el(
@@ -3083,6 +3131,7 @@ if (typeof module !== "undefined") {
       const actionsCell = el(
         "td",
         { class: "actions-cell" },
+        el("button", { class: "btn btn-sm", onClick: () => openSaleDetailModal(s.id) }, "รายละเอียด"),
         el("button", { class: "btn btn-sm", onClick: () => editSalePOSVat(s.id) }, "แก้ไข"),
         s.status !== "ชำระแล้ว"
           ? el(
