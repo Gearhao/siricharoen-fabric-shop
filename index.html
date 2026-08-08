@@ -858,17 +858,18 @@ function createDB(storageKey) {
     save();
     return movement;
   }
-  function updateRollCount(movementId, rolls, note) {
-    const m = store.stockMovements.find((x) => x.id === movementId && x.ref_type === "roll_count");
+  function updateRollCount(movementId, previousTotal, rolls, note) {
+    const m = store.stockMovements.find((x) => x.id === movementId);
     if (!m) return null;
     const f = getFabric(m.fabric_id);
     if (!f) return null;
-    const oldTotal = Math.round((m.rolls || []).reduce((s, r) => s + r, 0) * 100) / 100;
+    const oldTotal = Math.round((Number(previousTotal) || 0) * 100) / 100;
     const newTotal = Math.round(rolls.reduce((s, r) => s + r, 0) * 100) / 100;
     const correctionDelta = Math.round((newTotal - oldTotal) * 100) / 100;
     f.stock_qty = Math.round((f.stock_qty + correctionDelta) * 100) / 100;
     m.qty = Math.round((m.qty + correctionDelta) * 100) / 100;
     m.rolls = rolls.slice();
+    m.ref_type = "roll_count";
     m.note = note || m.note;
     save();
     return m;
@@ -2522,6 +2523,19 @@ if (typeof module !== "undefined") {
   function round2(n) {
     return Math.round((Number(n) || 0) * 100) / 100;
   }
+  function parseRollsFromNote(note) {
+    if (!note) return null;
+    const m = note.match(/นับสต็อกแยกไม้ \(\d+ ไม้: (.+?) รวม/);
+    if (!m) return null;
+    const parts = m[1].split(",").map((s) => s.trim());
+    if (parts.length === 0) return null;
+    const rolls = parts.map((p) => {
+      const numMatch = p.match(/[\d.]+/);
+      return numMatch ? parseFloat(numMatch[0]) : null;
+    });
+    if (rolls.some((r) => r === null || isNaN(r))) return null;
+    return rolls;
+  }
 
   function renderPosItemsTable() {
     const container = refs.posItemsTableContainer;
@@ -3882,10 +3896,14 @@ if (typeof module !== "undefined") {
   function openRollCountModal(fid, movementId) {
     const f = DB.getFabric(fid);
     const editingMovement = movementId ? DB.getStockMovements(fid).find((m) => m.id === movementId) : null;
+    const legacyRolls = editingMovement && !(editingMovement.rolls && editingMovement.rolls.length) ? parseRollsFromNote(editingMovement.note) : null;
     let rolls =
       editingMovement && editingMovement.rolls && editingMovement.rolls.length
         ? editingMovement.rolls.map((qty) => ({ qty }))
+        : legacyRolls
+        ? legacyRolls.map((qty) => ({ qty }))
         : [{ qty: 0 }];
+    const originalTotal = round2(rolls.reduce((s, r) => s + r.qty, 0));
     const rollsContainer = el("div", {});
     const totalLbl = el("div", { class: "totals-line totals-main", text: `รวม: 0 ${f.unit} (0 ไม้)` });
 
@@ -3957,6 +3975,7 @@ if (typeof module !== "undefined") {
             note += " (แก้ไขแล้ว)";
             DB.updateRollCount(
               movementId,
+              originalTotal,
               valid.map((r) => r.qty),
               note
             );
@@ -4001,7 +4020,8 @@ if (typeof module !== "undefined") {
       {
         actions: (idx) => {
           const m = moves[idx];
-          if (m.ref_type !== "roll_count") return [];
+          const isEditableRollCount = m.ref_type === "roll_count" || !!parseRollsFromNote(m.note);
+          if (!isEditableRollCount) return [];
           return [
             {
               label: "แก้ไข",
