@@ -2691,22 +2691,6 @@ if (typeof module !== "undefined") {
       global.alert("กรุณาเลือกสินค้าและระบุจำนวนอย่างน้อย 1 รายการ");
       return;
     }
-    const oldSale = editingSaleId ? DB.getSale(editingSaleId) : null;
-    function oldStockQtyFor(fabricId) {
-      if (!oldSale) return 0;
-      return oldSale.items.filter((it) => it.fabric_id === fabricId).reduce((s, it) => s + it.stock_qty, 0);
-    }
-    for (const it of validItems) {
-      const f = DB.getFabric(it.fabric_id);
-      if (f) {
-        const qtyInBase = it.qty * unitFactor(it.unit, f.unit);
-        const availableStock = f.stock_qty + oldStockQtyFor(it.fabric_id);
-        if (qtyInBase > availableStock) {
-          const shownQty = it.unit === f.unit ? `${it.qty} ${it.unit}` : `${it.qty} ${it.unit} (≈ ${round2(qtyInBase)} ${f.unit})`;
-          if (!global.confirm(`สินค้า "${f.name}" มีสต็อกไม่พอ (คงเหลือ ${round2(availableStock)} ${f.unit}, ต้องการขาย ${shownQty}) ต้องการขายต่อหรือไม่?`)) return;
-        }
-      }
-    }
     const { subtotal, discount, vat, shippingFee, total } = calcPosTotals();
     const custId = refs.posCustomerSelect.getCustomerId();
     const paymentMethod = refs.posPaymentSelect.value;
@@ -3396,22 +3380,6 @@ if (typeof module !== "undefined") {
     if (validItems.length === 0) {
       global.alert("กรุณาเลือกสินค้าและระบุจำนวนอย่างน้อย 1 รายการ");
       return;
-    }
-    const oldSale = editingSaleIdVat ? DB.getSale(editingSaleIdVat) : null;
-    function oldStockQtyFor(fabricId) {
-      if (!oldSale) return 0;
-      return oldSale.items.filter((it) => it.fabric_id === fabricId).reduce((s, it) => s + it.stock_qty, 0);
-    }
-    for (const it of validItems) {
-      const f = DB.getFabric(it.fabric_id);
-      if (f) {
-        const qtyInBase = it.qty * unitFactor(it.unit, f.unit);
-        const availableStock = f.stock_qty + oldStockQtyFor(it.fabric_id);
-        if (qtyInBase > availableStock) {
-          const shownQty = it.unit === f.unit ? `${it.qty} ${it.unit}` : `${it.qty} ${it.unit} (≈ ${round2(qtyInBase)} ${f.unit})`;
-          if (!global.confirm(`สินค้า "${f.name}" มีสต็อกไม่พอ (คงเหลือ ${round2(availableStock)} ${f.unit}, ต้องการขาย ${shownQty}) ต้องการขายต่อหรือไม่?`)) return;
-        }
-      }
     }
     const { subtotal, discount, vat, shippingFee, total } = calcPosTotalsVat();
     const custId = refs.posVatCustomerSelect.getCustomerId();
