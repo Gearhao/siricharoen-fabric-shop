@@ -2300,6 +2300,7 @@ if (typeof module !== "undefined") {
         el("th", { text: "เลขที่บิล" }),
         el("th", { text: "วันที่" }),
         el("th", { text: "ลูกค้า" }),
+        el("th", { text: "วิธีจัดส่ง" }),
         el("th", { text: "ยอดรวม" }),
         el("th", { text: "สถานะ" }),
         el("th", { text: "จัดการ" })
@@ -2308,7 +2309,7 @@ if (typeof module !== "undefined") {
     const tbody = el("tbody", {});
 
     if (sales.length === 0) {
-      tbody.appendChild(el("tr", {}, el("td", { colspan: 6, class: "empty", text: "ไม่มีข้อมูล" })));
+      tbody.appendChild(el("tr", {}, el("td", { colspan: 7, class: "empty", text: "ไม่มีข้อมูล" })));
     }
 
     sales.forEach((s) => {
@@ -2316,7 +2317,6 @@ if (typeof module !== "undefined") {
       const actionsCell = el(
         "td",
         { class: "actions-cell" },
-        el("button", { class: "btn btn-sm", onClick: () => openSaleDetailModal(s.id) }, "รายละเอียด"),
         el("button", { class: "btn btn-sm", onClick: () => editSalePOS(s.id) }, "แก้ไข"),
         s.status !== "ชำระแล้ว"
           ? el(
@@ -2352,12 +2352,18 @@ if (typeof module !== "undefined") {
             el("div", { text: `รวมค่าส่ง ${money(s.total)}` })
           )
         : el("td", { text: money(s.total) });
+      const saleNoCell = el(
+        "td",
+        {},
+        el("button", { class: "btn btn-sm", onClick: () => openSaleDetailModal(s.id) }, s.sale_no)
+      );
       const tr = el(
         "tr",
         {},
-        el("td", { text: s.sale_no }),
+        saleNoCell,
         el("td", { text: fmtDate(s.date) }),
         el("td", { text: c ? c.name : "ลูกค้าทั่วไป" }),
+        el("td", { text: s.shipping_method || "-" }),
         totalCell,
         statusCell,
         actionsCell
@@ -3129,6 +3135,7 @@ if (typeof module !== "undefined") {
         el("th", { text: "เลขที่บิล" }),
         el("th", { text: "วันที่" }),
         el("th", { text: "ลูกค้า" }),
+        el("th", { text: "วิธีจัดส่ง" }),
         el("th", { text: "ยอดรวม" }),
         el("th", { text: "สถานะ" }),
         el("th", { text: "จัดการ" })
@@ -3137,7 +3144,7 @@ if (typeof module !== "undefined") {
     const tbody = el("tbody", {});
 
     if (sales.length === 0) {
-      tbody.appendChild(el("tr", {}, el("td", { colspan: 6, class: "empty", text: "ไม่มีข้อมูล" })));
+      tbody.appendChild(el("tr", {}, el("td", { colspan: 7, class: "empty", text: "ไม่มีข้อมูล" })));
     }
 
     sales.forEach((s) => {
@@ -3145,7 +3152,6 @@ if (typeof module !== "undefined") {
       const actionsCell = el(
         "td",
         { class: "actions-cell" },
-        el("button", { class: "btn btn-sm", onClick: () => openSaleDetailModal(s.id) }, "รายละเอียด"),
         el("button", { class: "btn btn-sm", onClick: () => editSalePOSVat(s.id) }, "แก้ไข"),
         s.status !== "ชำระแล้ว"
           ? el(
@@ -3181,12 +3187,18 @@ if (typeof module !== "undefined") {
             el("div", { text: `รวมค่าส่ง ${money(s.total)}` })
           )
         : el("td", { text: money(s.total) });
+      const saleNoCell = el(
+        "td",
+        {},
+        el("button", { class: "btn btn-sm", onClick: () => openSaleDetailModal(s.id) }, s.sale_no)
+      );
       const tr = el(
         "tr",
         {},
-        el("td", { text: s.sale_no }),
+        saleNoCell,
         el("td", { text: fmtDate(s.date) }),
         el("td", { text: c ? c.name : "ลูกค้าทั่วไป" }),
+        el("td", { text: s.shipping_method || "-" }),
         totalCell,
         statusCell,
         actionsCell
