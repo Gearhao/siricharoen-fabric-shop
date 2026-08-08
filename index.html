@@ -5430,7 +5430,7 @@ if (typeof module !== "undefined") {
         `${b.qty || 0} ${b.unit || ""}`, b.done ? "เสร็จแล้ว" : b.status, b.note || ""]),
       {
         cellStyle: (row, ci, colName) => {
-          if (colName === "สถานะ" && row[ci] === "สินค้าหมด") return { color: "var(--danger)", fontWeight: "600" };
+          if (colName === "สถานะ" && (row[ci] === "สินค้าหมด" || row[ci] === "รอย้อม")) return { color: "var(--danger)", fontWeight: "600" };
           if (colName === "สถานะ" && row[ci] === "เสร็จแล้ว") return { color: "var(--text-muted)" };
           return null;
         },
