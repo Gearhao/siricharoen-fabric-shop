@@ -3841,6 +3841,9 @@ if (typeof module !== "undefined") {
       ? "ใบกำกับภาษีอย่างย่อ / ใบเสร็จรับเงิน"
       : "ใบเสร็จรับเงิน";
     const custName = cust ? cust.name : "ลูกค้าทั่วไป";
+    // สำหรับใบส่งสินค้าที่เป็นบิล VAT: แยกค่าจัดส่งออกจากยอดสุทธิ ไม่รวมเข้าไปในยอดสุทธิ
+    const excludeShippingFromTotal = isDeliveryDoc && showVat;
+    const displayTotal = excludeShippingFromTotal ? sale.total - (sale.shipping_fee || 0) : sale.total;
 
     // -------- plain text version (สำหรับดาวน์โหลดไฟล์ .txt) --------
     const lines = [];
@@ -3864,7 +3867,7 @@ if (typeof module !== "undefined") {
     if (sale.discount) lines.push(`${"ส่วนลด".padEnd(24)}${money(sale.discount).padStart(14)}`);
     if (showVat) lines.push(`${("ภาษีมูลค่าเพิ่ม " + Math.round(VAT_RATE * 100) + "%").padEnd(24)}${money(sale.vat_amount).padStart(14)}`);
     if (sale.shipping_fee) lines.push(`${"ค่าจัดส่ง".padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
-    lines.push(`${"ยอดสุทธิ".padEnd(24)}${money(sale.total).padStart(14)}`);
+    lines.push(`${"ยอดสุทธิ".padEnd(24)}${money(displayTotal).padStart(14)}`);
     lines.push(`${"รับเงิน".padEnd(24)}${money(sale.paid).padStart(14)}`);
     lines.push(`${"เงินทอน".padEnd(24)}${money(sale.change_amt).padStart(14)}`);
     if (sale.payment_method === "โอนเงิน" && (sale.bank_name || sale.bank_account_name)) {
@@ -3915,7 +3918,7 @@ if (typeof module !== "undefined") {
       summaryRows += `<tr><td style="padding:2px 0;color:#555;">ค่าจัดส่ง</td><td style="padding:2px 0;text-align:right;">${money(sale.shipping_fee)}</td></tr>`;
     }
     summaryRows += `<tr style="border-top:1px solid #000;"><td style="padding:6px 0 2px;font-weight:bold;">ยอดสุทธิ</td><td style="padding:6px 0 2px;text-align:right;font-weight:bold;">${money(
-      sale.total
+      displayTotal
     )}</td></tr>`;
     summaryRows += `<tr><td style="padding:2px 0;color:#555;">รับเงิน</td><td style="padding:2px 0;text-align:right;">${money(sale.paid)}</td></tr>`;
     summaryRows += `<tr><td style="padding:2px 0;color:#555;">เงินทอน</td><td style="padding:2px 0;text-align:right;">${money(sale.change_amt)}</td></tr>`;
