@@ -524,8 +524,11 @@ function createDB(storageKey) {
           Object.assign(store, row.data);
           if (!store.shopInfo) store.shopInfo = emptyStore().shopInfo;
           if (!store.backorders) store.backorders = [];
+          if (!store.bankAccounts) store.bankAccounts = [];
+          if (!store.accountMovements) store.accountMovements = [];
           if (!store.nextId) store.nextId = {};
           if (!store.nextId.backorder) store.nextId.backorder = store.backorders.length + 1;
+          if (!store.nextId.bankAccount) store.nextId.bankAccount = store.bankAccounts.length + 1;
           migrateCodes(store);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
           cloudStatus = "synced";
@@ -547,7 +550,7 @@ function createDB(storageKey) {
 
   function emptyStore() {
     return {
-      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1 },
+      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1, bankAccount: 1 },
       shopInfo: { name: "ร้านผ้าศิริเจริญ", address: "", phone: "", tax_id: "" },
       suppliers: [],
       customers: [],
@@ -559,6 +562,8 @@ function createDB(storageKey) {
       expenses: [],
       stockMovements: [],
       backorders: [],
+      bankAccounts: [],
+      accountMovements: [],
     };
   }
 
@@ -571,8 +576,11 @@ function createDB(storageKey) {
         const data = JSON.parse(raw);
         if (!data.shopInfo) data.shopInfo = emptyStore().shopInfo;
         if (!data.backorders) data.backorders = [];
+        if (!data.bankAccounts) data.bankAccounts = [];
+        if (!data.accountMovements) data.accountMovements = [];
         if (!data.nextId) data.nextId = {};
         if (!data.nextId.backorder) data.nextId.backorder = data.backorders.length + 1;
+        if (!data.nextId.bankAccount) data.nextId.bankAccount = data.bankAccounts.length + 1;
         migrateCodes(data);
         return data;
       }
@@ -619,6 +627,127 @@ function createDB(storageKey) {
     const id = store.nextId[type]++;
     save();
     return id;
+  }
+
+  // -------------------------------------------------------- bank accounts
+  // สร้าง "บัญชีเงินสด" อัตโนมัติถ้ายังไม่มี (มีได้บัญชีเดียว แยกจากบัญชีธนาคาร)
+  function ensureCashAccount() {
+    if (!store.bankAccounts) store.bankAccounts = [];
+    let cash = store.bankAccounts.find((a) => a.is_cash);
+    if (!cash) {
+      cash = {
+        id: genIdSimple("bankAccount"),
+        bank_name: "เงินสด",
+        account_name: "บัญชีเงินสด",
+        account_no: "",
+        is_cash: true,
+        balance: 0,
+      };
+      store.bankAccounts.push(cash);
+      save();
+    }
+    return cash;
+  }
+  // เหมือน genId แต่ไม่ save() ซ้ำ (ใช้ตอนสร้างภายในฟังก์ชันที่จะ save() เองอยู่แล้ว)
+  function genIdSimple(type) {
+    return store.nextId[type]++;
+  }
+  function getBankAccounts() {
+    ensureCashAccount();
+    return [...store.bankAccounts].sort((a, b) => (a.is_cash ? -1 : b.is_cash ? 1 : a.id - b.id));
+  }
+  function getBankAccount(id) {
+    return store.bankAccounts.find((a) => a.id === id) || null;
+  }
+  function getCashAccount() {
+    return ensureCashAccount();
+  }
+  function createBankAccount(data) {
+    const acct = {
+      id: genId("bankAccount"),
+      bank_name: (data.bank_name || "").trim(),
+      account_name: (data.account_name || "").trim(),
+      account_no: (data.account_no || "").trim(),
+      is_cash: false,
+      balance: 0,
+    };
+    store.bankAccounts.push(acct);
+    save();
+    return acct;
+  }
+  function updateBankAccount(id, data) {
+    const acct = getBankAccount(id);
+    if (!acct || acct.is_cash) return null;
+    acct.bank_name = (data.bank_name || "").trim();
+    acct.account_name = (data.account_name || "").trim();
+    acct.account_no = (data.account_no || "").trim();
+    save();
+    return acct;
+  }
+  function deleteBankAccount(id) {
+    const acct = getBankAccount(id);
+    if (!acct) return false;
+    if (acct.is_cash) return false; // ห้ามลบบัญชีเงินสด
+    const idx = store.bankAccounts.findIndex((a) => a.id === id);
+    if (idx === -1) return false;
+    store.bankAccounts.splice(idx, 1);
+    save();
+    return true;
+  }
+  // ปรับยอดบัญชีตรงๆ (ปรับปรุงยอดเริ่มต้น/แก้ไขผิดพลาด) พร้อมบันทึกรายการเคลื่อนไหว
+  function adjustBankAccountBalance(id, newBalance, note) {
+    const acct = getBankAccount(id);
+    if (!acct) return null;
+    const delta = newBalance - (acct.balance || 0);
+    if (delta !== 0) recordAccountMovement(id, delta, "adjust", null, note || "ปรับปรุงยอดบัญชี");
+    return acct;
+  }
+  function recordAccountMovement(accountId, delta, refType, refId, note) {
+    if (!accountId || !delta) return;
+    const acct = getBankAccount(accountId);
+    if (!acct) return;
+    acct.balance = (acct.balance || 0) + delta;
+    store.accountMovements.push({
+      id: store.accountMovements.length + 1,
+      account_id: accountId,
+      date: nowStr(),
+      amount: delta,
+      ref_type: refType || "",
+      ref_id: refId || null,
+      note: note || "",
+    });
+    save();
+  }
+  function getAccountMovements(accountId, start, end) {
+    let rows = store.accountMovements.filter((m) => m.account_id === accountId);
+    if (start || end) rows = rows.filter((m) => inRange(m.date, start, end));
+    return [...rows].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id));
+  }
+  // ปรับยอดบัญชีที่ผูกกับบิลขาย/ใบสั่งซื้อให้ตรงกับสถานะล่าสุดเสมอ โดยย้อนผลเดิมก่อนแล้วค่อยใส่ผลใหม่
+  // (ใช้ได้ทั้งตอนสร้างใหม่ [oldAccountId ไม่มี], แก้ไข, และลบ [newAccountId/newAmount เป็น null/0])
+  function syncSaleAccountBalance(sale, newAccountId, newAmount) {
+    const oldAccountId = sale.account_id || null;
+    const oldAmount = sale.account_credited_amount || 0;
+    if (oldAccountId && oldAmount) {
+      recordAccountMovement(oldAccountId, -oldAmount, "sale", sale.id, `ย้อนกลับยอดขายบิล ${sale.sale_no}`);
+    }
+    if (newAccountId && newAmount) {
+      recordAccountMovement(newAccountId, newAmount, "sale", sale.id, `รับชำระยอดขายบิล ${sale.sale_no}`);
+    }
+    sale.account_id = newAmount ? newAccountId || null : null;
+    sale.account_credited_amount = newAmount || 0;
+  }
+  function syncPurchaseAccountBalance(purchase, newAccountId, newAmount) {
+    const oldAccountId = purchase.account_id || null;
+    const oldAmount = purchase.account_paid_amount || 0;
+    if (oldAccountId && oldAmount) {
+      recordAccountMovement(oldAccountId, oldAmount, "purchase", purchase.id, `ย้อนกลับยอดจ่าย PO ${purchase.po_no}`);
+    }
+    if (newAccountId && newAmount) {
+      recordAccountMovement(newAccountId, -newAmount, "purchase", purchase.id, `จ่ายเงินตาม PO ${purchase.po_no}`);
+    }
+    purchase.account_id = newAmount ? newAccountId || null : null;
+    purchase.account_paid_amount = newAmount || 0;
   }
 
   function pad(n, w) {
@@ -986,7 +1115,7 @@ function createDB(storageKey) {
       }
     }
   }
-  function createSale(items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName, shippingFee, shippingMethod, dueDate, isVat) {
+  function createSale(items, customerId, discount, vatAmount, paymentMethod, paid, note, date, accountId, shippingFee, shippingMethod, dueDate, isVat) {
     const subtotal = items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
     const shipFee = shippingFee || 0;
     const total = subtotal - discount + vatAmount + shipFee;
@@ -998,6 +1127,7 @@ function createDB(storageKey) {
       status = "เงินสดแต่ค้างชำระ";
     }
     const paidMethod = status === "ชำระแล้ว" && (paymentMethod === "เงินสด" || paymentMethod === "โอนเงิน") ? paymentMethod : null;
+    const transferAcct = paymentMethod === "โอนเงิน" ? getBankAccount(accountId) : null;
     const sale = {
       id: genId("sale"),
       sale_no: genSaleNo(),
@@ -1017,16 +1147,23 @@ function createDB(storageKey) {
       paid_method: paidMethod,
       status,
       note: note || "",
-      bank_name: paymentMethod === "โอนเงิน" ? bankName || "" : "",
-      bank_account_name: paymentMethod === "โอนเงิน" ? accountName || "" : "",
+      bank_name: transferAcct ? transferAcct.bank_name : "",
+      bank_account_name: transferAcct ? transferAcct.account_name : "",
       is_vat: !!isVat,
+      account_id: null,
+      account_credited_amount: 0,
     };
     store.sales.push(sale);
     applySaleEffects(sale);
+    if (paymentMethod === "เงินสด" && paid > 0) {
+      syncSaleAccountBalance(sale, getCashAccount().id, paid);
+    } else if (paymentMethod === "โอนเงิน" && paid > 0 && transferAcct) {
+      syncSaleAccountBalance(sale, transferAcct.id, paid);
+    }
     save();
     return sale;
   }
-  function updateSale(id, items, customerId, discount, vatAmount, paymentMethod, paid, note, date, bankName, accountName, shippingFee, shippingMethod, dueDate, isVat) {
+  function updateSale(id, items, customerId, discount, vatAmount, paymentMethod, paid, note, date, accountId, shippingFee, shippingMethod, dueDate, isVat) {
     const sale = store.sales.find((x) => x.id === id);
     if (!sale) return null;
     revertSaleEffects(sale);
@@ -1041,6 +1178,7 @@ function createDB(storageKey) {
     } else if (paymentMethod === "เงินสดแต่ยังไม่จ่าย") {
       status = "เงินสดแต่ค้างชำระ";
     }
+    const transferAcct = paymentMethod === "โอนเงิน" ? getBankAccount(accountId) : null;
 
     sale.date = date || sale.date;
     sale.customer_id = customerId || null;
@@ -1062,11 +1200,24 @@ function createDB(storageKey) {
     }
     sale.status = status;
     sale.note = note || "";
-    sale.bank_name = paymentMethod === "โอนเงิน" ? bankName || "" : "";
-    sale.bank_account_name = paymentMethod === "โอนเงิน" ? accountName || "" : "";
+    sale.bank_name = transferAcct ? transferAcct.bank_name : "";
+    sale.bank_account_name = transferAcct ? transferAcct.account_name : "";
     if (isVat !== undefined) sale.is_vat = !!isVat;
 
     applySaleEffects(sale);
+    let newAccountId = null;
+    let newAmount = 0;
+    if (paymentMethod === "เงินสด" && paid > 0) {
+      newAccountId = getCashAccount().id;
+      newAmount = paid;
+    } else if (paymentMethod === "โอนเงิน" && paid > 0 && transferAcct) {
+      newAccountId = transferAcct.id;
+      newAmount = paid;
+    } else if (status === "ชำระแล้ว") {
+      newAccountId = sale.account_id || null;
+      newAmount = sale.account_credited_amount || 0;
+    }
+    syncSaleAccountBalance(sale, newAccountId, newAmount);
     save();
     return sale;
   }
@@ -1075,6 +1226,7 @@ function createDB(storageKey) {
     if (idx === -1) return false;
     const sale = store.sales[idx];
     revertSaleEffects(sale);
+    syncSaleAccountBalance(sale, null, 0);
     store.sales.splice(idx, 1);
     save();
     return true;
@@ -1088,10 +1240,23 @@ function createDB(storageKey) {
   function getSale(id) {
     return store.sales.find((x) => x.id === id) || null;
   }
-  function markSalePaid(saleId, method, bankName, accountName) {
+  function markSalePaid(saleId, method, accountId) {
     const sale = store.sales.find((x) => x.id === saleId);
     if (!sale) return;
     const remain = sale.total - sale.paid;
+    let bankName = "";
+    let accountName = "";
+    let acctId = null;
+    if (method === "โอนเงิน") {
+      const acct = getBankAccount(accountId);
+      if (acct) {
+        bankName = acct.bank_name;
+        accountName = acct.account_name;
+        acctId = acct.id;
+      }
+    } else if (method === "เงินสด") {
+      acctId = getCashAccount().id;
+    }
     if (remain > 0 && sale.payment_method === "เงินเชื่อ" && sale.customer_id) {
       const c = getCustomer(sale.customer_id);
       if (c) {
@@ -1101,8 +1266,8 @@ function createDB(storageKey) {
           date: nowStr(),
           amount: remain,
           method: method || "เงินสด",
-          bank_name: method === "โอนเงิน" ? bankName || "" : "",
-          bank_account_name: method === "โอนเงิน" ? accountName || "" : "",
+          bank_name: bankName,
+          bank_account_name: accountName,
           note: `ชำระตามบิล ${sale.sale_no}`,
         });
         c.credit_balance -= remain;
@@ -1115,6 +1280,9 @@ function createDB(storageKey) {
     if (sale.paid_method === "โอนเงิน") {
       sale.bank_name = bankName || sale.bank_name || "";
       sale.bank_account_name = accountName || sale.bank_account_name || "";
+    }
+    if (acctId && remain > 0) {
+      syncSaleAccountBalance(sale, acctId, (sale.account_credited_amount || 0) + remain);
     }
     save();
   }
@@ -1251,6 +1419,7 @@ function createDB(storageKey) {
     if (idx === -1) return false;
     const p = store.purchases[idx];
     if (p.status === "รับสินค้าแล้ว") revertPurchaseEffects(p);
+    syncPurchaseAccountBalance(p, null, 0);
     store.purchases.splice(idx, 1);
     save();
     return true;
@@ -1263,11 +1432,21 @@ function createDB(storageKey) {
     save();
     return true;
   }
-  function payPurchase(purchaseId, amount) {
+  function payPurchase(purchaseId, amount, method, accountId) {
     const p = store.purchases.find((x) => x.id === purchaseId);
     if (!p) return;
     p.paid += amount;
     p.payment_status = p.paid >= p.total ? "ชำระแล้ว" : "ชำระบางส่วน";
+    let acctId = null;
+    if (method === "เงินสด") {
+      acctId = getCashAccount().id;
+    } else if (method === "โอนเงิน") {
+      const acct = getBankAccount(accountId);
+      if (acct) acctId = acct.id;
+    }
+    if (acctId && amount > 0) {
+      syncPurchaseAccountBalance(p, acctId, (p.account_paid_amount || 0) + amount);
+    }
     save();
   }
   function unpayPurchase(purchaseId) {
@@ -1290,6 +1469,7 @@ function createDB(storageKey) {
     }
     p.paid = 0;
     p.payment_status = "ค้างชำระ";
+    syncPurchaseAccountBalance(p, null, 0);
     save();
   }
   function getPurchases(start, end, supplierId) {
@@ -1465,6 +1645,7 @@ function createDB(storageKey) {
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense,
     addBackorder, updateBackorder, deleteBackorder, markBackorderDone, markBackorderUndone, getBackorders, getBackorder,
+    getBankAccounts, getBankAccount, getCashAccount, createBankAccount, updateBankAccount, deleteBankAccount, adjustBankAccountBalance, getAccountMovements,
     salesSummary, cogsSummary, expensesSummary, shippingSummary, bestSellers, lowStockList,
     arAging, apAging,
     exportBackup, importBackup, resetAll,
@@ -1609,6 +1790,14 @@ if (typeof module !== "undefined") {
     options.forEach((o) => sel.appendChild(el("option", { value: o.value, text: o.label })));
     sel.value = selectedValue !== undefined && selectedValue !== null ? String(selectedValue) : (options[0] ? options[0].value : "");
     return sel;
+  }
+  // ช่องเลือกบัญชีธนาคาร (ไม่รวมบัญชีเงินสด เพราะกรณีเงินสดจะผูกบัญชีเงินสดให้อัตโนมัติ) สำหรับตอนรับโอนเงิน/จ่ายเงินโอน
+  function buildBankAccountSelect(selectedAccountId) {
+    const accounts = DB.getBankAccounts().filter((a) => !a.is_cash);
+    const options = [{ value: "", label: "-- เลือกบัญชี --" }].concat(
+      accounts.map((a) => ({ value: String(a.id), label: `${a.bank_name} - ${a.account_name}` }))
+    );
+    return selectInput(options, selectedAccountId ? String(selectedAccountId) : "");
   }
 
   // ช่องเลือกแบบพิมพ์ค้นหาได้ (input + datalist) ใช้แทน select เมื่ออยากให้พิมพ์กรองตัวเลือกได้
@@ -2061,18 +2250,13 @@ if (typeof module !== "undefined") {
     noteInput.setAttribute("placeholder", "หมายเหตุ (จะพิมพ์ท้ายใบเสร็จ)");
     refs.posNoteInput = noteInput;
 
-    const bankNameInput = textInput("");
-    refs.posBankNameInput = bankNameInput;
-    const accountNameInput = textInput("");
-    refs.posAccountNameInput = accountNameInput;
-    const bankNameRow = formField("โอนเข้าธนาคาร", bankNameInput);
-    const accountNameRow = formField("ชื่อบัญชี", accountNameInput);
-    refs.posBankNameRow = bankNameRow;
-    refs.posAccountNameRow = accountNameRow;
+    const accountSelect = buildBankAccountSelect();
+    refs.posAccountSelect = accountSelect;
+    const accountSelectRow = formField("บัญชีที่รับโอน", accountSelect);
+    refs.posAccountSelectRow = accountSelectRow;
     function updateBankFieldsVisibility() {
       const isTransfer = paymentSelect.value === "โอนเงิน";
-      bankNameRow.style.display = isTransfer ? "" : "none";
-      accountNameRow.style.display = isTransfer ? "" : "none";
+      accountSelectRow.style.display = isTransfer ? "" : "none";
     }
     updateBankFieldsVisibility();
 
@@ -2105,8 +2289,7 @@ if (typeof module !== "undefined") {
         formField("วิธีจัดส่ง", shippingMethodInput),
         formField("ชำระโดย", paymentSelect),
         formField("รับเงิน (บาท)", paidInput),
-        bankNameRow,
-        accountNameRow,
+        accountSelectRow,
         formField("วันที่ครบกำหนดชำระเงิน", dueDateInput),
         formField("หมายเหตุ", noteInput)
       ),
@@ -2431,14 +2614,11 @@ if (typeof module !== "undefined") {
       ],
       "เงินสด"
     );
-    const bankNameInput = textInput("");
-    const accountNameInput = textInput("");
-    const bankNameRow = formField("โอนเข้าธนาคาร", bankNameInput);
-    const accountNameRow = formField("ชื่อบัญชี", accountNameInput);
+    const accountSelect = buildBankAccountSelect();
+    const accountSelectRow = formField("บัญชีที่รับโอน", accountSelect);
     function updateBankRowsVisibility() {
       const isTransfer = methodSelect.value === "โอนเงิน";
-      bankNameRow.style.display = isTransfer ? "" : "none";
-      accountNameRow.style.display = isTransfer ? "" : "none";
+      accountSelectRow.style.display = isTransfer ? "" : "none";
     }
     methodSelect.addEventListener("change", updateBankRowsVisibility);
     updateBankRowsVisibility();
@@ -2448,8 +2628,7 @@ if (typeof module !== "undefined") {
       { class: "form-panel" },
       el("p", { text: `บิลเลขที่ ${sale.sale_no} ยอดค้างชำระ ${money(remain)} บาท` }),
       formField("ชำระโดย", methodSelect),
-      bankNameRow,
-      accountNameRow
+      accountSelectRow
     );
     const saveBtn = el(
       "button",
@@ -2457,20 +2636,19 @@ if (typeof module !== "undefined") {
         class: "btn btn-primary",
         onClick: () => {
           const method = methodSelect.value;
-          const bankName = bankNameInput.value.trim();
-          const accountName = accountNameInput.value.trim();
-          if (method === "โอนเงิน" && (!bankName || !accountName)) {
-            global.alert("กรุณาระบุธนาคารที่โอนเข้าและชื่อบัญชี");
+          const accountId = accountSelect.value ? Number(accountSelect.value) : null;
+          if (method === "โอนเงิน" && !accountId) {
+            global.alert("กรุณาเลือกบัญชีที่รับโอน");
             return;
           }
-          DB.markSalePaid(saleId, method, bankName, accountName);
+          DB.markSalePaid(saleId, method, accountId);
           closeModal();
           refresh();
         },
       },
       "บันทึกการชำระเงิน"
     );
-    exposeTestRefs("markSalePaid", { methodSelect, bankNameInput, accountNameInput, saveBtn });
+    exposeTestRefs("markSalePaid", { methodSelect, accountSelect, saveBtn });
     openModal("บันทึกการชำระเงิน", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
   }
 
@@ -2501,10 +2679,8 @@ if (typeof module !== "undefined") {
     refs.posDueDateInput.value = sale.due_date || "";
     refs.posPaymentSelect.value = sale.payment_method;
     refs.posPaidInput.value = sale.paid;
-    refs.posBankNameInput.value = sale.bank_name || "";
-    refs.posAccountNameInput.value = sale.bank_account_name || "";
-    refs.posBankNameRow.style.display = sale.payment_method === "โอนเงิน" ? "" : "none";
-    refs.posAccountNameRow.style.display = sale.payment_method === "โอนเงิน" ? "" : "none";
+    refs.posAccountSelect.value = sale.account_id ? String(sale.account_id) : "";
+    refs.posAccountSelectRow.style.display = sale.payment_method === "โอนเงิน" ? "" : "none";
     refs.posNoteInput.value = sale.note || "";
     updatePosTotals();
     updateEditBannerUI();
@@ -2522,10 +2698,8 @@ if (typeof module !== "undefined") {
     refs.posShippingMethodInput.value = "";
     refs.posDueDateInput.value = "";
     refs.posPaymentSelect.value = "เงินสดแต่ยังไม่จ่าย";
-    refs.posBankNameInput.value = "";
-    refs.posAccountNameInput.value = "";
-    refs.posBankNameRow.style.display = "none";
-    refs.posAccountNameRow.style.display = "none";
+    refs.posAccountSelect.value = "";
+    refs.posAccountSelectRow.style.display = "none";
     refs.posNoteInput.value = "";
     const newCustomerSelect = buildCustomerSelectOptions();
     const oldSelect = refs.posCustomerSelect;
@@ -2814,10 +2988,9 @@ if (typeof module !== "undefined") {
       return;
     }
 
-    const bankName = refs.posBankNameInput.value.trim();
-    const accountName = refs.posAccountNameInput.value.trim();
-    if (paymentMethod === "โอนเงิน" && (!bankName || !accountName)) {
-      global.alert("กรุณาระบุธนาคารที่โอนเข้าและชื่อบัญชี");
+    const accountId = refs.posAccountSelect.value ? Number(refs.posAccountSelect.value) : null;
+    if (paymentMethod === "โอนเงิน" && !accountId) {
+      global.alert("กรุณาเลือกบัญชีที่รับโอน");
       return;
     }
 
@@ -2833,8 +3006,8 @@ if (typeof module !== "undefined") {
       };
     });
     const sale = editingSaleId
-      ? DB.updateSale(editingSaleId, items, custId || null, discount, vat, paymentMethod, paid, refs.posNoteInput.value.trim(), undefined, bankName, accountName, shippingFee, shippingMethod, refs.posDueDateInput.value)
-      : DB.createSale(items, custId || null, discount, vat, paymentMethod, paid, refs.posNoteInput.value.trim(), undefined, bankName, accountName, shippingFee, shippingMethod, refs.posDueDateInput.value);
+      ? DB.updateSale(editingSaleId, items, custId || null, discount, vat, paymentMethod, paid, refs.posNoteInput.value.trim(), undefined, accountId, shippingFee, shippingMethod, refs.posDueDateInput.value)
+      : DB.createSale(items, custId || null, discount, vat, paymentMethod, paid, refs.posNoteInput.value.trim(), undefined, accountId, shippingFee, shippingMethod, refs.posDueDateInput.value);
 
     showReceiptModal(sale, custId, validItems.slice());
 
@@ -2848,11 +3021,9 @@ if (typeof module !== "undefined") {
     refs.posShippingMethodInput.value = "";
     refs.posDueDateInput.value = "";
     refs.posPaymentSelect.value = "เงินสดแต่ยังไม่จ่าย";
-    refs.posBankNameInput.value = "";
-    refs.posAccountNameInput.value = "";
+    refs.posAccountSelect.value = "";
     refs.posNoteInput.value = "";
-    refs.posBankNameRow.style.display = "none";
-    refs.posAccountNameRow.style.display = "none";
+    refs.posAccountSelectRow.style.display = "none";
 
     const newCustomerSelect = buildCustomerSelectOptions();
     const oldSelect = refs.posCustomerSelect;
@@ -2946,18 +3117,13 @@ if (typeof module !== "undefined") {
     noteInput.setAttribute("placeholder", "หมายเหตุ (จะพิมพ์ท้ายใบเสร็จ)");
     refs.posVatNoteInput = noteInput;
 
-    const bankNameInput = textInput("");
-    refs.posVatBankNameInput = bankNameInput;
-    const accountNameInput = textInput("");
-    refs.posVatAccountNameInput = accountNameInput;
-    const bankNameRow = formField("โอนเข้าธนาคาร", bankNameInput);
-    const accountNameRow = formField("ชื่อบัญชี", accountNameInput);
-    refs.posVatBankNameRow = bankNameRow;
-    refs.posVatAccountNameRow = accountNameRow;
+    const accountSelect = buildBankAccountSelect();
+    refs.posVatAccountSelect = accountSelect;
+    const accountSelectRow = formField("บัญชีที่รับโอน", accountSelect);
+    refs.posVatAccountSelectRow = accountSelectRow;
     function updateBankFieldsVisibility() {
       const isTransfer = paymentSelect.value === "โอนเงิน";
-      bankNameRow.style.display = isTransfer ? "" : "none";
-      accountNameRow.style.display = isTransfer ? "" : "none";
+      accountSelectRow.style.display = isTransfer ? "" : "none";
     }
     updateBankFieldsVisibility();
 
@@ -2987,8 +3153,7 @@ if (typeof module !== "undefined") {
         formField("วิธีจัดส่ง", shippingMethodInput),
         formField("ชำระโดย", paymentSelect),
         formField("รับเงิน (บาท)", paidInput),
-        bankNameRow,
-        accountNameRow,
+        accountSelectRow,
         formField("วันที่ครบกำหนดชำระเงิน", dueDateInput),
         formField("หมายเหตุ", noteInput)
       ),
@@ -3281,10 +3446,8 @@ if (typeof module !== "undefined") {
     refs.posVatDueDateInput.value = sale.due_date || "";
     refs.posVatPaymentSelect.value = sale.payment_method;
     refs.posVatPaidInput.value = sale.paid;
-    refs.posVatBankNameInput.value = sale.bank_name || "";
-    refs.posVatAccountNameInput.value = sale.bank_account_name || "";
-    refs.posVatBankNameRow.style.display = sale.payment_method === "โอนเงิน" ? "" : "none";
-    refs.posVatAccountNameRow.style.display = sale.payment_method === "โอนเงิน" ? "" : "none";
+    refs.posVatAccountSelect.value = sale.account_id ? String(sale.account_id) : "";
+    refs.posVatAccountSelectRow.style.display = sale.payment_method === "โอนเงิน" ? "" : "none";
     refs.posVatNoteInput.value = sale.note || "";
     updatePosTotalsVat();
     updateEditBannerUIVat();
@@ -3302,10 +3465,8 @@ if (typeof module !== "undefined") {
     refs.posVatShippingMethodInput.value = "";
     refs.posVatDueDateInput.value = "";
     refs.posVatPaymentSelect.value = "เงินสดแต่ยังไม่จ่าย";
-    refs.posVatBankNameInput.value = "";
-    refs.posVatAccountNameInput.value = "";
-    refs.posVatBankNameRow.style.display = "none";
-    refs.posVatAccountNameRow.style.display = "none";
+    refs.posVatAccountSelect.value = "";
+    refs.posVatAccountSelectRow.style.display = "none";
     refs.posVatNoteInput.value = "";
     const newCustomerSelect = buildCustomerSelectOptions();
     const oldSelect = refs.posVatCustomerSelect;
@@ -3522,10 +3683,9 @@ if (typeof module !== "undefined") {
       return;
     }
 
-    const bankName = refs.posVatBankNameInput.value.trim();
-    const accountName = refs.posVatAccountNameInput.value.trim();
-    if (paymentMethod === "โอนเงิน" && (!bankName || !accountName)) {
-      global.alert("กรุณาระบุธนาคารที่โอนเข้าและชื่อบัญชี");
+    const accountId = refs.posVatAccountSelect.value ? Number(refs.posVatAccountSelect.value) : null;
+    if (paymentMethod === "โอนเงิน" && !accountId) {
+      global.alert("กรุณาเลือกบัญชีที่รับโอน");
       return;
     }
 
@@ -3541,8 +3701,8 @@ if (typeof module !== "undefined") {
       };
     });
     const sale = editingSaleIdVat
-      ? DB.updateSale(editingSaleIdVat, items, custId || null, discount, vat, paymentMethod, paid, refs.posVatNoteInput.value.trim(), undefined, bankName, accountName, shippingFee, shippingMethod, refs.posVatDueDateInput.value, true)
-      : DB.createSale(items, custId || null, discount, vat, paymentMethod, paid, refs.posVatNoteInput.value.trim(), undefined, bankName, accountName, shippingFee, shippingMethod, refs.posVatDueDateInput.value, true);
+      ? DB.updateSale(editingSaleIdVat, items, custId || null, discount, vat, paymentMethod, paid, refs.posVatNoteInput.value.trim(), undefined, accountId, shippingFee, shippingMethod, refs.posVatDueDateInput.value, true)
+      : DB.createSale(items, custId || null, discount, vat, paymentMethod, paid, refs.posVatNoteInput.value.trim(), undefined, accountId, shippingFee, shippingMethod, refs.posVatDueDateInput.value, true);
 
     showReceiptModal(sale, custId, validItems.slice());
 
@@ -3556,11 +3716,9 @@ if (typeof module !== "undefined") {
     refs.posVatShippingMethodInput.value = "";
     refs.posVatDueDateInput.value = "";
     refs.posVatPaymentSelect.value = "เงินสดแต่ยังไม่จ่าย";
-    refs.posVatBankNameInput.value = "";
-    refs.posVatAccountNameInput.value = "";
+    refs.posVatAccountSelect.value = "";
     refs.posVatNoteInput.value = "";
-    refs.posVatBankNameRow.style.display = "none";
-    refs.posVatAccountNameRow.style.display = "none";
+    refs.posVatAccountSelectRow.style.display = "none";
 
     const newCustomerSelect = buildCustomerSelectOptions();
     const oldSelect = refs.posVatCustomerSelect;
@@ -5412,6 +5570,20 @@ if (typeof module !== "undefined") {
     const p = DB.getPurchase(pid);
     const remain = p.total - p.paid;
     const amountInput = numberInput(remain);
+    const methodSelect = selectInput(
+      [
+        { value: "เงินสด", label: "เงินสด" },
+        { value: "โอนเงิน", label: "โอนเงิน" },
+      ],
+      "เงินสด"
+    );
+    const accountSelect = buildBankAccountSelect();
+    const accountSelectRow = formField("จ่ายจากบัญชี", accountSelect);
+    function updateAccountRowVisibility() {
+      accountSelectRow.style.display = methodSelect.value === "โอนเงิน" ? "" : "none";
+    }
+    methodSelect.addEventListener("change", updateAccountRowVisibility);
+    updateAccountRowVisibility();
     const saveBtn = el(
       "button",
       {
@@ -5422,7 +5594,13 @@ if (typeof module !== "undefined") {
             global.alert("กรุณาระบุจำนวนเงินให้ถูกต้อง");
             return;
           }
-          DB.payPurchase(pid, amt);
+          const method = methodSelect.value;
+          const accountId = accountSelect.value ? Number(accountSelect.value) : null;
+          if (method === "โอนเงิน" && !accountId) {
+            global.alert("กรุณาเลือกบัญชีที่จ่ายเงิน");
+            return;
+          }
+          DB.payPurchase(pid, amt, method, accountId);
           if (p.payment_method === "เงินเชื่อ") {
             DB.paySupplierCredit(p.supplier_id, amt, "เงินสด", `ชำระตาม PO ${p.po_no}`);
           }
@@ -5437,9 +5615,11 @@ if (typeof module !== "undefined") {
       {},
       el("p", { text: `ค้างชำระ ${money(remain)} บาท` }),
       formField("จำนวนที่จ่าย", amountInput),
+      formField("จ่ายโดย", methodSelect),
+      accountSelectRow,
       el("div", { class: "modal-actions" }, saveBtn)
     );
-    exposeTestRefs("purchasePay", { amountInput, saveBtn });
+    exposeTestRefs("purchasePay", { amountInput, methodSelect, accountSelect, saveBtn });
     openModal("บันทึกจ่ายเงิน", body);
   }
 
@@ -5570,9 +5750,14 @@ if (typeof module !== "undefined") {
     refs.acctArContainer = arContainer;
     refs.acctApContainer = apContainer;
 
+    const bankToolbar = el("div", { class: "toolbar" }, el("button", { class: "btn btn-primary", onClick: () => openBankAccountModal() }, "+ เพิ่มบัญชีธนาคาร"));
+    const bankTableContainer = el("div", { class: "table-container" });
+    refs.acctBankContainer = bankTableContainer;
+
     const grid = el(
       "div",
       { class: "dash-grid" },
+      panel("บัญชีธนาคาร / เงินสด", el("div", {}, bankToolbar, bankTableContainer)),
       panel("รายจ่าย", el("div", {}, expenseToolbar, expenseTableContainer)),
       panel(
         "ลูกหนี้ / เจ้าหนี้การค้า",
@@ -5589,6 +5774,98 @@ if (typeof module !== "undefined") {
 
     sec.appendChild(el("div", { class: "section-inner" }, toolbar, summaryBox, grid));
     refreshAcctSummary();
+    refreshBankAccountsTable();
+  }
+
+  function refreshBankAccountsTable() {
+    if (!refs.acctBankContainer) return;
+    clear(refs.acctBankContainer);
+    const accounts = DB.getBankAccounts();
+    refs.acctBankContainer.appendChild(
+      buildDataTable(
+        ["ธนาคาร", "ชื่อบัญชี", "เลขบัญชี", "ยอดคงเหลือ"],
+        accounts.map((a) => [a.bank_name, a.account_name, a.account_no || "-", money(a.balance || 0)]),
+        {
+          actions: (idx) => {
+            const a = accounts[idx];
+            const acts = [
+              {
+                label: "รายการเคลื่อนไหว",
+                onClick: () => openAccountMovementsModal(a.id),
+              },
+            ];
+            if (!a.is_cash) {
+              acts.push({ label: "แก้ไข", onClick: () => openBankAccountModal(a) });
+              acts.push({
+                label: "ลบ",
+                onClick: () => {
+                  if (!global.confirm(`ยืนยันลบบัญชี ${a.bank_name} - ${a.account_name}?`)) return;
+                  if (!DB.deleteBankAccount(a.id)) {
+                    global.alert("ไม่สามารถลบบัญชีนี้ได้");
+                    return;
+                  }
+                  refreshBankAccountsTable();
+                },
+              });
+            }
+            return acts;
+          },
+        }
+      )
+    );
+  }
+
+  function openBankAccountModal(existing) {
+    const bankNameInput = textInput(existing ? existing.bank_name : "");
+    const accountNameInput = textInput(existing ? existing.account_name : "");
+    const accountNoInput = textInput(existing ? existing.account_no : "");
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          const bankName = bankNameInput.value.trim();
+          const accountName = accountNameInput.value.trim();
+          if (!bankName || !accountName) {
+            global.alert("กรุณาระบุชื่อธนาคารและชื่อบัญชี");
+            return;
+          }
+          const data = { bank_name: bankName, account_name: accountName, account_no: accountNoInput.value.trim() };
+          if (existing) DB.updateBankAccount(existing.id, data);
+          else DB.createBankAccount(data);
+          closeModal();
+          refreshBankAccountsTable();
+        },
+      },
+      "บันทึก"
+    );
+    const body = el(
+      "div",
+      {},
+      formField("ธนาคาร", bankNameInput),
+      formField("ชื่อบัญชี", accountNameInput),
+      formField("เลขที่บัญชี", accountNoInput),
+      el("div", { class: "modal-actions" }, saveBtn)
+    );
+    exposeTestRefs("bankAccountForm", { bankNameInput, accountNameInput, accountNoInput, saveBtn });
+    openModal(existing ? "แก้ไขบัญชีธนาคาร" : "เพิ่มบัญชีธนาคาร", body);
+  }
+
+  function openAccountMovementsModal(accountId) {
+    const acct = DB.getBankAccount(accountId);
+    if (!acct) return;
+    const movements = DB.getAccountMovements(accountId);
+    const table = buildDataTable(
+      ["วันที่", "รายการ", "จำนวนเงิน"],
+      movements.map((m) => [fmtDate(m.date), m.note || m.ref_type, (m.amount >= 0 ? "+" : "") + money(m.amount)])
+    );
+    const body = el(
+      "div",
+      {},
+      el("p", { text: `${acct.bank_name} - ${acct.account_name} ยอดคงเหลือ ${money(acct.balance || 0)} บาท` }),
+      el("div", { class: "table-container" }, table)
+    );
+    openModal("รายการเคลื่อนไหวบัญชี", body);
   }
 
   function refreshAcctSummary() {
