@@ -1514,6 +1514,7 @@ function createDB(storageKey) {
     const item = {
       id: genId("backorder"),
       date: nowStr(),
+      customer_id: (data && data.customer_id) || null,
       customer_name: (data && data.customer_name) || "",
       customer_phone: (data && data.customer_phone) || "",
       fabric_name: (data && data.fabric_name) || "",
@@ -5730,7 +5731,7 @@ if (typeof module !== "undefined") {
 
   // =================================================================== รายการรอสินค้า
   let backorderSearch = "";
-  let backorderShowDone = false;
+  let backorderShowDone = true;
 
   function renderBackorders() {
     const sec = sections.backorders;
@@ -5754,14 +5755,34 @@ if (typeof module !== "undefined") {
     clear(container);
     let rows = DB.getBackorders();
     if (!backorderShowDone) rows = rows.filter((b) => !b.done);
+    const withCustomer = rows.map((b) => ({ b, c: b.customer_id ? DB.getCustomer(b.customer_id) : null }));
     const q = backorderSearch.trim().toLowerCase();
+    let filtered = withCustomer;
     if (q) {
-      rows = rows.filter((b) => (b.customer_name || "").toLowerCase().includes(q) || (b.fabric_name || "").toLowerCase().includes(q));
+      filtered = withCustomer.filter(({ b, c }) => {
+        const name = c ? c.name : b.customer_name || "";
+        const code = c ? c.code : "";
+        const phone = c ? c.phone : b.customer_phone || "";
+        return (
+          name.toLowerCase().includes(q) ||
+          code.toLowerCase().includes(q) ||
+          (phone || "").includes(q) ||
+          (b.fabric_name || "").toLowerCase().includes(q)
+        );
+      });
     }
+    rows = filtered.map((x) => x.b);
     const table = buildDataTable(
       ["วันที่", "ลูกค้า", "เบอร์โทร", "ผ้าที่ต้องการ", "จำนวน", "สถานะ", "หมายเหตุ"],
-      rows.map((b) => [fmtDate(b.date), b.customer_name || "-", b.customer_phone || "-", b.fabric_name || "-",
-        `${b.qty || 0} ${b.unit || ""}`, b.done ? "เสร็จแล้ว" : b.status, b.note || ""]),
+      filtered.map(({ b, c }) => [
+        fmtDate(b.date),
+        c ? `${c.code} - ${c.name}` : b.customer_name || "-",
+        c ? c.phone || "-" : b.customer_phone || "-",
+        b.fabric_name || "-",
+        `${b.qty || 0} ${b.unit || ""}`,
+        b.done ? "เสร็จแล้ว" : b.status,
+        b.note || "",
+      ]),
       {
         cellStyle: (row, ci, colName) => {
           if (colName === "สถานะ" && (row[ci] === "สินค้าหมด" || row[ci] === "รอย้อม")) return { color: "var(--danger)", fontWeight: "600" };
@@ -5790,8 +5811,12 @@ if (typeof module !== "undefined") {
 
   function openBackorderModal(id) {
     const existing = id ? DB.getBackorder(id) : null;
-    const customerNameInput = textInput(existing ? existing.customer_name : "");
-    const customerPhoneInput = textInput(existing ? existing.customer_phone : "");
+    const customerSelect = buildCustomerSelectOptions();
+    if (existing && existing.customer_id) {
+      customerSelect.setCustomerId(existing.customer_id);
+    } else if (existing && existing.customer_name) {
+      customerSelect.setLabel(`(เดิม) ${existing.customer_name}${existing.customer_phone ? " " + existing.customer_phone : ""} - กรุณาเลือกลูกค้าใหม่`);
+    }
     const fabrics = DB.getFabrics();
     const fabricListId = "dl_backorder_fabric";
     const fabricDatalist = el("datalist", { id: fabricListId },
@@ -5805,16 +5830,18 @@ if (typeof module !== "undefined") {
       existing ? existing.status : "สินค้าหมด");
     const noteInput = textInput(existing ? existing.note : "");
     const form = el("div", { class: "form-panel" },
-      formField("ชื่อลูกค้า", customerNameInput), formField("เบอร์โทร", customerPhoneInput),
+      formField("ลูกค้า", customerSelect),
       fabricDatalist, formField("ผ้าที่ต้องการ", fabricNameInput),
       formField("จำนวน", qtyInput), formField("หน่วย", unitInput),
       formField("สถานะ", statusSelect), formField("หมายเหตุ", noteInput));
     const saveBtn = el("button", { class: "btn btn-primary", onClick: () => {
-      const customerName = customerNameInput.value.trim();
+      const customerId = customerSelect.getCustomerId();
       const fabricName = fabricNameInput.value.trim();
-      if (!customerName || !fabricName) { global.alert("กรุณาระบุชื่อลูกค้าและผ้าที่ต้องการ"); return; }
+      if (!customerId) { global.alert("กรุณาเลือกลูกค้า"); return; }
+      if (!fabricName) { global.alert("กรุณาระบุผ้าที่ต้องการ"); return; }
+      const customer = DB.getCustomer(customerId);
       const data = {
-        customer_name: customerName, customer_phone: customerPhoneInput.value.trim(),
+        customer_id: customerId, customer_name: customer ? customer.name : "", customer_phone: customer ? customer.phone : "",
         fabric_name: fabricName, qty: Number(qtyInput.value) || 0,
         unit: unitInput.value.trim() || "หลา", status: statusSelect.value, note: noteInput.value.trim(),
       };
@@ -5824,7 +5851,7 @@ if (typeof module !== "undefined") {
       renderBackorderTable();
       updateBackordersBadge();
     }}, "บันทึก");
-    exposeTestRefs("backorderForm", { customerNameInput, customerPhoneInput, fabricNameInput, qtyInput, unitInput, statusSelect, noteInput, saveBtn });
+    exposeTestRefs("backorderForm", { customerSelect, fabricNameInput, qtyInput, unitInput, statusSelect, noteInput, saveBtn });
     openModal(existing ? "แก้ไขรายการรอสินค้า" : "เพิ่มรายการรอสินค้า", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
       }
 
@@ -5886,6 +5913,10 @@ if (typeof module !== "undefined") {
     if (!refs.acctBankContainer) return;
     clear(refs.acctBankContainer);
     const accounts = DB.getBankAccounts();
+    const totalBalance = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
+    refs.acctBankContainer.appendChild(
+      el("p", { text: `ยอดรวมทั้งหมด: ${money(totalBalance)} บาท`, style: { fontWeight: "600", textAlign: "right", margin: "0 0 8px" } })
+    );
     refs.acctBankContainer.appendChild(
       buildDataTable(
         ["ธนาคาร", "ชื่อบัญชี", "เลขบัญชี", "ยอดคงเหลือ"],
