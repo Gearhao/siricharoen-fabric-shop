@@ -378,6 +378,38 @@ html, body {
 
 hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
 p { line-height: 1.6; }
+
+/* ปรับปรุงให้ใช้งานสะดวกขึ้นบนมือถือ */
+@media (max-width: 640px) {
+  .app-header { padding: 10px 14px; }
+  .shop-title h1 { font-size: 17px; }
+  .section-inner { padding: 12px 14px; }
+  .pos-grid { padding: 12px 14px; gap: 12px; }
+  .tabs { flex-wrap: nowrap; }
+  .toolbar { gap: 8px; }
+  .toolbar input[type="text"],
+  .toolbar input[type="date"],
+  .toolbar input[type="number"],
+  .toolbar select {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+  .form-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .form-row label { width: auto; }
+  .stats-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .stat-value { font-size: 18px; }
+  .modal-overlay { padding: 14px 8px; }
+  .modal-box { max-width: 100%; }
+  .btn-sm { padding: 6px 9px; }
+  /* ตารางรายการสินค้าในหน้าขาย/รับสินค้าเข้า: บนมือถือให้เลื่อนแนวนอนแทนการบีบคอลัมน์จนอ่านไม่ออก */
+  .pos-item-table { table-layout: auto; min-width: 620px; }
+  .pos-item-table th, .pos-item-table td { white-space: nowrap; }
+  .pos-item-table input, .pos-item-table select { min-width: 64px; width: auto; }
+}
 </style>
 </head>
 <body>
@@ -5128,7 +5160,6 @@ if (typeof module !== "undefined") {
     costInput.setAttribute("placeholder", "ราคาทุน/หน่วย");
     const itemDiscInput = numberInput("");
     itemDiscInput.setAttribute("placeholder", "ส่วนลด");
-    itemDiscInput.addEventListener("blur", () => addItemFromRowNow({ alertOnInvalid: false }));
     const itemDiscUnitSelect = selectInput(
       [
         { value: "บาท", label: "บาท" },
@@ -5136,8 +5167,14 @@ if (typeof module !== "undefined") {
       ],
       "บาท"
     );
-    itemDiscUnitSelect.addEventListener("blur", () => addItemFromRowNow({ alertOnInvalid: false }));
     const itemDiscRow = el("div", { class: "discount-input-row" }, itemDiscInput, itemDiscUnitSelect);
+    // บันทึกเมื่อโฟกัสออกจาก "กลุ่ม" ช่องส่วนลดทั้งหมด (ตัวเลข + หน่วย) เท่านั้น ไม่ใช่ทีละช่อง
+    // เพื่อรองรับทั้งกรณีเลือกหน่วยก่อนแล้วค่อยพิมพ์ตัวเลข และพิมพ์ตัวเลขก่อนแล้วค่อยเลือกหน่วย
+    // (ใช้ focusout เพราะ bubble ได้ ต่างจาก blur ที่ไม่ bubble, เช็ค relatedTarget ว่ายังอยู่ในกลุ่มเดิมหรือไม่)
+    itemDiscRow.addEventListener("focusout", (e) => {
+      if (e.relatedTarget && itemDiscRow.contains(e.relatedTarget)) return;
+      addItemFromRowNow({ alertOnInvalid: false });
+    });
     const itemsContainer = el("div", { class: "table-container" });
     const vatChk = el("input", { type: "checkbox", checked: editingPurchase ? editingPurchase.vat_amount > 0 : true });
     vatChk.addEventListener("change", () => {
