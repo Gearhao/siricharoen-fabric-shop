@@ -526,9 +526,11 @@ function createDB(storageKey) {
           if (!store.backorders) store.backorders = [];
           if (!store.bankAccounts) store.bankAccounts = [];
           if (!store.accountMovements) store.accountMovements = [];
+          if (!store.customerOrders) store.customerOrders = [];
           if (!store.nextId) store.nextId = {};
           if (!store.nextId.backorder) store.nextId.backorder = store.backorders.length + 1;
           if (!store.nextId.bankAccount) store.nextId.bankAccount = store.bankAccounts.length + 1;
+          if (!store.nextId.customerOrder) store.nextId.customerOrder = store.customerOrders.length + 1;
           migrateCodes(store);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
           cloudStatus = "synced";
@@ -550,7 +552,7 @@ function createDB(storageKey) {
 
   function emptyStore() {
     return {
-      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1, bankAccount: 1 },
+      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1, bankAccount: 1, customerOrder: 1 },
       shopInfo: { name: "ร้านผ้าศิริเจริญ", address: "", phone: "", tax_id: "" },
       suppliers: [],
       customers: [],
@@ -564,6 +566,7 @@ function createDB(storageKey) {
       backorders: [],
       bankAccounts: [],
       accountMovements: [],
+      customerOrders: [],
     };
   }
 
@@ -578,9 +581,11 @@ function createDB(storageKey) {
         if (!data.backorders) data.backorders = [];
         if (!data.bankAccounts) data.bankAccounts = [];
         if (!data.accountMovements) data.accountMovements = [];
+        if (!data.customerOrders) data.customerOrders = [];
         if (!data.nextId) data.nextId = {};
         if (!data.nextId.backorder) data.nextId.backorder = data.backorders.length + 1;
         if (!data.nextId.bankAccount) data.nextId.bankAccount = data.bankAccounts.length + 1;
+        if (!data.nextId.customerOrder) data.nextId.customerOrder = data.customerOrders.length + 1;
         migrateCodes(data);
         return data;
       }
@@ -1570,6 +1575,59 @@ function createDB(storageKey) {
     return store.backorders.find((x) => x.id === id) || null;
   }
 
+  // -------------------------------------------------------------- customerOrders (ลูกค้าสั่งผ้า - จากลิงก์ออนไลน์)
+  function addCustomerOrder(data) {
+    const item = {
+      id: genId("customerOrder"),
+      date: nowStr(),
+      customer_id: (data && data.customer_id) || null,
+      customer_name: (data && data.customer_name) || "",
+      customer_phone: (data && data.customer_phone) || "",
+      items: (data && Array.isArray(data.items)) ? data.items : [],
+      note: (data && data.note) || "",
+      status: (data && data.status) || "รอดำเนินการ",
+      done: false,
+      resolved_date: null,
+    };
+    store.customerOrders.push(item);
+    save();
+    return item;
+  }
+  function updateCustomerOrder(id, data) {
+    const o = store.customerOrders.find((x) => x.id === id);
+    if (!o) return null;
+    Object.assign(o, data);
+    save();
+    return o;
+  }
+  function markCustomerOrderDone(id) {
+    const o = store.customerOrders.find((x) => x.id === id);
+    if (!o) return;
+    o.done = true;
+    o.resolved_date = nowStr();
+    save();
+  }
+  function markCustomerOrderUndone(id) {
+    const o = store.customerOrders.find((x) => x.id === id);
+    if (!o) return;
+    o.done = false;
+    o.resolved_date = null;
+    save();
+  }
+  function deleteCustomerOrder(id) {
+    const idx = store.customerOrders.findIndex((x) => x.id === id);
+    if (idx === -1) return false;
+    store.customerOrders.splice(idx, 1);
+    save();
+    return true;
+  }
+  function getCustomerOrders() {
+    return [...(store.customerOrders || [])].sort((a, b) => (a.date < b.date ? 1 : -1));
+  }
+  function getCustomerOrder(id) {
+    return store.customerOrders.find((x) => x.id === id) || null;
+  }
+
 
   // -------------------------------------------------------------- reports
   function salesSummary(start, end) {
@@ -1661,6 +1719,7 @@ function createDB(storageKey) {
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense,
     addBackorder, updateBackorder, deleteBackorder, markBackorderDone, markBackorderUndone, getBackorders, getBackorder,
+    addCustomerOrder, updateCustomerOrder, deleteCustomerOrder, markCustomerOrderDone, markCustomerOrderUndone, getCustomerOrders, getCustomerOrder,
     getBankAccounts, getBankAccount, getCashAccount, createBankAccount, updateBankAccount, deleteBankAccount, adjustBankAccountBalance, getAccountMovements,
     salesSummary, cogsSummary, expensesSummary, shippingSummary, bestSellers, lowStockList,
     arAging, apAging,
@@ -2040,6 +2099,7 @@ if (typeof module !== "undefined") {
     { key: "suppliers", label: "ซัพพลายเออร์" },
     { key: "purchases", label: "รับสินค้าเข้า" },
       { key: "backorders", label: "รายการรอสินค้า" },
+    { key: "customerOrders", label: "ลูกค้าสั่งผ้า" },
     { key: "accounting", label: "บัญชี" },
     { key: "reports", label: "รายงาน" },
   ];
@@ -2082,7 +2142,9 @@ if (typeof module !== "undefined") {
     });
     if (renderers[key]) renderers[key]();
     updateBackordersBadge();
+    updateCustomerOrdersBadge();
   }
+
   function updateBackordersBadge() {
     if (!refs.backordersNavBadge) return;
     const n = DB.getBackorders().filter((b) => !b.done).length;
@@ -2091,6 +2153,17 @@ if (typeof module !== "undefined") {
       refs.backordersNavBadge.style.display = "";
     } else {
       refs.backordersNavBadge.style.display = "none";
+    }
+  }
+
+  function updateCustomerOrdersBadge() {
+    if (!refs.customerOrdersNavBadge) return;
+    const n = DB.getCustomerOrders().filter((o) => !o.done).length;
+    if (n > 0) {
+      refs.customerOrdersNavBadge.textContent = String(n);
+      refs.customerOrdersNavBadge.style.display = "";
+    } else {
+      refs.customerOrdersNavBadge.style.display = "none";
     }
   }
   
@@ -2119,7 +2192,12 @@ if (typeof module !== "undefined") {
         const badge = el("span", { class: "tab-badge", style: { display: "none" } });
         refs.backordersNavBadge = badge;
         btn.appendChild(badge);
-                     }
+      }
+      if (t.key === "customerOrders") {
+        const badge = el("span", { class: "tab-badge", style: { display: "none" } });
+        refs.customerOrdersNavBadge = badge;
+        btn.appendChild(badge);
+      }
       navButtons[t.key] = btn;
       nav.appendChild(btn);
     });
@@ -5904,88 +5982,17 @@ if (typeof module !== "undefined") {
       onInput: (e) => { backorderSearch = e.target.value; renderBackorderTable(); } });
     const showDoneChk = el("input", { type: "checkbox", checked: backorderShowDone,
       onChange: (e) => { backorderShowDone = e.target.checked; renderBackorderTable(); } });
-    const pullBtn = el(
-      "button",
-      { class: "btn btn-secondary", onClick: () => pullOnlineOrderRequests() },
-      "ดึงคำขอใหม่จากลูกค้า"
-    );
-    refs.pullOrderRequestsBtn = pullBtn;
     const toolbar = el(
       "div",
       { class: "toolbar" },
       searchInput,
       el("label", { class: "chk-label" }, showDoneChk, " แสดงที่เสร็จแล้วด้วย"),
-      el("button", { class: "btn btn-primary", onClick: () => openBackorderModal() }, "+ เพิ่มรายการ"),
-      pullBtn
+      el("button", { class: "btn btn-primary", onClick: () => openBackorderModal() }, "+ เพิ่มรายการ")
     );
     const tableContainer = el("div", { class: "table-container" });
     refs.backorderTableContainer = tableContainer;
     sec.appendChild(el("div", { class: "section-inner" }, toolbar, tableContainer));
     renderBackorderTable();
-  }
-
-  // ดึงคำขอสั่งผ้าจากลิงก์สาธารณะ (order.html) เข้ามาเป็นรายการรอสินค้า
-  async function pullOnlineOrderRequests() {
-    const btn = refs.pullOrderRequestsBtn;
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = "กำลังดึงคำขอ...";
-    }
-    try {
-      const url = global.__SUPABASE_URL__ + "/rest/v1/order_requests?status=eq.new&select=*&order=created_at.asc";
-      const res = await fetch(url, {
-        headers: {
-          apikey: global.__SUPABASE_ANON_KEY__,
-          Authorization: "Bearer " + global.__SUPABASE_ANON_KEY__,
-        },
-      });
-      if (!res.ok) throw new Error("โหลดคำขอไม่สำเร็จ");
-      const requests = await res.json();
-      if (!requests || requests.length === 0) {
-        global.alert("ไม่มีคำขอใหม่จากลูกค้า");
-        return;
-      }
-      const customers = DB.getCustomers();
-      let pulledCount = 0;
-      for (const r of requests) {
-        let customerId = null;
-        if (r.customer_code) {
-          const code = String(r.customer_code).trim().toLowerCase();
-          const match = customers.find((c) => (c.code || "").trim().toLowerCase() === code);
-          if (match) customerId = match.id;
-        }
-        DB.addBackorder({
-          customer_id: customerId,
-          customer_name: r.customer_name || "",
-          customer_phone: r.customer_phone || "",
-          fabric_name: r.fabric_text || "",
-          qty: r.qty || 0,
-          unit: r.unit || "หลา",
-          status: "สินค้าหมด",
-          note: [r.note, "(คำขอจากลิงก์ออนไลน์)"].filter(Boolean).join(" "),
-        });
-        fetch(global.__SUPABASE_URL__ + "/rest/v1/order_requests?id=eq." + r.id, {
-          method: "PATCH",
-          headers: {
-            apikey: global.__SUPABASE_ANON_KEY__,
-            Authorization: "Bearer " + global.__SUPABASE_ANON_KEY__,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ status: "pulled" }),
-        }).catch(() => {});
-        pulledCount++;
-      }
-      renderBackorderTable();
-      updateBackordersBadge();
-      global.alert(`ดึงคำขอใหม่จากลูกค้าเรียบร้อย ${pulledCount} รายการ`);
-    } catch (e) {
-      global.alert("เกิดข้อผิดพลาดในการดึงคำขอ กรุณาลองใหม่อีกครั้ง");
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "ดึงคำขอใหม่จากลูกค้า";
-      }
-    }
   }
 
   function renderBackorderTable() {
@@ -6093,6 +6100,352 @@ if (typeof module !== "undefined") {
     exposeTestRefs("backorderForm", { customerSelect, fabricNameInput, qtyInput, unitInput, statusSelect, noteInput, saveBtn });
     openModal(existing ? "แก้ไขรายการรอสินค้า" : "เพิ่มรายการรอสินค้า", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
       }
+
+  // =================================================================== ลูกค้าสั่งผ้า (จากลิงก์ออนไลน์)
+  let customerOrderSearch = "";
+  let customerOrderShowDone = true;
+
+  function renderCustomerOrders() {
+    const sec = sections.customerOrders;
+    clear(sec);
+    const searchInput = el("input", {
+      type: "text",
+      placeholder: "ค้นหา (ชื่อลูกค้า/ชื่อผ้า)",
+      value: customerOrderSearch,
+      onInput: (e) => {
+        customerOrderSearch = e.target.value;
+        renderCustomerOrderTable();
+      },
+    });
+    const showDoneChk = el("input", {
+      type: "checkbox",
+      checked: customerOrderShowDone,
+      onChange: (e) => {
+        customerOrderShowDone = e.target.checked;
+        renderCustomerOrderTable();
+      },
+    });
+    const pullBtn = el(
+      "button",
+      { class: "btn btn-secondary", onClick: () => pullOnlineOrderRequests() },
+      "ดึงคำขอใหม่จากลูกค้า"
+    );
+    refs.pullOrderRequestsBtn = pullBtn;
+    const toolbar = el(
+      "div",
+      { class: "toolbar" },
+      searchInput,
+      el("label", { class: "chk-label" }, showDoneChk, " แสดงที่เสร็จแล้วด้วย"),
+      el("button", { class: "btn btn-primary", onClick: () => openCustomerOrderModal() }, "+ เพิ่มรายการ"),
+      pullBtn
+    );
+    const tableContainer = el("div", { class: "table-container" });
+    refs.customerOrderTableContainer = tableContainer;
+    sec.appendChild(el("div", { class: "section-inner" }, toolbar, tableContainer));
+    renderCustomerOrderTable();
+  }
+
+  // ดึงคำขอสั่งผ้าจากลิงก์สาธารณะ (order.html) เข้ามาเป็นรายการลูกค้าสั่งผ้า
+  async function pullOnlineOrderRequests() {
+    const btn = refs.pullOrderRequestsBtn;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "กำลังดึงคำขอ...";
+    }
+    try {
+      const url = global.__SUPABASE_URL__ + "/rest/v1/order_requests?status=eq.new&select=*&order=created_at.asc";
+      const res = await fetch(url, {
+        headers: {
+          apikey: global.__SUPABASE_ANON_KEY__,
+          Authorization: "Bearer " + global.__SUPABASE_ANON_KEY__,
+        },
+      });
+      if (!res.ok) throw new Error("โหลดคำขอไม่สำเร็จ");
+      const requests = await res.json();
+      if (!requests || requests.length === 0) {
+        global.alert("ไม่มีคำขอใหม่จากลูกค้า");
+        return;
+      }
+      const customers = DB.getCustomers();
+      for (const r of requests) {
+        let customerId = null;
+        if (r.customer_code) {
+          const code = String(r.customer_code).trim().toLowerCase();
+          const match = customers.find((c) => (c.code || "").trim().toLowerCase() === code);
+          if (match) customerId = match.id;
+        }
+        const items = Array.isArray(r.items) && r.items.length
+          ? r.items.map((it) => ({ fabric_text: it.fabric_text || "", qty: it.qty || 0, unit: it.unit || "" }))
+          : [];
+        DB.addCustomerOrder({
+          customer_id: customerId,
+          customer_name: r.customer_name || "",
+          customer_phone: r.customer_phone || "",
+          items,
+          status: "รอดำเนินการ",
+          note: [r.note, "(คำขอจากลิงก์ออนไลน์)"].filter(Boolean).join(" "),
+        });
+        fetch(global.__SUPABASE_URL__ + "/rest/v1/order_requests?id=eq." + r.id, {
+          method: "PATCH",
+          headers: {
+            apikey: global.__SUPABASE_ANON_KEY__,
+            Authorization: "Bearer " + global.__SUPABASE_ANON_KEY__,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: "pulled" }),
+        }).catch(() => {});
+      }
+      renderCustomerOrderTable();
+      updateCustomerOrdersBadge();
+      global.alert(`ดึงคำขอใหม่จากลูกค้าเรียบร้อย ${requests.length} คำขอ`);
+    } catch (e) {
+      global.alert("เกิดข้อผิดพลาดในการดึงคำขอ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "ดึงคำขอใหม่จากลูกค้า";
+      }
+    }
+  }
+
+  function formatCustomerOrderItems(items) {
+    if (!items || items.length === 0) return "-";
+    return items
+      .map((it, i) => `${i + 1}. ${it.fabric_text || "-"}${it.qty ? ` (${it.qty}${it.unit ? " " + it.unit : ""})` : ""}`)
+      .join("  |  ");
+  }
+
+  function renderCustomerOrderTable() {
+    const container = refs.customerOrderTableContainer;
+    if (!container) return;
+    clear(container);
+    let rows = DB.getCustomerOrders();
+    if (!customerOrderShowDone) rows = rows.filter((o) => !o.done);
+    const withCustomer = rows.map((o) => ({ o, c: o.customer_id ? DB.getCustomer(o.customer_id) : null }));
+    const q = customerOrderSearch.trim().toLowerCase();
+    let filtered = withCustomer;
+    if (q) {
+      filtered = withCustomer.filter(({ o, c }) => {
+        const name = c ? c.name : o.customer_name || "";
+        const code = c ? c.code : "";
+        const phone = c ? c.phone : o.customer_phone || "";
+        const itemsText = (o.items || []).map((it) => it.fabric_text || "").join(" ");
+        return (
+          name.toLowerCase().includes(q) ||
+          code.toLowerCase().includes(q) ||
+          (phone || "").includes(q) ||
+          itemsText.toLowerCase().includes(q)
+        );
+      });
+    }
+    rows = filtered.map((x) => x.o);
+    const table = buildDataTable(
+      ["วันที่", "ลูกค้า", "เบอร์โทร", "รายการผ้า", "สถานะ", "หมายเหตุ"],
+      filtered.map(({ o, c }) => [
+        fmtDate(o.date),
+        c ? `${c.code} - ${c.name}` : o.customer_name || "-",
+        c ? c.phone || "-" : o.customer_phone || "-",
+        formatCustomerOrderItems(o.items),
+        o.done ? "เสร็จแล้ว" : o.status,
+        o.note || "",
+      ]),
+      {
+        cellStyle: (row, ci, colName) => {
+          if (colName === "สถานะ" && row[ci] === "เสร็จแล้ว") return { color: "var(--text-muted)" };
+          return null;
+        },
+        actions: (idx) => {
+          const o = rows[idx];
+          const actions = [{ label: "แก้ไข", onClick: () => openCustomerOrderModal(o.id) }];
+          if (o.done) {
+            actions.push({
+              label: "ยกเลิกเสร็จแล้ว",
+              onClick: () => {
+                DB.markCustomerOrderUndone(o.id);
+                renderCustomerOrderTable();
+                updateCustomerOrdersBadge();
+              },
+            });
+          } else {
+            actions.push({
+              label: "เสร็จแล้ว",
+              onClick: () => {
+                DB.markCustomerOrderDone(o.id);
+                renderCustomerOrderTable();
+                updateCustomerOrdersBadge();
+              },
+            });
+          }
+          actions.push({
+            label: "ลบ",
+            onClick: () => {
+              if (global.confirm(`ต้องการลบรายการของ "${o.customer_name || "-"}" หรือไม่?`)) {
+                DB.deleteCustomerOrder(o.id);
+                renderCustomerOrderTable();
+                updateCustomerOrdersBadge();
+              }
+            },
+          });
+          return actions;
+        },
+      }
+    );
+    container.appendChild(table);
+  }
+
+  function openCustomerOrderModal(id) {
+    const existing = id ? DB.getCustomerOrder(id) : null;
+    const customerSelect = buildCustomerSelectOptions();
+    if (existing && existing.customer_id) {
+      customerSelect.setCustomerId(existing.customer_id);
+    } else if (existing && existing.customer_name) {
+      customerSelect.setLabel(`(เดิม) ${existing.customer_name}${existing.customer_phone ? " " + existing.customer_phone : ""} - กรุณาเลือกลูกค้าใหม่`);
+    }
+    const fabrics = DB.getFabrics();
+    const fabricListId = "dl_customer_order_fabric";
+    const fabricDatalist = el(
+      "datalist",
+      { id: fabricListId },
+      ...fabrics.map((f) => el("option", { value: `${f.code} - ${f.name}` }))
+    );
+    let modalItems =
+      existing && existing.items && existing.items.length
+        ? existing.items.map((it) => ({ fabric_text: it.fabric_text || "", qty: it.qty || "", unit: it.unit || "หลา" }))
+        : [{ fabric_text: "", qty: "", unit: "หลา" }];
+    const itemsContainer = el("div", {});
+    function renderItemsRows() {
+      clear(itemsContainer);
+      modalItems.forEach((it, idx) => {
+        const fabricInput = el("input", {
+          type: "text",
+          value: it.fabric_text,
+          list: fabricListId,
+          placeholder: "ชื่อ/รหัสผ้าที่ลูกค้าต้องการ",
+          style: { flex: "2" },
+          onInput: (e) => {
+            it.fabric_text = e.target.value;
+          },
+        });
+        const qtyInput = el("input", {
+          type: "number",
+          value: it.qty,
+          placeholder: "จำนวน",
+          step: "any",
+          style: { flex: "1" },
+          onInput: (e) => {
+            it.qty = e.target.value;
+          },
+        });
+        const unitInput = el("input", {
+          type: "text",
+          value: it.unit,
+          placeholder: "หน่วย",
+          style: { flex: "1" },
+          onInput: (e) => {
+            it.unit = e.target.value;
+          },
+        });
+        const removeBtn = el(
+          "button",
+          {
+            class: "btn btn-sm",
+            onClick: () => {
+              if (modalItems.length > 1) {
+                modalItems.splice(idx, 1);
+                renderItemsRows();
+              }
+            },
+          },
+          "ลบ"
+        );
+        const row = el(
+          "div",
+          { class: "item-entry-row", style: { display: "flex", gap: "6px", alignItems: "center", marginBottom: "6px" } },
+          el("span", { text: `${idx + 1}.`, style: { minWidth: "16px" } }),
+          fabricInput,
+          qtyInput,
+          unitInput,
+          removeBtn
+        );
+        itemsContainer.appendChild(row);
+      });
+    }
+    renderItemsRows();
+    const addItemBtn = el(
+      "button",
+      {
+        class: "btn btn-sm",
+        onClick: () => {
+          modalItems.push({ fabric_text: "", qty: "", unit: "หลา" });
+          renderItemsRows();
+        },
+      },
+      "+ เพิ่มรายการผ้า"
+    );
+    const statusSelect = selectInput(
+      [
+        { value: "รอดำเนินการ", label: "รอดำเนินการ" },
+        { value: "ติดต่อลูกค้าแล้ว", label: "ติดต่อลูกค้าแล้ว" },
+        { value: "อื่นๆ", label: "อื่นๆ" },
+      ],
+      existing ? existing.status : "รอดำเนินการ"
+    );
+    const noteInput = textInput(existing ? existing.note : "");
+    const form = el(
+      "div",
+      { class: "form-panel" },
+      formField("ลูกค้า", customerSelect),
+      fabricDatalist,
+      formField("รายการผ้าที่ต้องการ", el("div", {}, itemsContainer, addItemBtn)),
+      formField("สถานะ", statusSelect),
+      formField("หมายเหตุ", noteInput)
+    );
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          const customerId = customerSelect.getCustomerId();
+          const cleanItems = modalItems
+            .filter((it) => (it.fabric_text || "").trim())
+            .map((it) => ({ fabric_text: it.fabric_text.trim(), qty: Number(it.qty) || 0, unit: (it.unit || "").trim() || "หลา" }));
+          if (!customerId) {
+            global.alert("กรุณาเลือกลูกค้า");
+            return;
+          }
+          if (cleanItems.length === 0) {
+            global.alert("กรุณาระบุผ้าที่ต้องการอย่างน้อย 1 รายการ");
+            return;
+          }
+          const customer = DB.getCustomer(customerId);
+          const data = {
+            customer_id: customerId,
+            customer_name: customer ? customer.name : "",
+            customer_phone: customer ? customer.phone : "",
+            items: cleanItems,
+            status: statusSelect.value,
+            note: noteInput.value.trim(),
+          };
+          if (existing) DB.updateCustomerOrder(existing.id, data);
+          else DB.addCustomerOrder(data);
+          closeModal();
+          renderCustomerOrderTable();
+          updateCustomerOrdersBadge();
+        },
+      },
+      "บันทึก"
+    );
+    exposeTestRefs("customerOrderForm", {
+      customerSelect,
+      statusSelect,
+      noteInput,
+      saveBtn,
+    });
+    openModal(
+      existing ? "แก้ไขรายการลูกค้าสั่งผ้า" : "เพิ่มรายการลูกค้าสั่งผ้า",
+      el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn))
+    );
+  }
 
   // =================================================================== บัญชี
   let acctStart = "";
@@ -6553,6 +6906,7 @@ if (typeof module !== "undefined") {
     renderers.suppliers = renderSuppliers;
     renderers.purchases = renderPurchases;
     renderers.backorders = renderBackorders;
+    renderers.customerOrders = renderCustomerOrders;
     renderers.accounting = renderAccounting;
     renderers.reports = renderReports;
 
