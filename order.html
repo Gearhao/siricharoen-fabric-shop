@@ -12,31 +12,32 @@
     margin: 0;
     padding: 24px 16px;
     color: #111;
+    line-height: 1.5;
   }
   .card {
-    max-width: 460px;
+    max-width: 640px;
     margin: 0 auto;
     background: #fff;
-    border-radius: 12px;
+    border-radius: 14px;
     border: 1px solid #e2e2e2;
-    padding: 24px;
+    padding: 28px 32px;
   }
   h1 {
-    font-size: 20px;
+    font-size: 21px;
     font-weight: 600;
     margin: 0 0 4px;
   }
   .subtitle {
     font-size: 14px;
     color: #666;
-    margin: 0 0 20px;
+    margin: 0 0 22px;
   }
   label {
     display: block;
     font-size: 13px;
     color: #555;
-    margin-bottom: 4px;
-    margin-top: 14px;
+    margin-bottom: 6px;
+    margin-top: 20px;
   }
   label:first-of-type { margin-top: 0; }
   input[type="text"],
@@ -45,25 +46,26 @@
   select,
   textarea {
     width: 100%;
-    padding: 10px 12px;
+    padding: 11px 12px;
     border: 1px solid #ccc;
     border-radius: 8px;
     font-size: 15px;
     font-family: inherit;
     background: #fff;
   }
-  textarea { min-height: 60px; resize: vertical; }
+  textarea { min-height: 64px; resize: vertical; }
   input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: #2563eb;
   }
-  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
   .row > div { flex: 1; min-width: 0; }
-  .row-3 > div { min-width: 100px; }
+  .row-3 > div { min-width: 130px; }
+  .ship-row > div { min-width: 240px; }
   button {
     width: 100%;
-    margin-top: 20px;
-    padding: 12px;
+    margin-top: 22px;
+    padding: 13px;
     background: #2563eb;
     color: #fff;
     border: none;
@@ -78,12 +80,12 @@
     font-size: 12px;
     color: #888;
     text-align: center;
-    margin-top: 10px;
+    margin-top: 12px;
   }
   .error {
     font-size: 13px;
     color: #d33;
-    margin-top: 10px;
+    margin-top: 12px;
     display: none;
   }
   .success-box {
@@ -106,20 +108,27 @@
   .success-box button {
     margin-top: 20px;
   }
+  .items-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  @media (min-width: 560px) {
+    .items-grid { grid-template-columns: 1fr 1fr; }
+  }
   .item-row {
-    border: 1px solid #e2e2e2;
-    border-radius: 8px;
-    padding: 12px;
-    margin-top: 12px;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    padding: 16px;
     position: relative;
     background: #fafafa;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   }
-  .item-row:first-of-type { margin-top: 0; }
   .item-row-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
   }
   .item-num {
     font-size: 13px;
@@ -129,7 +138,7 @@
   .remove-item-btn {
     width: auto;
     margin: 0;
-    padding: 2px 10px;
+    padding: 3px 10px;
     background: transparent;
     color: #d33;
     border: 1px solid #d33;
@@ -139,16 +148,17 @@
   }
   .item-line {
     display: flex;
-    gap: 6px;
+    gap: 10px;
+    flex-wrap: wrap;
   }
-  .item-line .item-fabric { flex: 2.2; min-width: 0; }
-  .item-line .item-qty { flex: 1; min-width: 0; }
-  .item-line .item-unit { flex: 1; min-width: 0; }
+  .item-line .item-fabric { flex: 1 1 100%; min-width: 0; }
+  .item-line .item-qty { flex: 1 1 90px; min-width: 70px; }
+  .item-line .item-unit { flex: 1 1 100px; min-width: 84px; }
   .add-item-btn {
     background: #fff;
     color: #2563eb;
     border: 1px dashed #2563eb;
-    margin-top: 12px;
+    margin-top: 14px;
   }
 </style>
 </head>
@@ -176,21 +186,32 @@
       </div>
 
       <label>ผ้าที่ต้องการ * (สั่งได้หลายรายการ)</label>
-      <div id="itemsContainer"></div>
+      <div id="itemsContainer" class="items-grid"></div>
       <button type="button" id="addItemBtn" class="add-item-btn">+ เพิ่มรายการผ้าอีก</button>
 
-      <label for="shippingMethod">วิธีจัดส่ง *</label>
-      <select id="shippingMethod" required>
-        <option value="">-- เลือกวิธีจัดส่ง --</option>
-        <option value="Flash ขนส่ง (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)">Flash ขนส่ง (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)</option>
-        <option value="มารับเอง">มารับเอง</option>
-        <option value="มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)">มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)</option>
-        <option value="Grab">Grab</option>
-      </select>
+      <div class="row ship-row">
+        <div>
+          <label for="shippingMethod">วิธีจัดส่ง *</label>
+          <select id="shippingMethod" required>
+            <option value="">-- เลือกวิธีจัดส่ง --</option>
+            <option value="Flash (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)">Flash (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)</option>
+            <option value="ขนส่ง">ขนส่ง</option>
+            <option value="มารับเอง">มารับเอง</option>
+            <option value="มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)">มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)</option>
+            <option value="Grab">Grab</option>
+            <option value="อื่นๆ">อื่นๆ (ระบุเอง)</option>
+          </select>
 
-      <div id="addressField">
-        <label for="address">ที่อยู่จัดส่ง *</label>
-        <textarea id="address" placeholder="บ้านเลขที่ ถนน ตำบล/แขวง อำเภอ/เขต จังหวัด รหัสไปรษณีย์"></textarea>
+          <div id="shippingOtherField" style="display:none;">
+            <label for="shippingOther">ระบุวิธีจัดส่ง *</label>
+            <input type="text" id="shippingOther" placeholder="เช่น ไปรษณีย์ไทย, นิ่มซี่เส็ง" />
+          </div>
+        </div>
+
+        <div id="addressField">
+          <label for="address">ที่อยู่จัดส่ง *</label>
+          <textarea id="address" placeholder="บ้านเลขที่ ถนน ตำบล/แขวง อำเภอ/เขต จังหวัด รหัสไปรษณีย์"></textarea>
+        </div>
       </div>
 
       <label for="note">หมายเหตุ</label>
@@ -225,11 +246,23 @@
   var itemsContainer = document.getElementById("itemsContainer");
   var addItemBtn = document.getElementById("addItemBtn");
   var shippingMethodSelect = document.getElementById("shippingMethod");
+  var shippingOtherField = document.getElementById("shippingOtherField");
+  var shippingOtherInput = document.getElementById("shippingOther");
   var addressField = document.getElementById("addressField");
   var addressInput = document.getElementById("address");
 
-  function updateAddressVisibility() {
-    if (shippingMethodSelect.value === "มารับเอง") {
+  function updateShippingFieldsVisibility() {
+    var val = shippingMethodSelect.value;
+
+    if (val === "อื่นๆ") {
+      shippingOtherField.style.display = "block";
+      shippingOtherInput.setAttribute("required", "required");
+    } else {
+      shippingOtherField.style.display = "none";
+      shippingOtherInput.removeAttribute("required");
+    }
+
+    if (val === "มารับเอง") {
       addressField.style.display = "none";
       addressInput.removeAttribute("required");
     } else {
@@ -237,8 +270,8 @@
       addressInput.setAttribute("required", "required");
     }
   }
-  shippingMethodSelect.addEventListener("change", updateAddressVisibility);
-  updateAddressVisibility();
+  shippingMethodSelect.addEventListener("change", updateShippingFieldsVisibility);
+  updateShippingFieldsVisibility();
 
   function renumberItems() {
     var rows = itemsContainer.querySelectorAll(".item-row");
@@ -289,7 +322,8 @@
     var phone = document.getElementById("phone").value.trim();
     var code = document.getElementById("code").value.trim();
     var note = document.getElementById("note").value.trim();
-    var shippingMethod = shippingMethodSelect.value;
+    var shippingMethodRaw = shippingMethodSelect.value;
+    var shippingOther = shippingOtherInput.value.trim();
     var shippingAddress = addressInput.value.trim();
 
     var items = [];
@@ -312,13 +346,21 @@
       return;
     }
 
-    if (!shippingMethod) {
+    if (!shippingMethodRaw) {
       errorMsg.textContent = "กรุณาเลือกวิธีจัดส่ง";
       errorMsg.style.display = "block";
       return;
     }
 
-    if (shippingMethod !== "มารับเอง" && !shippingAddress) {
+    if (shippingMethodRaw === "อื่นๆ" && !shippingOther) {
+      errorMsg.textContent = "กรุณาระบุวิธีจัดส่ง";
+      errorMsg.style.display = "block";
+      return;
+    }
+
+    var shippingMethod = shippingMethodRaw === "อื่นๆ" ? shippingOther : shippingMethodRaw;
+
+    if (shippingMethodRaw !== "มารับเอง" && !shippingAddress) {
       errorMsg.textContent = "กรุณากรอกที่อยู่จัดส่ง";
       errorMsg.style.display = "block";
       return;
@@ -350,7 +392,7 @@
         form.reset();
         itemsContainer.innerHTML = "";
         addItemRow();
-        updateAddressVisibility();
+        updateShippingFieldsVisibility();
         formView.style.display = "none";
         successView.style.display = "block";
       })
