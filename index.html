@@ -6397,14 +6397,14 @@ if (typeof module !== "undefined") {
       existing ? existing.status : "รอดำเนินการ"
     );
     const noteInput = textInput(existing ? existing.note : "");
-    const shippingOptions = ["Flash (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)", "ขนส่ง", "มารับเอง", "มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)", "Grab"];
+    const shippingOptions = ["Flash", "ขนส่ง (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)", "มารับเอง", "มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)", "Grab"];
     const existingShipMethod = existing ? existing.shipping_method || "" : "";
     const shipIsOther = existingShipMethod && shippingOptions.indexOf(existingShipMethod) === -1;
     const shippingMethodSelect = selectInput(
       [
         { value: "", label: "-- ยังไม่ระบุ --" },
-        { value: "Flash (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)", label: "Flash (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)" },
-        { value: "ขนส่ง", label: "ขนส่ง" },
+        { value: "Flash", label: "Flash" },
+        { value: "ขนส่ง (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)", label: "ขนส่ง (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)" },
         { value: "มารับเอง", label: "มารับเอง" },
         { value: "มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)", label: "มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)" },
         { value: "Grab", label: "Grab" },
