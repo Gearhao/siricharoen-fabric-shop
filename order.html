@@ -51,7 +51,7 @@
     font-family: inherit;
     background: #fff;
   }
-  textarea { min-height: 80px; resize: vertical; }
+  textarea { min-height: 60px; resize: vertical; }
   input:focus, textarea:focus {
     outline: none;
     border-color: #2563eb;
@@ -104,6 +104,43 @@
   .success-box button {
     margin-top: 20px;
   }
+  .item-row {
+    border: 1px solid #e2e2e2;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 12px;
+    position: relative;
+    background: #fafafa;
+  }
+  .item-row:first-of-type { margin-top: 0; }
+  .item-row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .item-num {
+    font-size: 13px;
+    font-weight: 600;
+    color: #444;
+  }
+  .remove-item-btn {
+    width: auto;
+    margin: 0;
+    padding: 2px 10px;
+    background: transparent;
+    color: #d33;
+    border: 1px solid #d33;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .add-item-btn {
+    background: #fff;
+    color: #2563eb;
+    border: 1px dashed #2563eb;
+    margin-top: 12px;
+  }
 </style>
 </head>
 <body>
@@ -123,19 +160,9 @@
       <label for="code">รหัสลูกค้า (ถ้ามี)</label>
       <input type="text" id="code" placeholder="เช่น CU00001" />
 
-      <label for="fabric">ผ้าที่ต้องการ *</label>
-      <textarea id="fabric" placeholder="เช่น ผ้าลายดอกสีฟ้า หรือรหัส 021-9800-1" required></textarea>
-
-      <div class="row">
-        <div>
-          <label for="qty">จำนวน</label>
-          <input type="number" id="qty" placeholder="5" min="0" step="any" />
-        </div>
-        <div>
-          <label for="unit">หน่วย</label>
-          <input type="text" id="unit" placeholder="หลา" />
-        </div>
-      </div>
+      <label>ผ้าที่ต้องการ * (สั่งได้หลายรายการ)</label>
+      <div id="itemsContainer"></div>
+      <button type="button" id="addItemBtn" class="add-item-btn">+ เพิ่มรายการผ้าอีก</button>
 
       <label for="note">หมายเหตุ</label>
       <input type="text" id="note" placeholder="ไม่บังคับ" />
@@ -166,6 +193,51 @@
   var formView = document.getElementById("formView");
   var successView = document.getElementById("successView");
   var newRequestBtn = document.getElementById("newRequestBtn");
+  var itemsContainer = document.getElementById("itemsContainer");
+  var addItemBtn = document.getElementById("addItemBtn");
+
+  function renumberItems() {
+    var rows = itemsContainer.querySelectorAll(".item-row");
+    rows.forEach(function (row, i) {
+      row.querySelector(".item-num").textContent = "รายการที่ " + (i + 1);
+      var removeBtn = row.querySelector(".remove-item-btn");
+      removeBtn.style.display = rows.length > 1 ? "inline-block" : "none";
+    });
+  }
+
+  function addItemRow() {
+    var row = document.createElement("div");
+    row.className = "item-row";
+    row.innerHTML =
+      '<div class="item-row-header">' +
+        '<span class="item-num">รายการที่</span>' +
+        '<button type="button" class="remove-item-btn">ลบรายการนี้</button>' +
+      '</div>' +
+      '<textarea class="item-fabric" placeholder="เช่น ผ้าลายดอกสีฟ้า หรือรหัส 021-9800-1"></textarea>' +
+      '<div class="row">' +
+        '<div>' +
+          '<label>จำนวน</label>' +
+          '<input type="number" class="item-qty" placeholder="5" min="0" step="any" />' +
+        '</div>' +
+        '<div>' +
+          '<label>หน่วย</label>' +
+          '<input type="text" class="item-unit" placeholder="หลา" />' +
+        '</div>' +
+      '</div>';
+    row.querySelector(".remove-item-btn").addEventListener("click", function () {
+      if (itemsContainer.querySelectorAll(".item-row").length <= 1) return;
+      row.remove();
+      renumberItems();
+    });
+    itemsContainer.appendChild(row);
+    renumberItems();
+  }
+
+  addItemBtn.addEventListener("click", function () {
+    addItemRow();
+  });
+
+  addItemRow();
 
   form.addEventListener("submit", function (e) {
     e.preventDefault();
@@ -174,13 +246,24 @@
     var name = document.getElementById("name").value.trim();
     var phone = document.getElementById("phone").value.trim();
     var code = document.getElementById("code").value.trim();
-    var fabric = document.getElementById("fabric").value.trim();
-    var qtyRaw = document.getElementById("qty").value.trim();
-    var unit = document.getElementById("unit").value.trim();
     var note = document.getElementById("note").value.trim();
 
-    if (!name || !phone || !fabric) {
-      errorMsg.textContent = "กรุณากรอกชื่อ เบอร์โทร และผ้าที่ต้องการให้ครบถ้วน";
+    var items = [];
+    itemsContainer.querySelectorAll(".item-row").forEach(function (row) {
+      var fabricText = row.querySelector(".item-fabric").value.trim();
+      var qtyRaw = row.querySelector(".item-qty").value.trim();
+      var unit = row.querySelector(".item-unit").value.trim();
+      if (fabricText) {
+        items.push({
+          fabric_text: fabricText,
+          qty: qtyRaw ? Number(qtyRaw) : null,
+          unit: unit || null,
+        });
+      }
+    });
+
+    if (!name || !phone || items.length === 0) {
+      errorMsg.textContent = "กรุณากรอกชื่อ เบอร์โทร และผ้าที่ต้องการอย่างน้อย 1 รายการ";
       errorMsg.style.display = "block";
       return;
     }
@@ -200,15 +283,15 @@
         customer_name: name,
         customer_phone: phone,
         customer_code: code || null,
-        fabric_text: fabric,
-        qty: qtyRaw ? Number(qtyRaw) : null,
-        unit: unit || null,
+        items: items,
         note: note || null,
       }),
     })
       .then(function (res) {
         if (!res.ok) throw new Error("ส่งคำขอไม่สำเร็จ (" + res.status + ")");
         form.reset();
+        itemsContainer.innerHTML = "";
+        addItemRow();
         formView.style.display = "none";
         successView.style.display = "block";
       })
