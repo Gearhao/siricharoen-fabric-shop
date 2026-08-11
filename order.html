@@ -125,12 +125,16 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-bottom: 10px;
   }
   .item-num {
     font-size: 13px;
     font-weight: 600;
     color: #444;
+    flex: 1 1 auto;
+    min-width: 0;
   }
   .remove-item-btn {
     width: auto;
@@ -142,6 +146,7 @@
     border-radius: 6px;
     font-size: 12px;
     font-weight: 500;
+    flex-shrink: 0;
   }
   .item-line {
     display: flex;
@@ -182,7 +187,6 @@
         </div>
       </div>
 
-      <label>ผ้าที่ต้องการ * (สั่งได้หลายรายการ)</label>
       <div id="itemsContainer" class="items-grid"></div>
       <button type="button" id="addItemBtn" class="add-item-btn">+ เพิ่มรายการผ้าอีก</button>
 
@@ -273,7 +277,8 @@
   function renumberItems() {
     var rows = itemsContainer.querySelectorAll(".item-row");
     rows.forEach(function (row, i) {
-      row.querySelector(".item-num").textContent = "รายการที่ " + (i + 1);
+      row.querySelector(".item-num").textContent =
+        "รายการที่ " + (i + 1) + (i === 0 ? " – ผ้าที่ต้องการ * (สั่งได้หลายรายการ)" : "");
       var removeBtn = row.querySelector(".remove-item-btn");
       removeBtn.style.display = rows.length > 1 ? "inline-block" : "none";
     });
