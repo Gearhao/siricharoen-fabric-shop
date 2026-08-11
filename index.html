@@ -1075,7 +1075,11 @@ function createDB(storageKey) {
   }
   function buildSaleItems(items) {
     return items.map((it) => ({
-      fabric_id: it.fabric_id,
+      fabric_id: it.fabric_id || null,
+      is_misc: !!it.is_misc,
+      name: it.name || "",
+      code: it.code || "",
+      cost_price: Number(it.cost_price) || 0,
       qty: it.qty,
       unit_price: it.unit_price,
       unit: it.unit || "",
@@ -1085,6 +1089,7 @@ function createDB(storageKey) {
   }
   function applySaleEffects(sale) {
     for (const it of sale.items) {
+      if (it.is_misc) continue;
       const f = getFabric(it.fabric_id);
       if (f) f.stock_qty -= it.stock_qty;
       store.stockMovements.push({
@@ -1108,6 +1113,7 @@ function createDB(storageKey) {
   }
   function revertSaleEffects(sale) {
     for (const it of sale.items) {
+      if (it.is_misc) continue;
       const f = getFabric(it.fabric_id);
       if (f) f.stock_qty += it.stock_qty;
       store.stockMovements.push({
@@ -1580,8 +1586,12 @@ function createDB(storageKey) {
     let cogs = 0;
     for (const s of rows) {
       for (const it of s.items) {
-        const f = getFabric(it.fabric_id);
-        cogs += it.qty * (f ? f.cost_price : 0);
+        if (it.is_misc) {
+          cogs += it.qty * (Number(it.cost_price) || 0);
+        } else {
+          const f = getFabric(it.fabric_id);
+          cogs += it.qty * (f ? f.cost_price : 0);
+        }
       }
     }
     return cogs;
@@ -1598,6 +1608,7 @@ function createDB(storageKey) {
     const map = {};
     for (const s of rows) {
       for (const it of s.items) {
+        if (it.is_misc) continue;
         const f = getFabric(it.fabric_id);
         const key = it.fabric_id;
         if (!map[key]) map[key] = { code: f ? f.code : "?", name: f ? f.name : "(ลบแล้ว)", qty_sold: 0, total_sold: 0 };
@@ -2248,6 +2259,11 @@ if (typeof module !== "undefined") {
     const itemsTableContainer = el("div", { class: "table-container" });
     refs.posItemsTableContainer = itemsTableContainer;
     const addRowBtn = el("button", { class: "btn btn-secondary", onClick: () => addPosRow() }, "+ เพิ่มรายการ");
+    const addMiscRowBtn = el(
+      "button",
+      { class: "btn btn-secondary", onClick: () => addMiscPosRow() },
+      "+ เพิ่มรายการอื่นๆ (ฝากซื้อ)"
+    );
 
     const editBannerLabel = el("span", { text: "" });
     const editBanner = el(
@@ -2265,7 +2281,8 @@ if (typeof module !== "undefined") {
       el("h3", { text: "รายการสินค้า" }),
       editBanner,
       itemsTableContainer,
-      addRowBtn
+      addRowBtn,
+      addMiscRowBtn
     );
 
     const customerSelect = buildCustomerSelectOptions();
@@ -2500,6 +2517,9 @@ if (typeof module !== "undefined") {
     if (!s) return;
     const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
     const itemRows = s.items.map((it) => {
+      if (it.is_misc) {
+        return ["-", `${it.name || ""} (ฝากซื้อ)`, it.qty, it.unit || "", money(it.unit_price), money(it.qty * it.unit_price)];
+      }
       const f = DB.getFabric(it.fabric_id);
       return [
         f ? f.code : "-",
@@ -2737,6 +2757,20 @@ if (typeof module !== "undefined") {
     if (!sale) return;
     editingSaleId = saleId;
     cart = sale.items.map((it) => {
+      if (it.is_misc) {
+        return {
+          fabric_id: "",
+          code: "",
+          name: it.name || "",
+          unit: it.unit || "ชิ้น",
+          baseUnit: "",
+          qty: it.qty,
+          unit_price: it.unit_price,
+          cost_price: it.cost_price || 0,
+          stock_qty: null,
+          is_misc: true,
+        };
+      }
       const f = DB.getFabric(it.fabric_id);
       return {
         fabric_id: it.fabric_id,
@@ -2746,7 +2780,9 @@ if (typeof module !== "undefined") {
         baseUnit: f ? f.unit : "",
         qty: it.qty,
         unit_price: it.unit_price,
+        cost_price: 0,
         stock_qty: f ? f.stock_qty : null,
+        is_misc: false,
       };
     });
     if (cart.length === 0) addPosRow();
@@ -2793,6 +2829,9 @@ if (typeof module !== "undefined") {
     const sale = DB.getSale(saleId);
     if (!sale) return;
     const cartItems = sale.items.map((it) => {
+      if (it.is_misc) {
+        return { code: "", name: `${it.name || ""} (ฝากซื้อ)`, qty: it.qty, unit_price: it.unit_price, unit: it.unit };
+      }
       const f = DB.getFabric(it.fabric_id);
       return { code: f ? f.code : "", name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)", qty: it.qty, unit_price: it.unit_price, unit: it.unit };
     });
@@ -2844,7 +2883,13 @@ if (typeof module !== "undefined") {
   }
 
   function addPosRow() {
-    cart.push({ fabric_id: "", code: "", name: "", unit: "หลา", baseUnit: "", qty: 1, unit_price: 0, stock_qty: null });
+    cart.push({ fabric_id: "", code: "", name: "", unit: "หลา", baseUnit: "", qty: 1, unit_price: 0, cost_price: 0, stock_qty: null, is_misc: false });
+    renderPosItemsTable();
+    updatePosTotals();
+  }
+
+  function addMiscPosRow() {
+    cart.push({ fabric_id: "", code: "", name: "", unit: "ชิ้น", baseUnit: "", qty: 1, unit_price: 0, cost_price: 0, stock_qty: null, is_misc: true });
     renderPosItemsTable();
     updatePosTotals();
   }
@@ -2920,6 +2965,7 @@ if (typeof module !== "undefined") {
         el("th", { text: "จำนวน" }),
         el("th", { text: "หน่วย" }),
         el("th", { text: "ราคา/หน่วย" }),
+        el("th", { text: "ทุน/หน่วย" }),
         el("th", { text: "รวม" }),
         el("th", { text: "คงเหลือ" }),
         el("th", { text: "" })
@@ -2928,24 +2974,42 @@ if (typeof module !== "undefined") {
     const tbody = el("tbody", {});
 
     if (cart.length === 0) {
-      tbody.appendChild(el("tr", {}, el("td", { colspan: 8, class: "empty", text: 'ยังไม่มีรายการ กด "+ เพิ่มรายการ"' })));
+      tbody.appendChild(el("tr", {}, el("td", { colspan: 9, class: "empty", text: 'ยังไม่มีรายการ กด "+ เพิ่มรายการ"' })));
     }
 
     cart.forEach((row, idx) => {
-      const fabricSelect = searchSelectInput(fabricOptions, row.fabric_id ? String(row.fabric_id) : "", "พิมพ์รหัส/ชื่อผ้า");
-      fabricSelect.inputEl.addEventListener("change", () => {
-        const v = fabricSelect.getMatchedValue();
-        if (v === null) {
-          global.alert("ไม่พบผ้าตามที่พิมพ์ กรุณาเลือกจากรายการที่ปรากฏ");
-          const cur = fabricOptions.find((o) => o.value === (row.fabric_id ? String(row.fabric_id) : ""));
-          fabricSelect.setLabel(cur ? cur.label : "");
-          return;
-        }
-        posRowSetFabric(idx, v);
-      });
+      let productCell, unitCell;
+      if (row.is_misc) {
+        const nameInput = textInput(row.name);
+        nameInput.setAttribute("placeholder", "ชื่อสินค้าฝากซื้อ เช่น กระดุม, ไม้แขวนเสื้อ");
+        nameInput.addEventListener("input", (e) => {
+          cart[idx].name = e.target.value;
+        });
+        productCell = el("td", {}, nameInput);
 
-      const unitSelect = selectInput(unitOptions, row.unit || "หลา");
-      unitSelect.addEventListener("change", (e) => posRowSetUnit(idx, e.target.value));
+        const unitInputMisc = textInput(row.unit || "ชิ้น");
+        unitInputMisc.addEventListener("input", (e) => {
+          cart[idx].unit = e.target.value;
+        });
+        unitCell = el("td", {}, unitInputMisc);
+      } else {
+        const fabricSelect = searchSelectInput(fabricOptions, row.fabric_id ? String(row.fabric_id) : "", "พิมพ์รหัส/ชื่อผ้า");
+        fabricSelect.inputEl.addEventListener("change", () => {
+          const v = fabricSelect.getMatchedValue();
+          if (v === null) {
+            global.alert("ไม่พบผ้าตามที่พิมพ์ กรุณาเลือกจากรายการที่ปรากฏ");
+            const cur = fabricOptions.find((o) => o.value === (row.fabric_id ? String(row.fabric_id) : ""));
+            fabricSelect.setLabel(cur ? cur.label : "");
+            return;
+          }
+          posRowSetFabric(idx, v);
+        });
+        productCell = el("td", {}, fabricSelect);
+
+        const unitSelect = selectInput(unitOptions, row.unit || "หลา");
+        unitSelect.addEventListener("change", (e) => posRowSetUnit(idx, e.target.value));
+        unitCell = el("td", {}, unitSelect);
+      }
 
       const qtyInput = numberInput(row.qty);
       qtyInput.addEventListener("input", (e) => {
@@ -2960,6 +3024,17 @@ if (typeof module !== "undefined") {
         updatePosRowAmount(idx);
         updatePosTotals();
       });
+
+      let costCell;
+      if (row.is_misc) {
+        const costInput = numberInput(row.cost_price || 0);
+        costInput.addEventListener("input", (e) => {
+          cart[idx].cost_price = Number(e.target.value) || 0;
+        });
+        costCell = el("td", {}, costInput);
+      } else {
+        costCell = el("td", { text: "-" });
+      }
 
       let stockText = "-";
       if (row.stock_qty !== null && row.stock_qty !== undefined && row.baseUnit) {
@@ -2990,10 +3065,11 @@ if (typeof module !== "undefined") {
         "tr",
         {},
         el("td", { text: String(idx + 1) }),
-        el("td", {}, fabricSelect),
+        productCell,
         el("td", {}, qtyInput),
-        el("td", {}, unitSelect),
+        unitCell,
         el("td", {}, priceInput),
+        costCell,
         amountCell,
         el("td", { text: stockText }),
         el("td", {}, removeBtn)
@@ -3037,7 +3113,7 @@ if (typeof module !== "undefined") {
   }
 
   function checkout() {
-    const validItems = cart.filter((it) => it.fabric_id && it.qty > 0);
+    const validItems = cart.filter((it) => it.qty > 0 && (it.is_misc ? (it.name || "").trim() : it.fabric_id));
     if (validItems.length === 0) {
       global.alert("กรุณาเลือกสินค้าและระบุจำนวนอย่างน้อย 1 รายการ");
       return;
@@ -3083,6 +3159,19 @@ if (typeof module !== "undefined") {
     }
 
     const items = validItems.map((it) => {
+      if (it.is_misc) {
+        return {
+          fabric_id: null,
+          is_misc: true,
+          name: it.name.trim(),
+          code: "",
+          cost_price: it.cost_price || 0,
+          qty: it.qty,
+          unit_price: it.unit_price,
+          unit: it.unit || "ชิ้น",
+          stock_qty: 0,
+        };
+      }
       const f = DB.getFabric(it.fabric_id);
       const factor = f ? unitFactor(it.unit, f.unit) : 1;
       return {
@@ -3132,6 +3221,11 @@ if (typeof module !== "undefined") {
     const itemsTableContainer = el("div", { class: "table-container" });
     refs.posVatItemsTableContainer = itemsTableContainer;
     const addRowBtn = el("button", { class: "btn btn-secondary", onClick: () => addPosRowVat() }, "+ เพิ่มรายการ");
+    const addMiscRowBtn = el(
+      "button",
+      { class: "btn btn-secondary", onClick: () => addMiscPosRowVat() },
+      "+ เพิ่มรายการอื่นๆ (ฝากซื้อ)"
+    );
 
     const editBannerLabel = el("span", { text: "" });
     const editBanner = el(
@@ -3149,7 +3243,8 @@ if (typeof module !== "undefined") {
       el("h3", { text: "รายการสินค้า" }),
       editBanner,
       itemsTableContainer,
-      addRowBtn
+      addRowBtn,
+      addMiscRowBtn
     );
 
     const customerSelect = buildCustomerSelectOptions();
@@ -3513,6 +3608,20 @@ if (typeof module !== "undefined") {
     if (!sale) return;
     editingSaleIdVat = saleId;
     cartVat = sale.items.map((it) => {
+      if (it.is_misc) {
+        return {
+          fabric_id: "",
+          code: "",
+          name: it.name || "",
+          unit: it.unit || "ชิ้น",
+          baseUnit: "",
+          qty: it.qty,
+          unit_price: it.unit_price,
+          cost_price: it.cost_price || 0,
+          stock_qty: null,
+          is_misc: true,
+        };
+      }
       const f = DB.getFabric(it.fabric_id);
       return {
         fabric_id: it.fabric_id,
@@ -3522,7 +3631,9 @@ if (typeof module !== "undefined") {
         baseUnit: f ? f.unit : "",
         qty: it.qty,
         unit_price: it.unit_price,
+        cost_price: 0,
         stock_qty: f ? f.stock_qty : null,
+        is_misc: false,
       };
     });
     if (cartVat.length === 0) addPosRowVat();
@@ -3566,7 +3677,13 @@ if (typeof module !== "undefined") {
   }
 
   function addPosRowVat() {
-    cartVat.push({ fabric_id: "", code: "", name: "", unit: "หลา", baseUnit: "", qty: 1, unit_price: 0, stock_qty: null });
+    cartVat.push({ fabric_id: "", code: "", name: "", unit: "หลา", baseUnit: "", qty: 1, unit_price: 0, cost_price: 0, stock_qty: null, is_misc: false });
+    renderPosItemsTableVat();
+    updatePosTotalsVat();
+  }
+
+  function addMiscPosRowVat() {
+    cartVat.push({ fabric_id: "", code: "", name: "", unit: "ชิ้น", baseUnit: "", qty: 1, unit_price: 0, cost_price: 0, stock_qty: null, is_misc: true });
     renderPosItemsTableVat();
     updatePosTotalsVat();
   }
@@ -3624,6 +3741,7 @@ if (typeof module !== "undefined") {
         el("th", { text: "จำนวน" }),
         el("th", { text: "หน่วย" }),
         el("th", { text: "ราคา/หน่วย" }),
+        el("th", { text: "ทุน/หน่วย" }),
         el("th", { text: "รวม" }),
         el("th", { text: "คงเหลือ" }),
         el("th", { text: "" })
@@ -3632,24 +3750,42 @@ if (typeof module !== "undefined") {
     const tbody = el("tbody", {});
 
     if (cartVat.length === 0) {
-      tbody.appendChild(el("tr", {}, el("td", { colspan: 8, class: "empty", text: 'ยังไม่มีรายการ กด "+ เพิ่มรายการ"' })));
+      tbody.appendChild(el("tr", {}, el("td", { colspan: 9, class: "empty", text: 'ยังไม่มีรายการ กด "+ เพิ่มรายการ"' })));
     }
 
     cartVat.forEach((row, idx) => {
-      const fabricSelect = searchSelectInput(fabricOptions, row.fabric_id ? String(row.fabric_id) : "", "พิมพ์รหัส/ชื่อผ้า");
-      fabricSelect.inputEl.addEventListener("change", () => {
-        const v = fabricSelect.getMatchedValue();
-        if (v === null) {
-          global.alert("ไม่พบผ้าตามที่พิมพ์ กรุณาเลือกจากรายการที่ปรากฏ");
-          const cur = fabricOptions.find((o) => o.value === (row.fabric_id ? String(row.fabric_id) : ""));
-          fabricSelect.setLabel(cur ? cur.label : "");
-          return;
-        }
-        posRowSetFabricVat(idx, v);
-      });
+      let productCell, unitCell;
+      if (row.is_misc) {
+        const nameInput = textInput(row.name);
+        nameInput.setAttribute("placeholder", "ชื่อสินค้าฝากซื้อ เช่น กระดุม, ไม้แขวนเสื้อ");
+        nameInput.addEventListener("input", (e) => {
+          cartVat[idx].name = e.target.value;
+        });
+        productCell = el("td", {}, nameInput);
 
-      const unitSelect = selectInput(unitOptions, row.unit || "หลา");
-      unitSelect.addEventListener("change", (e) => posRowSetUnitVat(idx, e.target.value));
+        const unitInputMisc = textInput(row.unit || "ชิ้น");
+        unitInputMisc.addEventListener("input", (e) => {
+          cartVat[idx].unit = e.target.value;
+        });
+        unitCell = el("td", {}, unitInputMisc);
+      } else {
+        const fabricSelect = searchSelectInput(fabricOptions, row.fabric_id ? String(row.fabric_id) : "", "พิมพ์รหัส/ชื่อผ้า");
+        fabricSelect.inputEl.addEventListener("change", () => {
+          const v = fabricSelect.getMatchedValue();
+          if (v === null) {
+            global.alert("ไม่พบผ้าตามที่พิมพ์ กรุณาเลือกจากรายการที่ปรากฏ");
+            const cur = fabricOptions.find((o) => o.value === (row.fabric_id ? String(row.fabric_id) : ""));
+            fabricSelect.setLabel(cur ? cur.label : "");
+            return;
+          }
+          posRowSetFabricVat(idx, v);
+        });
+        productCell = el("td", {}, fabricSelect);
+
+        const unitSelect = selectInput(unitOptions, row.unit || "หลา");
+        unitSelect.addEventListener("change", (e) => posRowSetUnitVat(idx, e.target.value));
+        unitCell = el("td", {}, unitSelect);
+      }
 
       const qtyInput = numberInput(row.qty);
       qtyInput.addEventListener("input", (e) => {
@@ -3664,6 +3800,17 @@ if (typeof module !== "undefined") {
         updatePosRowAmountVat(idx);
         updatePosTotalsVat();
       });
+
+      let costCell;
+      if (row.is_misc) {
+        const costInput = numberInput(row.cost_price || 0);
+        costInput.addEventListener("input", (e) => {
+          cartVat[idx].cost_price = Number(e.target.value) || 0;
+        });
+        costCell = el("td", {}, costInput);
+      } else {
+        costCell = el("td", { text: "-" });
+      }
 
       let stockText = "-";
       if (row.stock_qty !== null && row.stock_qty !== undefined && row.baseUnit) {
@@ -3694,10 +3841,11 @@ if (typeof module !== "undefined") {
         "tr",
         {},
         el("td", { text: String(idx + 1) }),
-        el("td", {}, fabricSelect),
+        productCell,
         el("td", {}, qtyInput),
-        el("td", {}, unitSelect),
+        unitCell,
         el("td", {}, priceInput),
+        costCell,
         amountCell,
         el("td", { text: stockText }),
         el("td", {}, removeBtn)
@@ -3741,7 +3889,7 @@ if (typeof module !== "undefined") {
   }
 
   function checkoutVat() {
-    const validItems = cartVat.filter((it) => it.fabric_id && it.qty > 0);
+    const validItems = cartVat.filter((it) => it.qty > 0 && (it.is_misc ? (it.name || "").trim() : it.fabric_id));
     if (validItems.length === 0) {
       global.alert("กรุณาเลือกสินค้าและระบุจำนวนอย่างน้อย 1 รายการ");
       return;
@@ -3787,6 +3935,19 @@ if (typeof module !== "undefined") {
     }
 
     const items = validItems.map((it) => {
+      if (it.is_misc) {
+        return {
+          fabric_id: null,
+          is_misc: true,
+          name: it.name.trim(),
+          code: "",
+          cost_price: it.cost_price || 0,
+          qty: it.qty,
+          unit_price: it.unit_price,
+          unit: it.unit || "ชิ้น",
+          stock_qty: 0,
+        };
+      }
       const f = DB.getFabric(it.fabric_id);
       const factor = f ? unitFactor(it.unit, f.unit) : 1;
       return {
