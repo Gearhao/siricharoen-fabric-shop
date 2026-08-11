@@ -42,6 +42,7 @@
   input[type="text"],
   input[type="tel"],
   input[type="number"],
+  select,
   textarea {
     width: 100%;
     padding: 10px 12px;
@@ -52,12 +53,13 @@
     background: #fff;
   }
   textarea { min-height: 60px; resize: vertical; }
-  input:focus, textarea:focus {
+  input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: #2563eb;
   }
-  .row { display: flex; gap: 12px; }
-  .row > div { flex: 1; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 0; }
+  .row-3 > div { min-width: 100px; }
   button {
     width: 100%;
     margin-top: 20px;
@@ -135,6 +137,13 @@
     font-size: 12px;
     font-weight: 500;
   }
+  .item-line {
+    display: flex;
+    gap: 6px;
+  }
+  .item-line .item-fabric { flex: 2.2; min-width: 0; }
+  .item-line .item-qty { flex: 1; min-width: 0; }
+  .item-line .item-unit { flex: 1; min-width: 0; }
   .add-item-btn {
     background: #fff;
     color: #2563eb;
@@ -151,18 +160,38 @@
     <p class="subtitle">ร้านผ้าศิริเจริญ</p>
 
     <form id="orderForm">
-      <label for="name">ชื่อ-นามสกุล *</label>
-      <input type="text" id="name" placeholder="สมชาย ใจดี" required />
-
-      <label for="phone">เบอร์โทร *</label>
-      <input type="tel" id="phone" placeholder="081-234-5678" required />
-
-      <label for="code">รหัสลูกค้า (ถ้ามี)</label>
-      <input type="text" id="code" placeholder="เช่น CU00001" />
+      <div class="row row-3">
+        <div>
+          <label for="code">รหัสลูกค้า (ถ้ามี)</label>
+          <input type="text" id="code" placeholder="เช่น CU00001" />
+        </div>
+        <div>
+          <label for="name">ชื่อ-นามสกุล *</label>
+          <input type="text" id="name" placeholder="สมชาย ใจดี" required />
+        </div>
+        <div>
+          <label for="phone">เบอร์โทร *</label>
+          <input type="tel" id="phone" placeholder="081-234-5678" required />
+        </div>
+      </div>
 
       <label>ผ้าที่ต้องการ * (สั่งได้หลายรายการ)</label>
       <div id="itemsContainer"></div>
       <button type="button" id="addItemBtn" class="add-item-btn">+ เพิ่มรายการผ้าอีก</button>
+
+      <label for="shippingMethod">วิธีจัดส่ง *</label>
+      <select id="shippingMethod" required>
+        <option value="">-- เลือกวิธีจัดส่ง --</option>
+        <option value="Flash ขนส่ง (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)">Flash ขนส่ง (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)</option>
+        <option value="มารับเอง">มารับเอง</option>
+        <option value="มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)">มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)</option>
+        <option value="Grab">Grab</option>
+      </select>
+
+      <div id="addressField">
+        <label for="address">ที่อยู่จัดส่ง *</label>
+        <textarea id="address" placeholder="บ้านเลขที่ ถนน ตำบล/แขวง อำเภอ/เขต จังหวัด รหัสไปรษณีย์"></textarea>
+      </div>
 
       <label for="note">หมายเหตุ</label>
       <input type="text" id="note" placeholder="ไม่บังคับ" />
@@ -195,6 +224,21 @@
   var newRequestBtn = document.getElementById("newRequestBtn");
   var itemsContainer = document.getElementById("itemsContainer");
   var addItemBtn = document.getElementById("addItemBtn");
+  var shippingMethodSelect = document.getElementById("shippingMethod");
+  var addressField = document.getElementById("addressField");
+  var addressInput = document.getElementById("address");
+
+  function updateAddressVisibility() {
+    if (shippingMethodSelect.value === "มารับเอง") {
+      addressField.style.display = "none";
+      addressInput.removeAttribute("required");
+    } else {
+      addressField.style.display = "block";
+      addressInput.setAttribute("required", "required");
+    }
+  }
+  shippingMethodSelect.addEventListener("change", updateAddressVisibility);
+  updateAddressVisibility();
 
   function renumberItems() {
     var rows = itemsContainer.querySelectorAll(".item-row");
@@ -213,16 +257,14 @@
         '<span class="item-num">รายการที่</span>' +
         '<button type="button" class="remove-item-btn">ลบรายการนี้</button>' +
       '</div>' +
-      '<textarea class="item-fabric" placeholder="เช่น ผ้าลายดอกสีฟ้า หรือรหัส 021-9800-1"></textarea>' +
-      '<div class="row">' +
-        '<div>' +
-          '<label>จำนวน</label>' +
-          '<input type="number" class="item-qty" placeholder="5" min="0" step="any" />' +
-        '</div>' +
-        '<div>' +
-          '<label>หน่วย</label>' +
-          '<input type="text" class="item-unit" placeholder="หลา" />' +
-        '</div>' +
+      '<div class="item-line">' +
+        '<input type="text" class="item-fabric" placeholder="ผ้าที่ต้องการ เช่น ผ้าลายดอกสีฟ้า" />' +
+        '<input type="number" class="item-qty" placeholder="จำนวน" min="0" step="any" />' +
+        '<select class="item-unit">' +
+          '<option value="หลา">หลา</option>' +
+          '<option value="เมตร">เมตร</option>' +
+          '<option value="ไม้">ไม้</option>' +
+        '</select>' +
       '</div>';
     row.querySelector(".remove-item-btn").addEventListener("click", function () {
       if (itemsContainer.querySelectorAll(".item-row").length <= 1) return;
@@ -247,12 +289,14 @@
     var phone = document.getElementById("phone").value.trim();
     var code = document.getElementById("code").value.trim();
     var note = document.getElementById("note").value.trim();
+    var shippingMethod = shippingMethodSelect.value;
+    var shippingAddress = addressInput.value.trim();
 
     var items = [];
     itemsContainer.querySelectorAll(".item-row").forEach(function (row) {
       var fabricText = row.querySelector(".item-fabric").value.trim();
       var qtyRaw = row.querySelector(".item-qty").value.trim();
-      var unit = row.querySelector(".item-unit").value.trim();
+      var unit = row.querySelector(".item-unit").value;
       if (fabricText) {
         items.push({
           fabric_text: fabricText,
@@ -264,6 +308,18 @@
 
     if (!name || !phone || items.length === 0) {
       errorMsg.textContent = "กรุณากรอกชื่อ เบอร์โทร และผ้าที่ต้องการอย่างน้อย 1 รายการ";
+      errorMsg.style.display = "block";
+      return;
+    }
+
+    if (!shippingMethod) {
+      errorMsg.textContent = "กรุณาเลือกวิธีจัดส่ง";
+      errorMsg.style.display = "block";
+      return;
+    }
+
+    if (shippingMethod !== "มารับเอง" && !shippingAddress) {
+      errorMsg.textContent = "กรุณากรอกที่อยู่จัดส่ง";
       errorMsg.style.display = "block";
       return;
     }
@@ -284,6 +340,8 @@
         customer_phone: phone,
         customer_code: code || null,
         items: items,
+        shipping_method: shippingMethod || null,
+        shipping_address: shippingAddress || null,
         note: note || null,
       }),
     })
@@ -292,6 +350,7 @@
         form.reset();
         itemsContainer.innerHTML = "";
         addItemRow();
+        updateAddressVisibility();
         formView.style.display = "none";
         successView.style.display = "block";
       })
