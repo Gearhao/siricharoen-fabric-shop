@@ -1583,6 +1583,8 @@ function createDB(storageKey) {
       customer_id: (data && data.customer_id) || null,
       customer_name: (data && data.customer_name) || "",
       customer_phone: (data && data.customer_phone) || "",
+      shipping_method: (data && data.shipping_method) || "",
+      shipping_address: (data && data.shipping_address) || "",
       items: (data && Array.isArray(data.items)) ? data.items : [],
       note: (data && data.note) || "",
       status: (data && data.status) || "รอดำเนินการ",
@@ -6181,6 +6183,8 @@ if (typeof module !== "undefined") {
           customer_id: customerId,
           customer_name: r.customer_name || "",
           customer_phone: r.customer_phone || "",
+          shipping_method: r.shipping_method || "",
+          shipping_address: r.shipping_address || "",
           items,
           status: "รอดำเนินการ",
           note: [r.note, "(คำขอจากลิงก์ออนไลน์)"].filter(Boolean).join(" "),
@@ -6240,12 +6244,14 @@ if (typeof module !== "undefined") {
     }
     rows = filtered.map((x) => x.o);
     const table = buildDataTable(
-      ["วันที่", "ลูกค้า", "เบอร์โทร", "รายการผ้า", "สถานะ", "หมายเหตุ"],
+      ["วันที่", "ลูกค้า", "เบอร์โทร", "รายการผ้า", "วิธีจัดส่ง", "ที่อยู่จัดส่ง", "สถานะ", "หมายเหตุ"],
       filtered.map(({ o, c }) => [
         fmtDate(o.date),
         c ? `${c.code} - ${c.name}` : o.customer_name || "-",
         c ? c.phone || "-" : o.customer_phone || "-",
         formatCustomerOrderItems(o.items),
+        o.shipping_method || "-",
+        o.shipping_address || "-",
         o.done ? "เสร็จแล้ว" : o.status,
         o.note || "",
       ]),
@@ -6391,12 +6397,25 @@ if (typeof module !== "undefined") {
       existing ? existing.status : "รอดำเนินการ"
     );
     const noteInput = textInput(existing ? existing.note : "");
+    const shippingMethodSelect = selectInput(
+      [
+        { value: "", label: "-- ยังไม่ระบุ --" },
+        { value: "Flash ขนส่ง (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)", label: "Flash ขนส่ง (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)" },
+        { value: "มารับเอง", label: "มารับเอง" },
+        { value: "มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)", label: "มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)" },
+        { value: "Grab", label: "Grab" },
+      ],
+      existing ? existing.shipping_method : ""
+    );
+    const shippingAddressInput = textInput(existing ? existing.shipping_address : "");
     const form = el(
       "div",
       { class: "form-panel" },
       formField("ลูกค้า", customerSelect),
       fabricDatalist,
       formField("รายการผ้าที่ต้องการ", el("div", {}, itemsContainer, addItemBtn)),
+      formField("วิธีจัดส่ง", shippingMethodSelect),
+      formField("ที่อยู่จัดส่ง", shippingAddressInput),
       formField("สถานะ", statusSelect),
       formField("หมายเหตุ", noteInput)
     );
@@ -6423,6 +6442,8 @@ if (typeof module !== "undefined") {
             customer_name: customer ? customer.name : "",
             customer_phone: customer ? customer.phone : "",
             items: cleanItems,
+            shipping_method: shippingMethodSelect.value,
+            shipping_address: shippingAddressInput.value.trim(),
             status: statusSelect.value,
             note: noteInput.value.trim(),
           };
@@ -6437,6 +6458,8 @@ if (typeof module !== "undefined") {
     );
     exposeTestRefs("customerOrderForm", {
       customerSelect,
+      shippingMethodSelect,
+      shippingAddressInput,
       statusSelect,
       noteInput,
       saveBtn,
