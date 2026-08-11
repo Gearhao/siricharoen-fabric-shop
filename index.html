@@ -6397,16 +6397,22 @@ if (typeof module !== "undefined") {
       existing ? existing.status : "รอดำเนินการ"
     );
     const noteInput = textInput(existing ? existing.note : "");
+    const shippingOptions = ["Flash (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)", "ขนส่ง", "มารับเอง", "มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)", "Grab"];
+    const existingShipMethod = existing ? existing.shipping_method || "" : "";
+    const shipIsOther = existingShipMethod && shippingOptions.indexOf(existingShipMethod) === -1;
     const shippingMethodSelect = selectInput(
       [
         { value: "", label: "-- ยังไม่ระบุ --" },
-        { value: "Flash ขนส่ง (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)", label: "Flash ขนส่ง (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)" },
+        { value: "Flash (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)", label: "Flash (ถ้าไม่ถึง 30 หลา มีค่าส่ง 60 บาท)" },
+        { value: "ขนส่ง", label: "ขนส่ง" },
         { value: "มารับเอง", label: "มารับเอง" },
         { value: "มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)", label: "มอเตอร์ไซค์ไปส่ง (เมื่อสั่ง 50 หลาขึ้นไป)" },
         { value: "Grab", label: "Grab" },
+        { value: "อื่นๆ", label: "อื่นๆ (ระบุเอง)" },
       ],
-      existing ? existing.shipping_method : ""
+      shipIsOther ? "อื่นๆ" : existingShipMethod
     );
+    const shippingOtherInput = textInput(shipIsOther ? existingShipMethod : "");
     const shippingAddressInput = textInput(existing ? existing.shipping_address : "");
     const form = el(
       "div",
@@ -6415,6 +6421,7 @@ if (typeof module !== "undefined") {
       fabricDatalist,
       formField("รายการผ้าที่ต้องการ", el("div", {}, itemsContainer, addItemBtn)),
       formField("วิธีจัดส่ง", shippingMethodSelect),
+      formField("ระบุวิธีจัดส่ง (กรณีเลือกอื่นๆ)", shippingOtherInput),
       formField("ที่อยู่จัดส่ง", shippingAddressInput),
       formField("สถานะ", statusSelect),
       formField("หมายเหตุ", noteInput)
@@ -6442,7 +6449,7 @@ if (typeof module !== "undefined") {
             customer_name: customer ? customer.name : "",
             customer_phone: customer ? customer.phone : "",
             items: cleanItems,
-            shipping_method: shippingMethodSelect.value,
+            shipping_method: shippingMethodSelect.value === "อื่นๆ" ? shippingOtherInput.value.trim() : shippingMethodSelect.value,
             shipping_address: shippingAddressInput.value.trim(),
             status: statusSelect.value,
             note: noteInput.value.trim(),
@@ -6459,6 +6466,7 @@ if (typeof module !== "undefined") {
     exposeTestRefs("customerOrderForm", {
       customerSelect,
       shippingMethodSelect,
+      shippingOtherInput,
       shippingAddressInput,
       statusSelect,
       noteInput,
