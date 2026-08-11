@@ -5904,13 +5904,88 @@ if (typeof module !== "undefined") {
       onInput: (e) => { backorderSearch = e.target.value; renderBackorderTable(); } });
     const showDoneChk = el("input", { type: "checkbox", checked: backorderShowDone,
       onChange: (e) => { backorderShowDone = e.target.checked; renderBackorderTable(); } });
-    const toolbar = el("div", { class: "toolbar" }, searchInput,
+    const pullBtn = el(
+      "button",
+      { class: "btn btn-secondary", onClick: () => pullOnlineOrderRequests() },
+      "ดึงคำขอใหม่จากลูกค้า"
+    );
+    refs.pullOrderRequestsBtn = pullBtn;
+    const toolbar = el(
+      "div",
+      { class: "toolbar" },
+      searchInput,
       el("label", { class: "chk-label" }, showDoneChk, " แสดงที่เสร็จแล้วด้วย"),
-      el("button", { class: "btn btn-primary", onClick: () => openBackorderModal() }, "+ เพิ่มรายการ"));
+      el("button", { class: "btn btn-primary", onClick: () => openBackorderModal() }, "+ เพิ่มรายการ"),
+      pullBtn
+    );
     const tableContainer = el("div", { class: "table-container" });
     refs.backorderTableContainer = tableContainer;
     sec.appendChild(el("div", { class: "section-inner" }, toolbar, tableContainer));
     renderBackorderTable();
+  }
+
+  // ดึงคำขอสั่งผ้าจากลิงก์สาธารณะ (order.html) เข้ามาเป็นรายการรอสินค้า
+  async function pullOnlineOrderRequests() {
+    const btn = refs.pullOrderRequestsBtn;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "กำลังดึงคำขอ...";
+    }
+    try {
+      const url = global.__SUPABASE_URL__ + "/rest/v1/order_requests?status=eq.new&select=*&order=created_at.asc";
+      const res = await fetch(url, {
+        headers: {
+          apikey: global.__SUPABASE_ANON_KEY__,
+          Authorization: "Bearer " + global.__SUPABASE_ANON_KEY__,
+        },
+      });
+      if (!res.ok) throw new Error("โหลดคำขอไม่สำเร็จ");
+      const requests = await res.json();
+      if (!requests || requests.length === 0) {
+        global.alert("ไม่มีคำขอใหม่จากลูกค้า");
+        return;
+      }
+      const customers = DB.getCustomers();
+      let pulledCount = 0;
+      for (const r of requests) {
+        let customerId = null;
+        if (r.customer_code) {
+          const code = String(r.customer_code).trim().toLowerCase();
+          const match = customers.find((c) => (c.code || "").trim().toLowerCase() === code);
+          if (match) customerId = match.id;
+        }
+        DB.addBackorder({
+          customer_id: customerId,
+          customer_name: r.customer_name || "",
+          customer_phone: r.customer_phone || "",
+          fabric_name: r.fabric_text || "",
+          qty: r.qty || 0,
+          unit: r.unit || "หลา",
+          status: "สินค้าหมด",
+          note: [r.note, "(คำขอจากลิงก์ออนไลน์)"].filter(Boolean).join(" "),
+        });
+        fetch(global.__SUPABASE_URL__ + "/rest/v1/order_requests?id=eq." + r.id, {
+          method: "PATCH",
+          headers: {
+            apikey: global.__SUPABASE_ANON_KEY__,
+            Authorization: "Bearer " + global.__SUPABASE_ANON_KEY__,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: "pulled" }),
+        }).catch(() => {});
+        pulledCount++;
+      }
+      renderBackorderTable();
+      updateBackordersBadge();
+      global.alert(`ดึงคำขอใหม่จากลูกค้าเรียบร้อย ${pulledCount} รายการ`);
+    } catch (e) {
+      global.alert("เกิดข้อผิดพลาดในการดึงคำขอ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "ดึงคำขอใหม่จากลูกค้า";
+      }
+    }
   }
 
   function renderBackorderTable() {
