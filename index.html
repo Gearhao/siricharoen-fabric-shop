@@ -527,6 +527,7 @@ function createDB(storageKey) {
           if (!store.bankAccounts) store.bankAccounts = [];
           if (!store.accountMovements) store.accountMovements = [];
           if (!store.customerOrders) store.customerOrders = [];
+          if (!store.expenseCategories) store.expenseCategories = [];
           if (!store.nextId) store.nextId = {};
           if (!store.nextId.backorder) store.nextId.backorder = store.backorders.length + 1;
           if (!store.nextId.bankAccount) store.nextId.bankAccount = store.bankAccounts.length + 1;
@@ -1547,9 +1548,11 @@ function createDB(storageKey) {
   }
   // -------------------------------------------------------- expense categories (หมวดหมู่รายจ่าย)
   function getExpenseCategories() {
+    if (!store.expenseCategories) store.expenseCategories = [];
     return [...store.expenseCategories].sort((a, b) => a.name.localeCompare(b.name, "th"));
   }
   function addExpenseCategory(name) {
+    if (!store.expenseCategories) store.expenseCategories = [];
     const trimmed = (name || "").trim();
     if (!trimmed) return null;
     const exists = store.expenseCategories.find((c) => c.name === trimmed);
@@ -1560,6 +1563,7 @@ function createDB(storageKey) {
     return c;
   }
   function updateExpenseCategory(id, name) {
+    if (!store.expenseCategories) store.expenseCategories = [];
     const c = store.expenseCategories.find((x) => x.id === id);
     if (!c) return null;
     const trimmed = (name || "").trim();
@@ -1569,6 +1573,7 @@ function createDB(storageKey) {
     return c;
   }
   function deleteExpenseCategory(id) {
+    if (!store.expenseCategories) store.expenseCategories = [];
     store.expenseCategories = store.expenseCategories.filter((x) => x.id !== id);
     save();
   }
