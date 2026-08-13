@@ -7094,9 +7094,20 @@ if (typeof module !== "undefined") {
           }
           if (!global.confirm("การนำเข้าข้อมูลจะเขียนทับข้อมูลปัจจุบันทั้งหมด ยืนยันหรือไม่?")) return;
           const reader = new global.FileReader();
-          reader.onload = () => {
+          reader.onload = async () => {
             try {
               DB.importBackup(reader.result);
+              // ต้องอัปโหลดข้อมูลที่กู้คืนขึ้นคลาวด์ให้เสร็จก่อนรีเฟรชหน้า มิฉะนั้นตอนรีเฟรช
+              // ระบบจะไปดึงข้อมูลเก่าบนคลาวด์ (ที่ยังไม่ได้อัปเดต) กลับมาทับข้อมูลที่เพิ่งกู้คืนทันที
+              if (DB.pushToCloud) {
+                await DB.pushToCloud();
+              }
+              if (DB.getCloudStatus && DB.getCloudStatus() === "error") {
+                global.alert(
+                  "นำเข้าข้อมูลในเครื่องสำเร็จ แต่อัปโหลดขึ้นคลาวด์ไม่สำเร็จ (เช็คอินเทอร์เน็ต)\nกรุณาอย่าเพิ่งรีเฟรชหน้า ให้ลองกดนำเข้าไฟล์เดิมซ้ำอีกครั้งจนกว่าจะอัปโหลดสำเร็จ ไม่เช่นนั้นข้อมูลที่กู้คืนจะหายไปตอนรีเฟรช"
+                );
+                return;
+              }
               global.alert("นำเข้าข้อมูลสำเร็จ กรุณารีเฟรชหน้าเว็บ");
               global.location.reload();
             } catch (e) {
