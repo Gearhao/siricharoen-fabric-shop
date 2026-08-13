@@ -562,6 +562,7 @@ function createDB(storageKey) {
       customerPayments: [],
       supplierPayments: [],
       expenses: [],
+      expenseCategories: [],
       stockMovements: [],
       backorders: [],
       bankAccounts: [],
@@ -1527,6 +1528,50 @@ function createDB(storageKey) {
     store.expenses = store.expenses.filter((x) => x.id !== id);
     save();
   }
+  function updateExpense(id, data) {
+    const e = store.expenses.find((x) => x.id === id);
+    if (!e) return null;
+    if (e.account_id) {
+      recordAccountMovement(e.account_id, e.amount, "expense", id, `ย้อนกลับรายจ่าย (แก้ไข): ${e.category || e.description || ""}`);
+    }
+    e.date = (data && data.date) || e.date;
+    e.category = (data && data.category) || "";
+    e.description = (data && data.description) || "";
+    e.amount = data.amount;
+    e.account_id = (data && data.account_id) || null;
+    if (e.account_id) {
+      recordAccountMovement(e.account_id, -e.amount, "expense", id, `จ่ายรายจ่าย (แก้ไข): ${e.category || e.description || ""}`);
+    }
+    save();
+    return e;
+  }
+  // -------------------------------------------------------- expense categories (หมวดหมู่รายจ่าย)
+  function getExpenseCategories() {
+    return [...store.expenseCategories].sort((a, b) => a.name.localeCompare(b.name, "th"));
+  }
+  function addExpenseCategory(name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return null;
+    const exists = store.expenseCategories.find((c) => c.name === trimmed);
+    if (exists) return exists;
+    const c = { id: genId("expenseCategory"), name: trimmed };
+    store.expenseCategories.push(c);
+    save();
+    return c;
+  }
+  function updateExpenseCategory(id, name) {
+    const c = store.expenseCategories.find((x) => x.id === id);
+    if (!c) return null;
+    const trimmed = (name || "").trim();
+    if (!trimmed) return null;
+    c.name = trimmed;
+    save();
+    return c;
+  }
+  function deleteExpenseCategory(id) {
+    store.expenseCategories = store.expenseCategories.filter((x) => x.id !== id);
+    save();
+  }
 
   // -------------------------------------------------------------- backorders (รายการรอสินค้า)
   function addBackorder(data) {
@@ -1727,7 +1772,8 @@ function createDB(storageKey) {
     adjustStock, recordRollCount, updateRollCount, getStockMovements, deleteStockMovement,
     createSale, updateSale, deleteSale, getSales, getSale, markSalePaid,
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
-    addExpense, getExpenses, deleteExpense,
+    addExpense, getExpenses, deleteExpense, updateExpense,
+    getExpenseCategories, addExpenseCategory, updateExpenseCategory, deleteExpenseCategory,
     addBackorder, updateBackorder, deleteBackorder, markBackorderDone, markBackorderUndone, getBackorders, getBackorder,
     addCustomerOrder, updateCustomerOrder, deleteCustomerOrder, markCustomerOrderDone, markCustomerOrderUndone, getCustomerOrders, getCustomerOrder,
     getBankAccounts, getBankAccount, getCashAccount, createBankAccount, updateBankAccount, deleteBankAccount, adjustBankAccountBalance, getAccountMovements,
@@ -6504,7 +6550,12 @@ if (typeof module !== "undefined") {
     const summaryBox = el("div", { class: "panel" });
     refs.acctSummaryBox = summaryBox;
 
-    const expenseToolbar = el("div", { class: "toolbar" }, el("button", { class: "btn btn-primary", onClick: openExpenseModal }, "+ เพิ่มรายจ่าย"));
+    const expenseToolbar = el(
+      "div",
+      { class: "toolbar" },
+      el("button", { class: "btn btn-primary", onClick: () => openExpenseModal() }, "+ เพิ่มรายจ่าย"),
+      el("button", { class: "btn", onClick: () => openExpenseCategoryModal() }, "จัดการหมวดหมู่")
+    );
     const expenseTableContainer = el("div", { class: "table-container" });
     refs.acctExpenseContainer = expenseTableContainer;
 
@@ -6708,6 +6759,10 @@ if (typeof module !== "undefined") {
         {
           actions: (idx) => [
             {
+              label: "แก้ไข",
+              onClick: () => openExpenseModal(expenses[idx]),
+            },
+            {
               label: "ลบ",
               onClick: () => {
                 if (global.confirm("ต้องการลบรายการนี้หรือไม่?")) {
@@ -6728,15 +6783,29 @@ if (typeof module !== "undefined") {
     refs.acctApContainer.appendChild(buildDataTable(["รหัสผู้จัดจำหน่าย", "ชื่อซัพพลายเออร์", "ค้างจ่าย"], DB.apAging().map((s) => [s.code, s.name, money(s.credit_balance)])));
   }
 
-  function openExpenseModal() {
-    const catInput = textInput("");
-    const descInput = textInput("");
-    const amountInput = numberInput("");
+  function openExpenseModal(existing) {
+    const catOptions = DB.getExpenseCategories();
+    const existingCatName = existing ? existing.category || "" : "";
+    const catOptionList = [{ value: "", label: "-- ไม่ระบุหมวดหมู่ --" }].concat(
+      catOptions.map((c) => ({ value: c.name, label: c.name }))
+    );
+    if (existingCatName && !catOptions.find((c) => c.name === existingCatName)) {
+      catOptionList.push({ value: existingCatName, label: existingCatName + " (เดิม)" });
+    }
+    const catSelect = selectInput(catOptionList, existingCatName);
+    const manageCatBtn = el(
+      "button",
+      { class: "btn btn-sm", type: "button", onClick: () => openExpenseCategoryModal(() => openExpenseModal(existing)) },
+      "จัดการหมวดหมู่"
+    );
+    const descInput = textInput(existing ? existing.description : "");
+    const amountInput = numberInput(existing ? existing.amount : "");
     const accounts = DB.getBankAccounts();
     const cashAcct = DB.getCashAccount();
+    const existingAccountId = existing ? existing.account_id : null;
     const accountSelect = selectInput(
       accounts.map((a) => ({ value: String(a.id), label: `${a.bank_name} - ${a.account_name}` })),
-      cashAcct ? String(cashAcct.id) : ""
+      existingAccountId ? String(existingAccountId) : (cashAcct ? String(cashAcct.id) : "")
     );
     const saveBtn = el(
       "button",
@@ -6749,7 +6818,17 @@ if (typeof module !== "undefined") {
             return;
           }
           const accountId = accountSelect.value ? Number(accountSelect.value) : null;
-          DB.addExpense(catInput.value.trim(), descInput.value.trim(), amt, null, accountId);
+          if (existing) {
+            DB.updateExpense(existing.id, {
+              category: catSelect.value,
+              description: descInput.value.trim(),
+              amount: amt,
+              account_id: accountId,
+              date: existing.date,
+            });
+          } else {
+            DB.addExpense(catSelect.value, descInput.value.trim(), amt, null, accountId);
+          }
           closeModal();
           refreshAcctSummary();
           refreshBankAccountsTable();
@@ -6760,14 +6839,93 @@ if (typeof module !== "undefined") {
     const body = el(
       "div",
       {},
-      formField("หมวดหมู่ (เช่น ค่าเช่า, ค่าน้ำค่าไฟ)", catInput),
+      formField("หมวดหมู่", el("div", { style: { display: "flex", gap: "6px", alignItems: "center" } }, catSelect, manageCatBtn)),
       formField("รายละเอียด", descInput),
       formField("จำนวนเงิน", amountInput),
       formField("จ่ายจากบัญชี", accountSelect),
       el("div", { class: "modal-actions" }, saveBtn)
     );
-    exposeTestRefs("expenseForm", { catInput, descInput, amountInput, accountSelect, saveBtn });
-    openModal("เพิ่มรายจ่าย", body);
+    exposeTestRefs("expenseForm", { catSelect, descInput, amountInput, accountSelect, saveBtn });
+    openModal(existing ? "แก้ไขรายจ่าย" : "เพิ่มรายจ่าย", body);
+  }
+
+  function openExpenseCategoryModal(onClose) {
+    function render() {
+      const cats = DB.getExpenseCategories();
+      const rows = cats.map((c) => {
+        const nameInput = textInput(c.name);
+        const saveRowBtn = el(
+          "button",
+          {
+            class: "btn btn-sm",
+            onClick: () => {
+              const v = nameInput.value.trim();
+              if (!v) {
+                global.alert("กรุณาระบุชื่อหมวดหมู่");
+                return;
+              }
+              DB.updateExpenseCategory(c.id, v);
+              render();
+            },
+          },
+          "บันทึก"
+        );
+        const delRowBtn = el(
+          "button",
+          {
+            class: "btn btn-sm",
+            onClick: () => {
+              if (!global.confirm(`ลบหมวดหมู่ "${c.name}"? (รายจ่ายเดิมที่ใช้หมวดหมู่นี้จะไม่ถูกลบ)`)) return;
+              DB.deleteExpenseCategory(c.id);
+              render();
+            },
+          },
+          "ลบ"
+        );
+        return el(
+          "div",
+          { style: { display: "flex", gap: "6px", marginBottom: "6px", alignItems: "center" } },
+          nameInput,
+          saveRowBtn,
+          delRowBtn
+        );
+      });
+
+      const newNameInput = textInput("");
+      const addBtn = el(
+        "button",
+        {
+          class: "btn btn-sm",
+          onClick: () => {
+            const v = newNameInput.value.trim();
+            if (!v) {
+              global.alert("กรุณาระบุชื่อหมวดหมู่");
+              return;
+            }
+            DB.addExpenseCategory(v);
+            newNameInput.value = "";
+            render();
+          },
+        },
+        "+ เพิ่ม"
+      );
+      const closeBtn = el(
+        "button",
+        { class: "btn btn-primary", onClick: () => (onClose ? onClose() : closeModal()) },
+        "ปิด"
+      );
+
+      const body = el(
+        "div",
+        {},
+        cats.length ? el("div", {}, ...rows) : el("p", { text: "ยังไม่มีหมวดหมู่ กรุณาเพิ่มหมวดหมู่ด้านล่าง" }),
+        el("div", { style: { display: "flex", gap: "6px", marginTop: "10px", alignItems: "center" } }, newNameInput, addBtn),
+        el("div", { class: "modal-actions" }, closeBtn)
+      );
+      exposeTestRefs("expenseCategoryForm", { newNameInput, addBtn, closeBtn });
+      openModal("จัดการหมวดหมู่รายจ่าย", body);
+    }
+    render();
   }
 
   // =================================================================== รายงาน
