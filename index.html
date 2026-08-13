@@ -532,6 +532,7 @@ function createDB(storageKey) {
           if (!store.nextId.backorder) store.nextId.backorder = store.backorders.length + 1;
           if (!store.nextId.bankAccount) store.nextId.bankAccount = store.bankAccounts.length + 1;
           if (!store.nextId.customerOrder) store.nextId.customerOrder = store.customerOrders.length + 1;
+          if (!store.nextId.expenseCategory) store.nextId.expenseCategory = store.expenseCategories.length + 1;
           migrateCodes(store);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
           cloudStatus = "synced";
@@ -553,7 +554,7 @@ function createDB(storageKey) {
 
   function emptyStore() {
     return {
-      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1, bankAccount: 1, customerOrder: 1 },
+      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1, bankAccount: 1, customerOrder: 1, expenseCategory: 1 },
       shopInfo: { name: "ร้านผ้าศิริเจริญ", address: "", phone: "", tax_id: "" },
       suppliers: [],
       customers: [],
@@ -584,10 +585,12 @@ function createDB(storageKey) {
         if (!data.bankAccounts) data.bankAccounts = [];
         if (!data.accountMovements) data.accountMovements = [];
         if (!data.customerOrders) data.customerOrders = [];
+        if (!data.expenseCategories) data.expenseCategories = [];
         if (!data.nextId) data.nextId = {};
         if (!data.nextId.backorder) data.nextId.backorder = data.backorders.length + 1;
         if (!data.nextId.bankAccount) data.nextId.bankAccount = data.bankAccounts.length + 1;
         if (!data.nextId.customerOrder) data.nextId.customerOrder = data.customerOrders.length + 1;
+        if (!data.nextId.expenseCategory) data.nextId.expenseCategory = data.expenseCategories.length + 1;
         migrateCodes(data);
         return data;
       }
