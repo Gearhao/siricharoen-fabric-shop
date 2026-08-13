@@ -2107,7 +2107,26 @@ if (typeof module !== "undefined") {
     );
   }
 
-  function downloadTextFile(filename, text) {
+  async function downloadTextFile(filename, text) {
+    // ถ้าเบราว์เซอร์รองรับ (เช่น Chrome/Edge บนคอม) ให้เปิดหน้าต่าง "บันทึกเป็น" ให้เลือกตำแหน่งที่จะเซฟเองได้
+    if (global.showSaveFilePicker) {
+      try {
+        const ext = (filename.match(/\.([a-z0-9]+)$/i) || [, "txt"])[1].toLowerCase();
+        const mimeByExt = { json: "application/json", txt: "text/plain", csv: "text/csv" };
+        const mime = mimeByExt[ext] || "text/plain";
+        const handle = await global.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: "ไฟล์ " + ext.toUpperCase(), accept: { [mime]: ["." + ext] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(text);
+        await writable.close();
+        return;
+      } catch (e) {
+        if (e && e.name === "AbortError") return; // ผู้ใช้กดยกเลิกหน้าต่างเลือกตำแหน่งเซฟ
+        // ถ้าใช้ไม่ได้ด้วยเหตุอื่น ให้ตกไปใช้วิธีดาวน์โหลดปกติด้านล่างแทน
+      }
+    }
     const blob = new global.Blob([text], { type: "text/plain;charset=utf-8" });
     const url = global.URL.createObjectURL(blob);
     const a = el("a", { href: url, download: filename });
