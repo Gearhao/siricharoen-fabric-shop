@@ -5146,12 +5146,9 @@ if (typeof module !== "undefined") {
     });
     purchasedItems.sort((a, b) => (a.date < b.date ? 1 : -1));
 
-    const q = customerHistorySearch.trim().toLowerCase();
-    const filteredItems = q
-      ? purchasedItems.filter(
-          (it) => (it.name || "").toLowerCase().includes(q) || (it.code || "").toLowerCase().includes(q)
-        )
-      : purchasedItems;
+    // ใส่ผลลัพธ์การค้นหาไว้ในกล่องแยกต่างหาก แล้วรีเฟรชเฉพาะกล่องนี้ตอนพิมพ์ค้นหา
+    // (ไม่รีสร้างช่องค้นหาใหม่ทุกครั้ง มิฉะนั้นช่องพิมพ์จะเสียโฟกัสหลังพิมพ์ทีละตัวอักษร)
+    const itemsContainer = el("div", {});
 
     const searchInput = el("input", {
       type: "text",
@@ -5159,9 +5156,33 @@ if (typeof module !== "undefined") {
       value: customerHistorySearch,
       onInput: (e) => {
         customerHistorySearch = e.target.value;
-        renderCustomerHistoryModalBody(cid);
+        refreshCustomerHistoryItems(purchasedItems, itemsContainer);
       },
     });
+
+    refreshCustomerHistoryItems(purchasedItems, itemsContainer);
+
+    const body = el(
+      "div",
+      {},
+      el("h4", { text: "รายการบิลทั้งหมด (คลิกเลขที่บิลเพื่อดูรายละเอียด)", style: { marginTop: "0" } }),
+      billsTable,
+      el("h4", { text: "ค้นหาผ้าที่เคยซื้อ" }),
+      searchInput,
+      itemsContainer
+    );
+
+    openModal(`ประวัติการซื้อ - ${cust.name}`, body, { wide: true });
+  }
+
+  function refreshCustomerHistoryItems(purchasedItems, container) {
+    clear(container);
+    const q = customerHistorySearch.trim().toLowerCase();
+    const filteredItems = q
+      ? purchasedItems.filter(
+          (it) => (it.name || "").toLowerCase().includes(q) || (it.code || "").toLowerCase().includes(q)
+        )
+      : purchasedItems;
 
     const itemsTable = el(
       "table",
@@ -5205,19 +5226,9 @@ if (typeof module !== "undefined") {
           : [el("tr", {}, el("td", { colspan: 7, class: "empty", text: "ไม่มีข้อมูล" }))])
       )
     );
-
-    const body = el(
-      "div",
-      {},
-      el("h4", { text: "รายการบิลทั้งหมด (คลิกเลขที่บิลเพื่อดูรายละเอียด)", style: { marginTop: "0" } }),
-      billsTable,
-      el("h4", { text: "ค้นหาผ้าที่เคยซื้อ" }),
-      searchInput,
-      itemsTable
-    );
-
-    openModal(`ประวัติการซื้อ - ${cust.name}`, body, { wide: true });
+    container.appendChild(itemsTable);
   }
+
 
   function openCustomerPayModal(cid) {
     const cust = DB.getCustomer(cid);
