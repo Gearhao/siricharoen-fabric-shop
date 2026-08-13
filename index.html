@@ -4510,7 +4510,7 @@ if (typeof module !== "undefined") {
             global.alert("กรุณากรอกรหัสสินค้า");
             return;
           }
-          const dupe = DB.getFabrics("", { onlyActive: false }).find(
+          const dupe = DB.getFabrics("", { onlyActive: true }).find(
             (x) => x.code === code && (!fabric || x.id !== fabric.id)
           );
           if (dupe) {
