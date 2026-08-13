@@ -1498,15 +1498,19 @@ function createDB(storageKey) {
   }
 
   // -------------------------------------------------------------- expense
-  function addExpense(category, description, amount, date) {
+  function addExpense(category, description, amount, date, accountId) {
     const e = {
       id: genId("expense"),
       date: date || nowStr(),
       category: category || "",
       description: description || "",
       amount,
+      account_id: accountId || null,
     };
     store.expenses.push(e);
+    if (accountId) {
+      recordAccountMovement(accountId, -amount, "expense", e.id, `จ่ายรายจ่าย: ${category || description || ""}`);
+    }
     save();
     return e;
   }
@@ -1516,6 +1520,10 @@ function createDB(storageKey) {
     return [...rows].sort((a, b) => (a.date < b.date ? 1 : -1));
   }
   function deleteExpense(id) {
+    const existing = store.expenses.find((x) => x.id === id);
+    if (existing && existing.account_id) {
+      recordAccountMovement(existing.account_id, existing.amount, "expense", id, `ย้อนกลับรายจ่าย: ${existing.category || existing.description || ""}`);
+    }
     store.expenses = store.expenses.filter((x) => x.id !== id);
     save();
   }
@@ -6692,8 +6700,11 @@ if (typeof module !== "undefined") {
     const expenses = DB.getExpenses(acctStart, acctEnd);
     refs.acctExpenseContainer.appendChild(
       buildDataTable(
-        ["วันที่", "หมวดหมู่", "รายละเอียด", "จำนวนเงิน"],
-        expenses.map((e) => [fmtDate(e.date), e.category, e.description, money(e.amount)]),
+        ["วันที่", "หมวดหมู่", "รายละเอียด", "จำนวนเงิน", "จ่ายจากบัญชี"],
+        expenses.map((e) => {
+          const acct = e.account_id ? DB.getBankAccount(e.account_id) : null;
+          return [fmtDate(e.date), e.category, e.description, money(e.amount), acct ? `${acct.bank_name} - ${acct.account_name}` : "-"];
+        }),
         {
           actions: (idx) => [
             {
@@ -6702,6 +6713,7 @@ if (typeof module !== "undefined") {
                 if (global.confirm("ต้องการลบรายการนี้หรือไม่?")) {
                   DB.deleteExpense(expenses[idx].id);
                   refreshAcctSummary();
+                  refreshBankAccountsTable();
                 }
               },
             },
@@ -6720,6 +6732,12 @@ if (typeof module !== "undefined") {
     const catInput = textInput("");
     const descInput = textInput("");
     const amountInput = numberInput("");
+    const accounts = DB.getBankAccounts();
+    const cashAcct = DB.getCashAccount();
+    const accountSelect = selectInput(
+      accounts.map((a) => ({ value: String(a.id), label: `${a.bank_name} - ${a.account_name}` })),
+      cashAcct ? String(cashAcct.id) : ""
+    );
     const saveBtn = el(
       "button",
       {
@@ -6730,9 +6748,11 @@ if (typeof module !== "undefined") {
             global.alert("กรุณาระบุจำนวนเงินให้ถูกต้อง");
             return;
           }
-          DB.addExpense(catInput.value.trim(), descInput.value.trim(), amt);
+          const accountId = accountSelect.value ? Number(accountSelect.value) : null;
+          DB.addExpense(catInput.value.trim(), descInput.value.trim(), amt, null, accountId);
           closeModal();
           refreshAcctSummary();
+          refreshBankAccountsTable();
         },
       },
       "บันทึก"
@@ -6743,9 +6763,10 @@ if (typeof module !== "undefined") {
       formField("หมวดหมู่ (เช่น ค่าเช่า, ค่าน้ำค่าไฟ)", catInput),
       formField("รายละเอียด", descInput),
       formField("จำนวนเงิน", amountInput),
+      formField("จ่ายจากบัญชี", accountSelect),
       el("div", { class: "modal-actions" }, saveBtn)
     );
-    exposeTestRefs("expenseForm", { catInput, descInput, amountInput, saveBtn });
+    exposeTestRefs("expenseForm", { catInput, descInput, amountInput, accountSelect, saveBtn });
     openModal("เพิ่มรายจ่าย", body);
   }
 
