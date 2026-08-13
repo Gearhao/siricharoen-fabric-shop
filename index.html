@@ -449,6 +449,10 @@ function createDB(storageKey) {
   let cloudPushTimer = null;
   let cloudSyncListener = null;
   let cloudStatus = __supabaseClient__ ? "connecting" : "offline";
+  // true ถ้ามีการบันทึกข้อมูลในเครื่องที่ยังไม่ถูกอัปโหลดขึ้นคลาวด์สำเร็จ
+  // ใช้กันปัญหาข้อมูลหาย: ถ้าผู้ใช้บันทึกข้อมูล (เช่น ขายสินค้า) ทันทีตอนเพิ่งเปิดหน้า
+  // ก่อนที่การดึงข้อมูลคลาวด์ครั้งแรกจะเสร็จ ห้ามให้ pullFromCloud เอาข้อมูลเก่าจากคลาวด์มาทับ
+  let hasUnsavedLocalChange = false;
   let cloudBootstrapped = false; // true หลังจากลองดึงข้อมูลจากคลาวด์ครั้งแรกแล้ว (ไม่ว่าจะสำเร็จหรือไม่) ก่อนหน้านี้ห้ามอัปโหลดขึ้นคลาวด์เด็ดขาด
 
   function setCloudSyncListener(fn) {
@@ -477,6 +481,7 @@ function createDB(storageKey) {
         console.error("อัปโหลดข้อมูลขึ้นคลาวด์ผิดพลาด", error);
       } else {
         cloudStatus = "synced";
+        hasUnsavedLocalChange = false;
       }
     } catch (e) {
       cloudStatus = "error";
@@ -518,6 +523,12 @@ function createDB(storageKey) {
           // ข้อมูลบนคลาวด์ดูน้อยผิดปกติเทียบกับเครื่องนี้ -> ไม่ทับ ถือว่าเครื่องนี้ถูกต้องกว่า แล้วอัปโหลดข้อมูลเครื่องนี้ขึ้นไปแทนเพื่อกู้คืนคลาวด์
           cloudStatus = "conflict";
           console.warn("ข้อมูลบนคลาวด์น้อยผิดปกติเทียบกับเครื่องนี้ ข้ามการดึงข้อมูลมาทับ และอัปโหลดข้อมูลเครื่องนี้ขึ้นไปแทน");
+          await pushToCloud();
+        } else if (hasUnsavedLocalChange) {
+          // มีการบันทึกข้อมูลในเครื่องนี้ (เช่น ขายสินค้า) ระหว่างที่กำลังดึงข้อมูลจากคลาวด์ครั้งแรกอยู่
+          // ถือว่าข้อมูลในเครื่องใหม่กว่าข้อมูลที่เพิ่งดึงมา ไม่ทับข้อมูลเครื่อง แต่อัปโหลดข้อมูลเครื่องขึ้นคลาวด์แทนเพื่อกันข้อมูลหาย
+          cloudStatus = "synced";
+          console.warn("มีการบันทึกข้อมูลในเครื่องระหว่างดึงข้อมูลคลาวด์ ข้ามการทับข้อมูล และอัปโหลดข้อมูลเครื่องขึ้นไปแทน");
           await pushToCloud();
         } else {
           Object.keys(store).forEach((k) => delete store[k]);
@@ -629,6 +640,7 @@ function createDB(storageKey) {
   }
 
   function save() {
+    hasUnsavedLocalChange = true;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
     scheduleCloudPush();
   }
