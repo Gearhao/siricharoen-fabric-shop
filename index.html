@@ -282,7 +282,8 @@ html, body {
 .pos-item-table td { padding: 6px 4px; white-space: normal; word-break: break-word; }
 .pos-item-table input, .pos-item-table select { width: 100%; min-width: 0; box-sizing: border-box; }
 .pos-item-table .btn-sm { width: 100%; padding-left: 4px; padding-right: 4px; }
-.pos-item-note-row td { background: #faf9fb; padding: 2px 4px 4px; }
+.pos-item-row td { border-bottom: none; padding-bottom: 2px; }
+.pos-item-note-row td { background: #faf9fb; padding: 0 4px 4px; }
 .pos-item-note-row input { width: 60%; box-sizing: border-box; padding: 3px 6px; font-size: 12.5px; }
 .search-select { display: block; width: 100%; }
 .search-select input { width: 100%; box-sizing: border-box; }
@@ -3247,7 +3248,7 @@ if (typeof module !== "undefined") {
 
       const tr = el(
         "tr",
-        {},
+        { class: "pos-item-row" },
         el("td", { text: String(idx + 1) }),
         productCell,
         el("td", {}, qtyInput),
@@ -4036,7 +4037,7 @@ if (typeof module !== "undefined") {
 
       const tr = el(
         "tr",
-        {},
+        { class: "pos-item-row" },
         el("td", { text: String(idx + 1) }),
         productCell,
         el("td", {}, qtyInput),
