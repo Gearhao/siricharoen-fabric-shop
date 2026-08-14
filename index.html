@@ -283,7 +283,7 @@ html, body {
 .pos-item-table input, .pos-item-table select { width: 100%; min-width: 0; box-sizing: border-box; }
 .pos-item-table .btn-sm { width: 100%; padding-left: 4px; padding-right: 4px; }
 .pos-item-note-row td { background: #faf9fb; padding: 2px 4px 4px; }
-.pos-item-note-row input { width: 100%; box-sizing: border-box; padding: 3px 6px; font-size: 12.5px; }
+.pos-item-note-row input { width: 60%; box-sizing: border-box; padding: 3px 6px; font-size: 12.5px; }
 .search-select { display: block; width: 100%; }
 .search-select input { width: 100%; box-sizing: border-box; }
 
@@ -3008,10 +3008,10 @@ if (typeof module !== "undefined") {
     if (!sale) return;
     const cartItems = sale.items.map((it) => {
       if (it.is_misc) {
-        return { code: "", name: `${it.name || ""} (ฝากซื้อ)`, qty: it.qty, unit_price: it.unit_price, unit: it.unit };
+        return { code: "", name: `${it.name || ""} (ฝากซื้อ)`, qty: it.qty, unit_price: it.unit_price, unit: it.unit, note: it.note || "" };
       }
       const f = DB.getFabric(it.fabric_id);
-      return { code: f ? f.code : "", name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)", qty: it.qty, unit_price: it.unit_price, unit: it.unit };
+      return { code: f ? f.code : "", name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)", qty: it.qty, unit_price: it.unit_price, unit: it.unit, note: it.note || "" };
     });
     showReceiptModal(sale, sale.customer_id, cartItems);
   }
@@ -4224,6 +4224,7 @@ if (typeof module !== "undefined") {
       lines.push(
         `${label.slice(0, 20).padEnd(20)}${qtyUnit.padStart(10)} x ${money(it.unit_price).padStart(9)} = ${money(sub).padStart(11)}`
       );
+      if (it.note) lines.push(`    (${it.note})`);
     });
     lines.push("-".repeat(40));
     lines.push(`${"ยอดรวมก่อนหักส่วนลด".padEnd(24)}${money(sale.subtotal).padStart(14)}`);
@@ -4260,7 +4261,8 @@ if (typeof module !== "undefined") {
         const sub = it.qty * it.unit_price;
         const qtyUnit = `${it.qty}${it.unit ? " " + it.unit : ""}`;
         const label = it.code || it.name || "";
-        return `<tr style="border-bottom:1px solid #ddd;"><td style="padding:5px 4px;">${esc(label)}</td><td style="padding:5px 4px;text-align:right;">${esc(
+        const noteHtml = it.note ? `<div style="font-size:10.5px;color:#666;margin-top:2px;">${esc(it.note)}</div>` : "";
+        return `<tr style="border-bottom:1px solid #ddd;"><td style="padding:5px 4px;">${esc(label)}${noteHtml}</td><td style="padding:5px 4px;text-align:right;">${esc(
           qtyUnit
         )}</td><td style="padding:5px 4px;text-align:right;">${money(it.unit_price)}</td><td style="padding:5px 4px;text-align:right;">${money(sub)}</td></tr>`;
       })
