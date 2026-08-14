@@ -3110,6 +3110,9 @@ if (typeof module !== "undefined") {
   function round2(n) {
     return Math.round((Number(n) || 0) * 100) / 100;
   }
+  function round3(n) {
+    return Math.round((Number(n) || 0) * 1000) / 1000;
+  }
   function parseRollsFromNote(note) {
     if (!note) return null;
     const m = note.match(/นับสต็อกแยกไม้ \(\d+ ไม้: (.+?) รวม/);
@@ -3223,11 +3226,11 @@ if (typeof module !== "undefined") {
 
       let stockText = "-";
       if (row.stock_qty !== null && row.stock_qty !== undefined && row.baseUnit) {
-        stockText = `${row.stock_qty} ${row.baseUnit}`;
+        stockText = `${round3(row.stock_qty)} ${row.baseUnit}`;
         if (row.unit && row.unit !== row.baseUnit) {
           const factor = unitFactor(row.unit, row.baseUnit);
           const equiv = factor ? row.stock_qty / factor : row.stock_qty;
-          stockText += ` (≈ ${round2(equiv)} ${row.unit})`;
+          stockText += ` (≈ ${round3(equiv)} ${row.unit})`;
         }
       }
       const amountCell = el("td", { text: money(row.qty * row.unit_price) });
@@ -4012,11 +4015,11 @@ if (typeof module !== "undefined") {
 
       let stockText = "-";
       if (row.stock_qty !== null && row.stock_qty !== undefined && row.baseUnit) {
-        stockText = `${row.stock_qty} ${row.baseUnit}`;
+        stockText = `${round3(row.stock_qty)} ${row.baseUnit}`;
         if (row.unit && row.unit !== row.baseUnit) {
           const factor = unitFactor(row.unit, row.baseUnit);
           const equiv = factor ? row.stock_qty / factor : row.stock_qty;
-          stockText += ` (≈ ${round2(equiv)} ${row.unit})`;
+          stockText += ` (≈ ${round3(equiv)} ${row.unit})`;
         }
       }
       const amountCell = el("td", { text: money(row.qty * row.unit_price) });
