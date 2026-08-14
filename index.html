@@ -282,6 +282,8 @@ html, body {
 .pos-item-table td { padding: 6px 4px; white-space: normal; word-break: break-word; }
 .pos-item-table input, .pos-item-table select { width: 100%; min-width: 0; box-sizing: border-box; }
 .pos-item-table .btn-sm { width: 100%; padding-left: 4px; padding-right: 4px; }
+.pos-item-note-row td { background: #faf9fb; padding-top: 4px; padding-bottom: 8px; }
+.pos-item-note-row input { width: 100%; box-sizing: border-box; }
 .search-select { display: block; width: 100%; }
 .search-select input { width: 100%; box-sizing: border-box; }
 
@@ -2650,12 +2652,12 @@ if (typeof module !== "undefined") {
     const historyToolbar = el(
       "div",
       { class: "toolbar" },
+      historySearchInput,
       historyDateInput,
       el("span", { text: "ถึง" }),
       historyDateToInput,
       todayBtn,
       el("label", { class: "chk-label" }, showAllChk, " แสดงทั้งหมดทุกวัน"),
-      historySearchInput,
       el("label", { class: "chk-label" }, unpaidChk, " ค้างชำระ"),
       el("label", { class: "chk-label" }, unpaidCashChk, " เงินสดแต่ค้างชำระ")
     );
@@ -3138,7 +3140,6 @@ if (typeof module !== "undefined") {
         {},
         el("th", { text: "#" }),
         el("th", { text: "สินค้า (รหัส - ชื่อ)" }),
-        el("th", { text: "โน้ต" }),
         el("th", { text: "จำนวน" }),
         el("th", { text: "หน่วย" }),
         el("th", { text: "ราคา/หน่วย" }),
@@ -3151,7 +3152,7 @@ if (typeof module !== "undefined") {
     const tbody = el("tbody", {});
 
     if (cart.length === 0) {
-      tbody.appendChild(el("tr", {}, el("td", { colspan: 10, class: "empty", text: 'ยังไม่มีรายการ กด "+ เพิ่มรายการ"' })));
+      tbody.appendChild(el("tr", {}, el("td", { colspan: 9, class: "empty", text: 'ยังไม่มีรายการ กด "+ เพิ่มรายการ"' })));
     }
 
     cart.forEach((row, idx) => {
@@ -3189,7 +3190,7 @@ if (typeof module !== "undefined") {
       }
 
       const noteInput = textInput(row.note || "");
-      noteInput.setAttribute("placeholder", "โน้ต");
+      noteInput.setAttribute("placeholder", "โน้ต (ถ้ามี) เช่น รายละเอียดเพิ่มเติมของรายการนี้");
       noteInput.addEventListener("input", (e) => {
         cart[idx].note = e.target.value;
       });
@@ -3249,7 +3250,6 @@ if (typeof module !== "undefined") {
         {},
         el("td", { text: String(idx + 1) }),
         productCell,
-        el("td", {}, noteInput),
         el("td", {}, qtyInput),
         unitCell,
         el("td", {}, priceInput),
@@ -3259,6 +3259,9 @@ if (typeof module !== "undefined") {
         el("td", {}, removeBtn)
       );
       tbody.appendChild(tr);
+
+      const noteTr = el("tr", { class: "pos-item-note-row" }, el("td", { colspan: 9 }, noteInput));
+      tbody.appendChild(noteTr);
     });
 
     const table = el("table", { class: "data-table pos-item-table" }, thead, tbody);
@@ -3622,12 +3625,12 @@ if (typeof module !== "undefined") {
     const historyToolbar = el(
       "div",
       { class: "toolbar" },
+      historySearchInput,
       historyDateInput,
       el("span", { text: "ถึง" }),
       historyDateToInput,
       todayBtn,
       el("label", { class: "chk-label" }, showAllChk, " แสดงทั้งหมดทุกวัน"),
-      historySearchInput,
       el("label", { class: "chk-label" }, unpaidChk, " ค้างชำระ"),
       el("label", { class: "chk-label" }, unpaidCashChk, " เงินสดแต่ค้างชำระ")
     );
@@ -3926,7 +3929,6 @@ if (typeof module !== "undefined") {
         {},
         el("th", { text: "#" }),
         el("th", { text: "สินค้า (รหัส - ชื่อ)" }),
-        el("th", { text: "โน้ต" }),
         el("th", { text: "จำนวน" }),
         el("th", { text: "หน่วย" }),
         el("th", { text: "ราคา/หน่วย" }),
@@ -3939,7 +3941,7 @@ if (typeof module !== "undefined") {
     const tbody = el("tbody", {});
 
     if (cartVat.length === 0) {
-      tbody.appendChild(el("tr", {}, el("td", { colspan: 10, class: "empty", text: 'ยังไม่มีรายการ กด "+ เพิ่มรายการ"' })));
+      tbody.appendChild(el("tr", {}, el("td", { colspan: 9, class: "empty", text: 'ยังไม่มีรายการ กด "+ เพิ่มรายการ"' })));
     }
 
     cartVat.forEach((row, idx) => {
@@ -3977,7 +3979,7 @@ if (typeof module !== "undefined") {
       }
 
       const noteInput = textInput(row.note || "");
-      noteInput.setAttribute("placeholder", "โน้ต");
+      noteInput.setAttribute("placeholder", "โน้ต (ถ้ามี) เช่น รายละเอียดเพิ่มเติมของรายการนี้");
       noteInput.addEventListener("input", (e) => {
         cartVat[idx].note = e.target.value;
       });
@@ -4037,7 +4039,6 @@ if (typeof module !== "undefined") {
         {},
         el("td", { text: String(idx + 1) }),
         productCell,
-        el("td", {}, noteInput),
         el("td", {}, qtyInput),
         unitCell,
         el("td", {}, priceInput),
@@ -4047,6 +4048,9 @@ if (typeof module !== "undefined") {
         el("td", {}, removeBtn)
       );
       tbody.appendChild(tr);
+
+      const noteTr = el("tr", { class: "pos-item-note-row" }, el("td", { colspan: 9 }, noteInput));
+      tbody.appendChild(noteTr);
     });
 
     const table = el("table", { class: "data-table pos-item-table" }, thead, tbody);
@@ -5575,12 +5579,12 @@ if (typeof module !== "undefined") {
     const toolbar = el(
       "div",
       { class: "toolbar" },
+      searchInput,
       dateInput,
       el("span", { text: "ถึง" }),
       dateToInput,
       todayBtn,
       el("label", { class: "chk-label" }, showAllChk, " แสดงทั้งหมดทุกวัน"),
-      searchInput,
       el("button", { class: "btn btn-primary", onClick: () => openPurchaseModal() }, "+ สร้างใบรับสินค้าเข้าใหม่")
     );
     const summary = el("div", { class: "totals-line" });
