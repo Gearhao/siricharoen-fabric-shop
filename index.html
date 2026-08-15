@@ -2213,9 +2213,8 @@ if (typeof module !== "undefined") {
     modalBody = el("div", { class: "modal-body" });
     modalBox = el("div", { class: "modal-box" }, modalHeader, modalBody);
     modalOverlay = el("div", { class: "modal-overlay hidden" }, modalBox);
-    modalOverlay.addEventListener("click", (e) => {
-      if (e.target === modalOverlay) closeModal();
-    });
+    // หมายเหตุ: ตั้งใจไม่ปิดหน้าต่างเมื่อคลิกพื้นหลังนอกกล่อง กันการเผลอคลิกโดนแล้วหน้าต่างเด้งปิดโดยไม่ตั้งใจ
+    // ต้องกดปุ่ม × หรือปุ่มปิด/ยกเลิกในหน้าต่างเท่านั้นถึงจะปิดได้
     return modalOverlay;
   }
 
