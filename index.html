@@ -2465,9 +2465,6 @@ if (typeof module !== "undefined") {
     refs.posEditBanner = editBanner;
     refs.posEditBannerLabel = editBannerLabel;
 
-    const vatChk = el("input", { type: "checkbox", checked: false, onChange: updatePosTotals });
-    refs.posVatChk = vatChk;
-
     const left = el(
       "div",
       { class: "pos-left" },
@@ -2475,8 +2472,7 @@ if (typeof module !== "undefined") {
       editBanner,
       itemsTableContainer,
       addRowBtn,
-      addMiscRowBtn,
-      el("label", { class: "chk-label", style: { display: "block", marginTop: "10px" } }, vatChk, ` คิดภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%`)
+      addMiscRowBtn
     );
 
     const customerSelect = buildCustomerSelectOptions();
@@ -2543,6 +2539,9 @@ if (typeof module !== "undefined") {
     }
     updateBankFieldsVisibility();
 
+    const vatChk = el("input", { type: "checkbox", checked: false, onChange: updatePosTotals });
+    refs.posVatChk = vatChk;
+
     const subtotalLbl = el("div", { class: "totals-line", text: "ยอดรวมก่อนภาษี: 0.00 บาท" });
     refs.posSubtotalLbl = subtotalLbl;
     const vatLbl = el("div", { class: "totals-line", text: `ภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%: 0.00 บาท` });
@@ -2573,6 +2572,7 @@ if (typeof module !== "undefined") {
         formField("วันที่ครบกำหนดชำระเงิน", dueDateInput),
         formField("หมายเหตุ", noteInput)
       ),
+      el("label", { class: "chk-label", style: { display: "block", marginTop: "10px" } }, vatChk, ` คิดภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%`),
       el("div", { class: "totals-box" }, subtotalLbl, vatLbl, shippingLbl, totalLbl, changeLbl),
       checkoutBtn
     );
