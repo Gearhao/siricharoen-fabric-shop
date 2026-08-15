@@ -1110,6 +1110,7 @@ function createDB(storageKey) {
       unit: it.unit || "",
       stock_qty: it.stock_qty !== undefined && it.stock_qty !== null ? it.stock_qty : it.qty,
       subtotal: it.qty * it.unit_price,
+      note: it.note || "",
     }));
   }
   function applySaleEffects(sale) {
