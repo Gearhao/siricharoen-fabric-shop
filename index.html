@@ -2165,6 +2165,29 @@ if (typeof module !== "undefined") {
     w.print();
   }
 
+  function copyTextToClipboard(text) {
+    if (global.navigator && global.navigator.clipboard && global.navigator.clipboard.writeText) {
+      return global.navigator.clipboard.writeText(text);
+    }
+    // Fallback สำหรับเบราว์เซอร์ที่ไม่รองรับ Clipboard API
+    return new Promise((resolve, reject) => {
+      try {
+        const ta = global.document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        global.document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = global.document.execCommand("copy");
+        global.document.body.removeChild(ta);
+        ok ? resolve() : reject(new Error("copy failed"));
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
   // --------------------------------------------------------------- state
   let cart = [];
   let editingSaleId = null;
@@ -4365,6 +4388,26 @@ if (typeof module !== "undefined") {
       "บันทึกเป็นไฟล์ .txt"
     );
     const printBtn = el("button", { class: "btn", onClick: () => printReceiptHtml(current.html) }, `พิมพ์${current.docTitle}`);
+    const copyBtn = el(
+      "button",
+      {
+        class: "btn",
+        onClick: () => {
+          copyTextToClipboard(current.text)
+            .then(() => {
+              const original = "คัดลอกข้อความใบเสร็จ";
+              copyBtn.textContent = "คัดลอกแล้ว ✓";
+              setTimeout(() => {
+                copyBtn.textContent = original;
+              }, 1500);
+            })
+            .catch(() => {
+              alert("คัดลอกไม่สำเร็จ กรุณาลองใหม่");
+            });
+        },
+      },
+      "คัดลอกข้อความใบเสร็จ"
+    );
     const closeBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
 
     function refresh() {
@@ -4381,7 +4424,7 @@ if (typeof module !== "undefined") {
       {},
       docTypeToggle,
       previewBox,
-      el("div", { class: "modal-actions" }, downloadBtn, printBtn, closeBtn)
+      el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn)
     );
     exposeTestRefs("receipt", { get text() { return current.text; }, get html() { return current.html; }, sale, setDocType: (t) => { docType = t; refresh(); } });
     openModal(current.docTitle, body, { wide: true });
