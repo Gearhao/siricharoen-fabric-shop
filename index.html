@@ -5866,7 +5866,7 @@ if (typeof module !== "undefined") {
       addItemFromRowNow({ alertOnInvalid: false });
     });
     const itemsContainer = el("div", { class: "table-container" });
-    const vatChk = el("input", { type: "checkbox", checked: editingPurchase ? editingPurchase.vat_amount > 0 : true });
+    const vatChk = el("input", { type: "checkbox", checked: editingPurchase ? editingPurchase.vat_amount > 0 : false });
     vatChk.addEventListener("change", () => {
       if (items.length > 0) syncPurchase();
     });
