@@ -6810,6 +6810,8 @@ if (typeof module !== "undefined") {
 
   function openAdjustBalanceModal(account) {
     const balanceInput = numberInput(account.balance || 0);
+    const noteInput = textInput("");
+    noteInput.setAttribute("placeholder", "เช่น แก้ไขยอดผิดพลาด, นับเงินสดใหม่ ฯลฯ");
     const saveBtn = el(
       "button",
       {
@@ -6820,7 +6822,8 @@ if (typeof module !== "undefined") {
             global.alert("กรุณาระบุยอดให้ถูกต้อง");
             return;
           }
-          DB.adjustBankAccountBalance(account.id, newBalance, "ปรับปรุงยอดบัญชี");
+          const note = noteInput.value.trim() || "ปรับปรุงยอดบัญชี";
+          DB.adjustBankAccountBalance(account.id, newBalance, note);
           closeModal();
           refreshBankAccountsTable();
         },
@@ -6832,9 +6835,10 @@ if (typeof module !== "undefined") {
       {},
       el("p", { text: `${account.bank_name} - ${account.account_name} ยอดปัจจุบัน ${money(account.balance || 0)} บาท` }),
       formField("ยอดใหม่", balanceInput),
+      formField("โน้ต (สาเหตุที่ปรับยอด)", noteInput),
       el("div", { class: "modal-actions" }, saveBtn)
     );
-    exposeTestRefs("adjustBalanceForm", { balanceInput, saveBtn });
+    exposeTestRefs("adjustBalanceForm", { balanceInput, noteInput, saveBtn });
     openModal("ปรับยอดบัญชี", body);
   }
 
