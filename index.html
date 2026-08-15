@@ -5670,10 +5670,19 @@ if (typeof module !== "undefined") {
     }
     const rows = purchases.map((p) => {
       const s = DB.getSupplier(p.supplier_id);
-      return [p.po_no, fmtDate(p.date), s ? s.name : "", money(p.discount || 0), money(p.total), p.status, p.payment_status];
+      return [
+        p.po_no,
+        fmtDate(p.date),
+        s ? s.name : "",
+        money(p.discount || 0),
+        p.vat_amount ? money(p.vat_amount) : "-",
+        money(p.total),
+        p.status,
+        p.payment_status,
+      ];
     });
     const table = buildDataTable(
-      ["เลขที่เอกสารรับเข้า", "วันที่", "ผู้จัดจำหน่าย", "ส่วนลด", "ยอดรวม", "สถานะรับของ", "สถานะชำระเงิน"],
+      ["เลขที่เอกสารรับเข้า", "วันที่", "ผู้จัดจำหน่าย", "ส่วนลด", "ภาษีมูลค่าเพิ่ม", "ยอดรวม", "สถานะรับของ", "สถานะชำระเงิน"],
       rows,
       {
         cellStyle: (row, ci, colName) =>
@@ -5883,7 +5892,7 @@ if (typeof module !== "undefined") {
       const subtotal = items.reduce((s, it) => s + it.qty * it.unit_cost, 0);
       const discount = items.reduce((s, it) => s + (it.discount || 0), 0);
       const vatBase = Math.max(0, subtotal - discount);
-      const vat = VAT_ENABLED && vatChk.checked ? Math.round(vatBase * VAT_RATE * 100) / 100 : 0;
+      const vat = vatChk.checked ? Math.round(vatBase * VAT_RATE * 100) / 100 : 0;
       // แปลงจำนวน/ราคาทุนที่กรอก (หน่วยที่เลือกรับ) ให้เป็นหน่วยฐานของสินค้าก่อนบันทึก เพื่อให้สต็อกถูกต้อง
       const convertedItems = items.map((it) => {
         const fab = fabrics.find((f) => f.id === it.fabric_id);
@@ -6050,7 +6059,7 @@ if (typeof module !== "undefined") {
       el("h4", { text: "รายการสินค้า" }),
       addRow,
       itemsContainer,
-      VAT_ENABLED ? el("label", { class: "chk-label" }, vatChk, ` คิดภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%`) : null,
+      el("label", { class: "chk-label" }, vatChk, ` คิดภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%`),
       autoSaveStatus,
       el("div", { class: "modal-actions" }, saveBtn)
     );
@@ -6086,7 +6095,15 @@ if (typeof module !== "undefined") {
       formField("วันที่เอกสาร", el("div", { text: fmtDate(p.date) })),
       formField("ส่วนลด", el("div", { text: money(p.discount || 0) }))
     );
-    openModal(`รายการสินค้าในใบสั่งซื้อ ${p.po_no}`, el("div", {}, meta, table), { wide: true });
+    const totalsBlock = el(
+      "div",
+      { class: "totals-line", style: { marginTop: "10px" } },
+      el("div", { text: `ยอดรวมก่อนหักส่วนลด: ${money(p.subtotal)} บาท` }),
+      p.discount ? el("div", { text: `ส่วนลด: ${money(p.discount)} บาท` }) : null,
+      p.vat_amount ? el("div", { text: `ภาษีมูลค่าเพิ่ม: ${money(p.vat_amount)} บาท` }) : null,
+      el("div", { text: `ยอดรวมสุทธิ: ${money(p.total)} บาท`, style: { fontWeight: "600" } })
+    );
+    openModal(`รายการสินค้าในใบสั่งซื้อ ${p.po_no}`, el("div", {}, meta, table, totalsBlock), { wide: true });
   }
 
   function openPurchasePayModal(pid) {
