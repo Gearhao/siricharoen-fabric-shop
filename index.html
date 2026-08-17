@@ -1041,43 +1041,6 @@ function createDB(storageKey) {
     });
     save();
   }
-  function recordRollCount(fabricId, rolls, note) {
-    const f = getFabric(fabricId);
-    if (!f) return null;
-    const total = Math.round(rolls.reduce((s, r) => s + r, 0) * 100) / 100;
-    const delta = Math.round((total - f.stock_qty) * 100) / 100;
-    f.stock_qty = total;
-    const movement = {
-      id: store.stockMovements.length + 1,
-      fabric_id: fabricId,
-      date: nowStr(),
-      move_type: "นับสต็อกแยกไม้",
-      qty: delta,
-      ref_type: "roll_count",
-      ref_id: fabricId,
-      note: note || "นับสต็อกแยกไม้",
-      rolls: rolls.slice(),
-    };
-    store.stockMovements.push(movement);
-    save();
-    return movement;
-  }
-  function updateRollCount(movementId, previousTotal, rolls, note) {
-    const m = store.stockMovements.find((x) => x.id === movementId);
-    if (!m) return null;
-    const f = getFabric(m.fabric_id);
-    if (!f) return null;
-    const oldTotal = Math.round((Number(previousTotal) || 0) * 100) / 100;
-    const newTotal = Math.round(rolls.reduce((s, r) => s + r, 0) * 100) / 100;
-    const correctionDelta = Math.round((newTotal - oldTotal) * 100) / 100;
-    f.stock_qty = Math.round((f.stock_qty + correctionDelta) * 100) / 100;
-    m.qty = Math.round((m.qty + correctionDelta) * 100) / 100;
-    m.rolls = rolls.slice();
-    m.ref_type = "roll_count";
-    m.note = note || m.note;
-    save();
-    return m;
-  }
   function getStockMovements(fabricId) {
     return store.stockMovements
       .filter((m) => m.fabric_id === fabricId)
@@ -1836,7 +1799,7 @@ function createDB(storageKey) {
     getCustomerSales, payCustomerCredit, getCustomerPayments,
     paySupplierCredit, getSupplierPayments,
     addFabric, updateFabric, deleteFabric, getFabrics, getFabric,
-    adjustStock, recordRollCount, updateRollCount, getStockMovements, deleteStockMovement,
+    adjustStock, getStockMovements, deleteStockMovement,
     createSale, updateSale, deleteSale, getSales, getSale, markSalePaid,
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense, updateExpense,
@@ -3175,20 +3138,6 @@ if (typeof module !== "undefined") {
   function round3(n) {
     return Math.round((Number(n) || 0) * 1000) / 1000;
   }
-  function parseRollsFromNote(note) {
-    if (!note) return null;
-    const m = note.match(/นับสต็อกแยกไม้ \(\d+ ไม้: (.+?) รวม/);
-    if (!m) return null;
-    const parts = m[1].split(",").map((s) => s.trim());
-    if (parts.length === 0) return null;
-    const rolls = parts.map((p) => {
-      const numMatch = p.match(/[\d.]+/);
-      return numMatch ? parseFloat(numMatch[0]) : null;
-    });
-    if (rolls.some((r) => r === null || isNaN(r))) return null;
-    return rolls;
-  }
-
   function renderPosItemsTable() {
     const container = refs.posItemsTableContainer;
     clear(container);
@@ -3724,39 +3673,6 @@ if (typeof module !== "undefined") {
     renderStockTable();
   }
 
-  function getLatestRollBreakdown(fabricId) {
-    const moves = DB.getStockMovements(fabricId); // เรียงใหม่สุดก่อน
-    let baseIdx = -1;
-    let baseRolls = null;
-    for (let i = 0; i < moves.length; i++) {
-      const rolls = moves[i].rolls && moves[i].rolls.length ? moves[i].rolls : parseRollsFromNote(moves[i].note);
-      if (rolls && rolls.length) {
-        baseIdx = i;
-        baseRolls = rolls;
-        break;
-      }
-    }
-    if (baseRolls === null) return null;
-    // รายการรับสินค้าเข้าที่เกิดขึ้นหลังจากนับสต็อกครั้งล่าสุด ให้นับเป็นไม้ใหม่ต่อท้าย
-    // (รวมยอดสุทธิต่อใบรับสินค้า เผื่อกรณีมีการแก้ไข/ย้อนรายการรับสินค้านั้นภายหลัง)
-    const afterBase = moves.slice(0, baseIdx).filter((m) => m.ref_type === "purchase");
-    const netByRef = {};
-    const order = [];
-    afterBase.forEach((m) => {
-      if (!(m.ref_id in netByRef)) order.push(m.ref_id);
-      netByRef[m.ref_id] = (netByRef[m.ref_id] || 0) + m.qty;
-    });
-    order.reverse();
-    const extraRolls = order.map((ref) => netByRef[ref]).filter((q) => q > 0.001);
-    return baseRolls.concat(extraRolls);
-  }
-
-  function getRollBreakdownText(fabricId) {
-    const rolls = getLatestRollBreakdown(fabricId);
-    if (!rolls) return "";
-    return rolls.map((r) => round2(r)).join(", ");
-  }
-
   function renderStockTable() {
     const container = refs.stockTableContainer;
     clear(container);
@@ -3765,12 +3681,12 @@ if (typeof module !== "undefined") {
       const sup = f.supplier_id ? DB.getSupplier(f.supplier_id) : null;
       return [
         f.code, f.name, f.category, f.color, f.unit,
-        money(f.cost_price), money(f.sell_price), f.stock_qty, getRollBreakdownText(f.id), f.reorder_point,
+        money(f.cost_price), money(f.sell_price), f.stock_qty, f.reorder_point,
         sup ? sup.name : "",
       ];
     });
     const table = buildDataTable(
-      ["รหัส", "ชื่อผ้า", "ประเภท", "สี", "หน่วย", "ราคาทุน", "ราคาขาย", "คงเหลือ", "แยกไม้", "จุดสั่งซื้อ", "ซัพพลายเออร์"],
+      ["รหัส", "ชื่อผ้า", "ประเภท", "สี", "หน่วย", "ราคาทุน", "ราคาขาย", "คงเหลือ", "จุดสั่งซื้อ", "ซัพพลายเออร์"],
       rows,
       {
         cellStyle: (row, ci, colName) =>
@@ -3780,7 +3696,6 @@ if (typeof module !== "undefined") {
           return [
             { label: "แก้ไข", onClick: () => openFabricModal(f.id) },
             { label: "ปรับสต็อก", onClick: () => openAdjustStockModal(f.id) },
-            { label: "นับสต็อกแยกไม้", onClick: () => openRollCountModal(f.id) },
             { label: "ประวัติ", onClick: () => openMovementsModal(f.id) },
             {
               label: "ลบ",
@@ -3943,127 +3858,6 @@ if (typeof module !== "undefined") {
     openModal("ปรับสต็อก", body);
   }
 
-  function openRollCountModal(fid, movementId) {
-    const f = DB.getFabric(fid);
-    const editingMovement = movementId ? DB.getStockMovements(fid).find((m) => m.id === movementId) : null;
-    const legacyRolls = editingMovement && !(editingMovement.rolls && editingMovement.rolls.length) ? parseRollsFromNote(editingMovement.note) : null;
-    const existingRolls = !editingMovement ? getLatestRollBreakdown(fid) : null;
-    let rolls =
-      editingMovement && editingMovement.rolls && editingMovement.rolls.length
-        ? editingMovement.rolls.map((qty) => ({ qty }))
-        : legacyRolls
-        ? legacyRolls.map((qty) => ({ qty }))
-        : existingRolls && existingRolls.length
-        ? existingRolls.map((qty) => ({ qty }))
-        : [{ qty: 0 }];
-    const originalTotal = round2(rolls.reduce((s, r) => s + r.qty, 0));
-    const rollsContainer = el("div", {});
-    const totalLbl = el("div", { class: "totals-line totals-main", text: `รวม: 0 ${f.unit} (0 ไม้)` });
-
-    function updateTotal() {
-      const valid = rolls.filter((r) => r.qty > 0);
-      const total = valid.reduce((s, r) => s + r.qty, 0);
-      totalLbl.textContent = `รวม: ${money(total)} ${f.unit} (${valid.length} ไม้)`;
-    }
-
-    function renderRolls() {
-      clear(rollsContainer);
-      rolls.forEach((r, idx) => {
-        const rollInput = numberInput(r.qty);
-        rollInput.addEventListener("input", (e) => {
-          rolls[idx].qty = Number(e.target.value) || 0;
-          updateTotal();
-        });
-        const removeBtn = el(
-          "button",
-          {
-            class: "btn btn-sm",
-            onClick: () => {
-              rolls.splice(idx, 1);
-              if (rolls.length === 0) rolls.push({ qty: 0 });
-              renderRolls();
-              updateTotal();
-            },
-          },
-          "ลบ"
-        );
-        rollsContainer.appendChild(
-          formField(`ไม้ที่ ${idx + 1}`, el("div", { class: "discount-input-row" }, rollInput, removeBtn))
-        );
-      });
-    }
-
-    const addRollBtn = el(
-      "button",
-      {
-        class: "btn btn-sm",
-        onClick: () => {
-          rolls.push({ qty: 0 });
-          renderRolls();
-          updateTotal();
-        },
-      },
-      "+ เพิ่มไม้"
-    );
-
-    renderRolls();
-    updateTotal();
-
-    const noteInput = textInput(editingMovement ? (editingMovement.note || "").split(" - ").slice(1).join(" - ") : "");
-    const saveBtn = el(
-      "button",
-      {
-        class: "btn btn-primary",
-        onClick: () => {
-          const valid = rolls.filter((r) => r.qty > 0);
-          if (valid.length === 0) {
-            global.alert("กรุณาระบุจำนวนอย่างน้อย 1 ไม้");
-            return;
-          }
-          const total = round2(valid.reduce((s, r) => s + r.qty, 0));
-          const rollsText = valid.map((r) => r.qty).join(", ");
-          let note = `นับสต็อกแยกไม้ (${valid.length} ไม้: ${rollsText} ${f.unit} รวม ${money(total)} ${f.unit})`;
-          if (noteInput.value.trim()) note += " - " + noteInput.value.trim();
-          if (editingMovement) {
-            note += " (แก้ไขแล้ว)";
-            DB.updateRollCount(
-              movementId,
-              originalTotal,
-              valid.map((r) => r.qty),
-              note
-            );
-          } else {
-            DB.recordRollCount(
-              fid,
-              valid.map((r) => r.qty),
-              note
-            );
-          }
-          closeModal();
-          renderStockTable();
-        },
-      },
-      editingMovement ? "บันทึกการแก้ไข" : "บันทึกยอดนับ"
-    );
-
-    const body = el(
-      "div",
-      {},
-      el("p", {
-        text: editingMovement
-          ? `${f.name} ยอดในระบบปัจจุบัน: ${f.stock_qty} ${f.unit} (แก้ไขยอดที่เคยนับไว้ครั้งนี้)`
-          : `${f.name} ยอดในระบบปัจจุบัน: ${f.stock_qty} ${f.unit}`,
-      }),
-      rollsContainer,
-      addRollBtn,
-      totalLbl,
-      formField("หมายเหตุเพิ่มเติม", noteInput),
-      el("div", { class: "modal-actions" }, saveBtn)
-    );
-    exposeTestRefs("rollCount", { rollsContainer, addRollBtn, noteInput, saveBtn, getRolls: () => rolls });
-    openModal(editingMovement ? `แก้ไขยอดนับ - ${f.name}` : `นับสต็อกแยกไม้ - ${f.name}`, body, { wide: true });
-  }
-
   function openMovementsModal(fid) {
     const f = DB.getFabric(fid);
     const moves = DB.getStockMovements(fid);
@@ -4073,18 +3867,8 @@ if (typeof module !== "undefined") {
       {
         actions: (idx) => {
           const m = moves[idx];
-          const isEditableRollCount = m.ref_type === "roll_count" || !!parseRollsFromNote(m.note);
           const isDeletable = m.ref_type === "adjust" || m.ref_type === "roll_count";
           const acts = [];
-          if (isEditableRollCount) {
-            acts.push({
-              label: "แก้ไข",
-              onClick: () => {
-                closeModal();
-                openRollCountModal(fid, m.id);
-              },
-            });
-          }
           if (isDeletable) {
             acts.push({
               label: "ลบ",
@@ -6602,7 +6386,7 @@ if (typeof module !== "undefined") {
     switchTab,
     refs,
     getCart: () => cart,
-    openFabricModal, openAdjustStockModal, openMovementsModal, openRollCountModal,
+    openFabricModal, openAdjustStockModal, openMovementsModal,
     openCustomerModal, openCustomerHistoryModal, openCustomerPayModal,
     openSupplierModal, openSupplierPayModal,
     openPurchaseModal, openPurchaseItemsModal, openPurchasePayModal,
