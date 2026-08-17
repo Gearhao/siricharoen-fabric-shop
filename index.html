@@ -495,13 +495,13 @@ function createDB(storageKey) {
   // เช็คว่าข้อมูลที่จะดึงจากคลาวด์มาทับเครื่องนี้ดู "หายไปผิดปกติ" หรือไม่ เทียบกับข้อมูลที่เครื่องนี้มีอยู่แล้ว
   // ป้องกันกรณีคลาวด์มีข้อมูลว่าง/น้อยผิดปกติ (เช่น อัปโหลดข้อมูลตัวอย่างทับของจริงไปโดยไม่ตั้งใจ) ไม่ให้มาทับข้อมูลจริงในเครื่อง
   function looksLikeDataLoss(incoming) {
-    const localCustomers = (store.customers || []).length;
-    const localSuppliers = (store.suppliers || []).length;
-    const inCustomers = (incoming.customers || []).length;
-    const inSuppliers = (incoming.suppliers || []).length;
-    if (localCustomers > 5 && inCustomers === 0) return true;
-    if (localSuppliers > 5 && inSuppliers === 0) return true;
-    if (localCustomers > 20 && inCustomers < localCustomers * 0.3) return true;
+    const keysToCheck = ["customers", "suppliers", "fabrics", "sales", "purchases", "bankAccounts"];
+    for (const key of keysToCheck) {
+      const localLen = (store[key] || []).length;
+      const inLen = (incoming[key] || []).length;
+      if (localLen > 5 && inLen === 0) return true;
+      if (localLen > 20 && inLen < localLen * 0.3) return true;
+    }
     return false;
   }
 
@@ -524,9 +524,11 @@ function createDB(storageKey) {
       if (row && row.data) {
         if (looksLikeDataLoss(row.data)) {
           // ข้อมูลบนคลาวด์ดูน้อยผิดปกติเทียบกับเครื่องนี้ -> ไม่ทับ ถือว่าเครื่องนี้ถูกต้องกว่า แล้วอัปโหลดข้อมูลเครื่องนี้ขึ้นไปแทนเพื่อกู้คืนคลาวด์
-          cloudStatus = "conflict";
           console.warn("ข้อมูลบนคลาวด์น้อยผิดปกติเทียบกับเครื่องนี้ ข้ามการดึงข้อมูลมาทับ และอัปโหลดข้อมูลเครื่องนี้ขึ้นไปแทน");
           await pushToCloud();
+          // pushToCloud() จะตั้งสถานะเป็น "synced" ถ้าสำเร็จ แต่กรณีนี้อยากให้ผู้ใช้เห็นชัดๆ ว่ามีการตรวจพบความผิดปกติและกู้คืนให้แล้ว
+          // จึงคงสถานะเป็น "conflict" ไว้ (เว้นแต่การอัปโหลดกู้คืนจะล้มเหลว ซึ่งสถานะ "error" สำคัญกว่าต้องแสดงแทน)
+          if (cloudStatus !== "error") cloudStatus = "conflict";
         } else if (hasUnsavedLocalChange) {
           // มีการบันทึกข้อมูลในเครื่องนี้ (เช่น ขายสินค้า) ระหว่างที่กำลังดึงข้อมูลจากคลาวด์ครั้งแรกอยู่
           // ถือว่าข้อมูลในเครื่องใหม่กว่าข้อมูลที่เพิ่งดึงมา ไม่ทับข้อมูลเครื่อง แต่อัปโหลดข้อมูลเครื่องขึ้นคลาวด์แทนเพื่อกันข้อมูลหาย
