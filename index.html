@@ -784,7 +784,9 @@ function createDB(storageKey) {
     }
     const parts = list.map((s) => {
       const acct = getBankAccount(s.account_id);
-      return acct ? `${acct.bank_name} ${acct.account_name} (${s.amount})` : "";
+      if (!acct) return "";
+      const label = acct.is_cash ? "เงินสด" : `${acct.bank_name} - ${acct.account_name}`;
+      return `${label} (${s.amount})`;
     }).filter(Boolean);
     return { bank_name: parts.join(", "), bank_account_name: "" };
   }
@@ -1946,11 +1948,11 @@ if (typeof module !== "undefined") {
     sel.value = selectedValue !== undefined && selectedValue !== null ? String(selectedValue) : (options[0] ? options[0].value : "");
     return sel;
   }
-  // ช่องเลือกบัญชีธนาคาร (ไม่รวมบัญชีเงินสด เพราะกรณีเงินสดจะผูกบัญชีเงินสดให้อัตโนมัติ) สำหรับตอนรับโอนเงิน/จ่ายเงินโอน
+  // ช่องเลือกบัญชี (รวมบัญชีเงินสดด้วย) สำหรับตอนรับโอนเงิน/จ่ายเงินโอน เพื่อรองรับกรณีจ่ายผสม (เงินสดบางส่วน + โอนบางส่วน)
   function buildBankAccountSelect(selectedAccountId) {
-    const accounts = DB.getBankAccounts().filter((a) => !a.is_cash);
+    const accounts = DB.getBankAccounts();
     const options = [{ value: "", label: "-- เลือกบัญชี --" }].concat(
-      accounts.map((a) => ({ value: String(a.id), label: `${a.bank_name} - ${a.account_name}` }))
+      accounts.map((a) => ({ value: String(a.id), label: a.is_cash ? "เงินสด" : `${a.bank_name} - ${a.account_name}` }))
     );
     return selectInput(options, selectedAccountId ? String(selectedAccountId) : "");
   }
