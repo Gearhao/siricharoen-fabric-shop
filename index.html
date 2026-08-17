@@ -1727,10 +1727,21 @@ function createDB(storageKey) {
   function lowStockList() {
     return getFabrics("", { onlyLowStock: true });
   }
+  // ยอดเงินสดค้างชำระ (เงินสดแต่ยังไม่จ่าย) ของลูกค้ารายหนึ่ง - ไม่รวมอยู่ใน credit_balance เพราะ credit_balance ใช้เช็ควงเงินเครดิตแยกต่างหาก
+  function getCustomerCashPendingTotal(customerId) {
+    return store.sales
+      .filter((s) => s.customer_id === customerId && s.payment_method === "เงินสดแต่ยังไม่จ่าย" && (s.paid || 0) < s.total)
+      .reduce((sum, s) => sum + (s.total - (s.paid || 0)), 0);
+  }
+  // ยอดค้างชำระรวมของลูกค้า = ยอดเครดิต (credit_balance) + ยอดเงินสดค้างจ่าย - ใช้แสดงผลเท่านั้น ไม่กระทบ credit_balance/credit_limit
+  function getCustomerTotalDue(customer) {
+    return (customer.credit_balance || 0) + getCustomerCashPendingTotal(customer.id);
+  }
   function arAging() {
     return store.customers
-      .filter((c) => c.credit_balance > 0)
-      .sort((a, b) => b.credit_balance - a.credit_balance);
+      .map((c) => Object.assign({}, c, { total_due: getCustomerTotalDue(c) }))
+      .filter((c) => c.total_due > 0)
+      .sort((a, b) => b.total_due - a.total_due);
   }
   function apAging() {
     return store.suppliers
@@ -1808,7 +1819,7 @@ function createDB(storageKey) {
     addCustomerOrder, updateCustomerOrder, deleteCustomerOrder, markCustomerOrderDone, markCustomerOrderUndone, getCustomerOrders, getCustomerOrder,
     getBankAccounts, getBankAccount, getCashAccount, createBankAccount, updateBankAccount, deleteBankAccount, adjustBankAccountBalance, getAccountMovements,
     salesSummary, cogsSummary, expensesSummary, shippingSummary, bestSellers, lowStockList,
-    arAging, apAging,
+    arAging, apAging, getCustomerCashPendingTotal, getCustomerTotalDue,
     exportBackup, exportBackupCsv, importBackup, resetAll,
     pullFromCloud, pushToCloud, setCloudSyncListener, getCloudStatus,
   };
@@ -2342,7 +2353,7 @@ if (typeof module !== "undefined") {
     const sMonth = DB.salesSummary(DB.monthStartStr(), today);
     const ar = DB.arAging();
     const ap = DB.apAging();
-    const arTotal = ar.reduce((s, c) => s + c.credit_balance, 0);
+    const arTotal = ar.reduce((s, c) => s + c.total_due, 0);
     const apTotal = ap.reduce((s, c) => s + c.credit_balance, 0);
     const pendingBackorders = DB.getBackorders().filter((b) => !b.done);
 
@@ -3045,7 +3056,7 @@ if (typeof module !== "undefined") {
   function buildCustomerSelectOptions() {
     const customers = DB.getCustomers();
     const options = [{ value: "0", label: "ลูกค้าทั่วไป (เงินสด)" }].concat(
-      customers.map((c) => ({ value: String(c.id), label: `${c.code} - ${c.name} (ค้างชำระ ${money(c.credit_balance)})` }))
+      customers.map((c) => ({ value: String(c.id), label: `${c.code} - ${c.name} (ค้างชำระ ${money(DB.getCustomerTotalDue(c))})` }))
     );
     const wrap = searchSelectInput(options, "0", "พิมพ์ชื่อ/รหัสลูกค้าเพื่อค้นหา...");
     wrap._customerId = 0;
@@ -4115,7 +4126,7 @@ if (typeof module !== "undefined") {
     const container = refs.customerTableContainer;
     clear(container);
     const customers = DB.getCustomers(customerSearch);
-    const rows = customers.map((c) => [c.code, c.name, c.phone, c.address, money(c.credit_limit), money(c.credit_balance)]);
+    const rows = customers.map((c) => [c.code, c.name, c.phone, c.address, money(c.credit_limit), money(DB.getCustomerTotalDue(c))]);
     const table = buildDataTable(["รหัสลูกค้า", "ชื่อลูกค้า", "เบอร์โทร", "ที่อยู่", "วงเงินเครดิต", "ยอดค้างชำระ"], rows, {
       actions: (idx) => {
         const c = customers[idx];
@@ -5963,7 +5974,7 @@ if (typeof module !== "undefined") {
     );
 
     clear(refs.acctArContainer);
-    refs.acctArContainer.appendChild(buildDataTable(["รหัสลูกค้า", "ชื่อลูกค้า", "ค้างชำระ"], DB.arAging().map((c) => [c.code, c.name, money(c.credit_balance)])));
+    refs.acctArContainer.appendChild(buildDataTable(["รหัสลูกค้า", "ชื่อลูกค้า", "ค้างชำระ"], DB.arAging().map((c) => [c.code, c.name, money(c.total_due)])));
     clear(refs.acctApContainer);
     refs.acctApContainer.appendChild(buildDataTable(["รหัสผู้จัดจำหน่าย", "ชื่อซัพพลายเออร์", "ค้างจ่าย"], DB.apAging().map((s) => [s.code, s.name, money(s.credit_balance)])));
   }
