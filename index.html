@@ -2285,7 +2285,7 @@ if (typeof module !== "undefined") {
     return out;
   }
   // สร้างไฟล์ .xlsx แบบหลาย worksheet (1 worksheet ต่อ 1 หน้าเมนู) จากข้อมูลที่ DB.exportBackupPages() จัดกลุ่มไว้ให้แล้ว
-  function downloadBackupXlsx(filename) {
+  async function downloadBackupXlsx(filename) {
     const pages = DB.exportBackupPages();
     const wb = global.XLSX.utils.book_new();
     const usedNames = new Set();
@@ -2303,6 +2303,25 @@ if (typeof module !== "undefined") {
       usedNames.add(sheetName);
       global.XLSX.utils.book_append_sheet(wb, ws, sheetName);
     });
+
+    const xlsxMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    if (global.showSaveFilePicker) {
+      try {
+        const handle = await global.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: "ไฟล์ XLSX", accept: { [xlsxMime]: [".xlsx"] } }],
+        });
+        const buf = global.XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        const blob = new global.Blob([buf], { type: xlsxMime });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        return;
+      } catch (e) {
+        if (e && e.name === "AbortError") return; // ผู้ใช้กดยกเลิกหน้าต่างเลือกตำแหน่งเซฟ
+        // ถ้าใช้ไม่ได้ด้วยเหตุอื่น ให้ตกไปใช้วิธีดาวน์โหลดปกติด้านล่างแทน
+      }
+    }
     global.XLSX.writeFile(wb, filename);
   }
 
