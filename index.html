@@ -1838,7 +1838,13 @@ function createDB(storageKey) {
     if (!items || !items.length) return "";
     return items
       .map((it) => {
-        const label = [it.code, it.name].filter(Boolean).join(" ").trim() || (it.is_misc ? "รายการฝากซื้อ" : "");
+        let label = [it.code, it.name].filter(Boolean).join(" ").trim();
+        if (!label && !it.is_misc && it.fabric_id) {
+          // รายการเก่าบางรายการยังไม่มี code/name เก็บไว้ที่ตัว item เอง ให้ย้อนไปหาจากตารางผ้าแทน
+          const f = getFabric(it.fabric_id);
+          if (f) label = [f.code, f.name].filter(Boolean).join(" ").trim();
+        }
+        if (!label) label = it.is_misc ? "รายการฝากซื้อ" : "(ไม่พบข้อมูลผ้า)";
         const qtyUnit = `${it.qty}${it.unit ? " " + it.unit : ""}`;
         const sub = it.subtotal !== undefined && it.subtotal !== null ? it.subtotal : it.qty * it.unit_price;
         let line = `${label} ${qtyUnit} x ${fmtMoneyForBackup(it.unit_price)} = ${fmtMoneyForBackup(sub)}`;
