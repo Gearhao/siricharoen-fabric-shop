@@ -3504,6 +3504,7 @@ if (typeof module !== "undefined") {
     }
     lines.push("-".repeat(40));
     lines.push("ขอบคุณที่ใช้บริการ");
+    const linesNoSign = lines.slice();
     lines.push("");
     lines.push("");
     lines.push("ลงชื่อ..................................... ผู้ส่งสินค้า");
@@ -3515,8 +3516,12 @@ if (typeof module !== "undefined") {
       lines.push("");
       lines.push("-".repeat(40));
       lines.push(`หมายเหตุ: ${sale.note}`);
+      linesNoSign.push("");
+      linesNoSign.push("-".repeat(40));
+      linesNoSign.push(`หมายเหตุ: ${sale.note}`);
     }
     const text = lines.join("\n");
+    const textForCopy = linesNoSign.join("\n");
 
     // -------- HTML table version (สำหรับแสดงตัวอย่าง/พิมพ์) --------
     const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -3611,7 +3616,7 @@ if (typeof module !== "undefined") {
         ${sale.note ? `<div style="text-align:left;font-size:12px;color:#111;margin-top:16px;padding-top:8px;border-top:1px dashed #999;">หมายเหตุ: ${esc(sale.note)}</div>` : ""}
       </div>`;
 
-    return { docTitle, text, html };
+    return { docTitle, text, textForCopy, html };
   }
 
   function showReceiptModal(sale, custId, cartItems) {
@@ -3634,7 +3639,7 @@ if (typeof module !== "undefined") {
       {
         class: "btn",
         onClick: () => {
-          copyTextToClipboard(current.text)
+          copyTextToClipboard(current.textForCopy)
             .then(() => {
               const original = "คัดลอกข้อความใบเสร็จ";
               copyBtn.textContent = "คัดลอกแล้ว ✓";
