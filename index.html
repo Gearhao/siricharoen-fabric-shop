@@ -445,6 +445,7 @@ p { line-height: 1.6; }
 </div>
 <noscript>โปรแกรมนี้ต้องเปิดใช้งาน JavaScript ในเบราว์เซอร์ กรุณาเปิดใช้งานแล้วโหลดหน้านี้ใหม่</noscript>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ===== การเชื่อมต่อคลาวด์ (Supabase) =====
 // โปรเจกต์: siricharoen-fabric-shop (เฉพาะไฟล์ "ไม่มี VAT" นี้เท่านั้น)
@@ -1798,9 +1799,9 @@ function createDB(storageKey) {
     rows.forEach((r) => lines.push(keys.map((k) => csvCell(r ? r[k] : "")).join(",")));
     return lines.join("\r\n") + "\r\n";
   }
-  // สำรองข้อมูลเป็น CSV (สำหรับเปิดดู/ตรวจสอบใน Excel เท่านั้น ไม่รองรับการนำเข้ากลับ ใช้ไฟล์ .json สำหรับกู้คืนข้อมูล)
-  function exportBackupCsv() {
-    const pages = [
+  // จัดกลุ่มตารางข้อมูลเป็นหมวดตามหน้าเมนูของโปรแกรม (เรียงลำดับตาม TABS) ใช้ร่วมกันทั้งการ export เป็น .csv และ .xlsx (หลาย worksheet)
+  function buildBackupPages() {
+    return [
       ["ข้อมูลร้าน", [["ข้อมูลร้าน (shopInfo)", [store.shopInfo]]]],
       ["ขายสินค้า", [
         ["บิลขาย (sales)", store.sales],
@@ -1825,6 +1826,29 @@ function createDB(storageKey) {
         ["หมวดรายจ่าย (expenseCategories)", store.expenseCategories],
       ]],
     ];
+  }
+  // ให้หน้า UI นำไปสร้างไฟล์ .xlsx แบบหลาย worksheet เอง (แปลงค่าที่เป็น object/array ซ้อนให้เป็นข้อความอ่านง่ายไว้ล่วงหน้าแล้ว
+  // เหลือแค่ตัวเลข/ข้อความ/ว่าง ที่ SheetJS ใส่ลงเซลล์ได้ตรงๆ)
+  function exportBackupPages() {
+    const pages = buildBackupPages();
+    return pages.map(([pageTitle, sections]) => [
+      pageTitle,
+      sections.map(([title, rows]) => [
+        title,
+        (rows || []).map((r) => {
+          const out = {};
+          Object.keys(r || {}).forEach((k) => {
+            const v = r[k];
+            out[k] = v && typeof v === "object" ? csvNestedToReadable(v) : v;
+          });
+          return out;
+        }),
+      ]),
+    ]);
+  }
+  // สำรองข้อมูลเป็น CSV (สำหรับเปิดดู/ตรวจสอบใน Excel เท่านั้น ไม่รองรับการนำเข้ากลับ ใช้ไฟล์ .json สำหรับกู้คืนข้อมูล)
+  function exportBackupCsv() {
+    const pages = buildBackupPages();
     const bar = "=".repeat(50);
     const pageBlocks = pages.map(([pageTitle, sections]) => {
       const header = `${bar}\r\nหน้า: ${pageTitle}\r\n${bar}`;
@@ -1861,7 +1885,7 @@ function createDB(storageKey) {
     getBankAccounts, getBankAccount, getCashAccount, createBankAccount, updateBankAccount, deleteBankAccount, adjustBankAccountBalance, getAccountMovements,
     salesSummary, cogsSummary, expensesSummary, shippingSummary, bestSellers, lowStockList,
     arAging, apAging, getCustomerCashPendingTotal, getCustomerTotalDue,
-    exportBackup, exportBackupCsv, importBackup, resetAll,
+    exportBackup, exportBackupCsv, exportBackupPages, importBackup, resetAll,
     pullFromCloud, pushToCloud, setCloudSyncListener, getCloudStatus,
   };
 }
@@ -2212,6 +2236,44 @@ if (typeof module !== "undefined") {
     a.click();
     global.document.body.removeChild(a);
     global.URL.revokeObjectURL(url);
+  }
+
+  // แปลงหนึ่งตาราง (หัวข้อ + rows ที่ DB.exportBackupPages() เตรียมไว้แล้ว) ให้เป็น array-of-arrays สำหรับใส่ใน worksheet
+  function backupSectionToAoa(title, rows) {
+    const out = [[`## ${title} ##`]];
+    if (!rows || rows.length === 0) {
+      out.push(["(ไม่มีข้อมูล)"]);
+      out.push([]);
+      return out;
+    }
+    const keySet = new Set();
+    rows.forEach((r) => Object.keys(r || {}).forEach((k) => keySet.add(k)));
+    const keys = Array.from(keySet);
+    out.push(keys);
+    rows.forEach((r) => out.push(keys.map((k) => (r && r[k] !== undefined && r[k] !== null ? r[k] : ""))));
+    out.push([]);
+    return out;
+  }
+  // สร้างไฟล์ .xlsx แบบหลาย worksheet (1 worksheet ต่อ 1 หน้าเมนู) จากข้อมูลที่ DB.exportBackupPages() จัดกลุ่มไว้ให้แล้ว
+  function downloadBackupXlsx(filename) {
+    const pages = DB.exportBackupPages();
+    const wb = global.XLSX.utils.book_new();
+    const usedNames = new Set();
+    pages.forEach(([pageTitle, sections]) => {
+      let aoa = [];
+      sections.forEach(([title, rows]) => {
+        aoa = aoa.concat(backupSectionToAoa(title, rows));
+      });
+      const ws = global.XLSX.utils.aoa_to_sheet(aoa);
+      let sheetName = pageTitle.slice(0, 31);
+      let i = 2;
+      while (usedNames.has(sheetName)) {
+        sheetName = `${pageTitle.slice(0, 28)}(${i++})`;
+      }
+      usedNames.add(sheetName);
+      global.XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+    global.XLSX.writeFile(wb, filename);
   }
 
   function printReceiptHtml(html) {
@@ -6342,6 +6404,7 @@ if (typeof module !== "undefined") {
     const formatSelect = selectInput(
       [
         { value: "json", label: ".json (ใช้กู้คืนข้อมูลได้)" },
+        { value: "xlsx", label: ".xlsx (แยก worksheet ตามหน้าเมนู สำหรับเปิดดูใน Excel)" },
         { value: "csv", label: ".csv (สำหรับเปิดดูใน Excel เท่านั้น)" },
       ],
       "json"
@@ -6351,7 +6414,9 @@ if (typeof module !== "undefined") {
       {
         class: "btn",
         onClick: () => {
-          if (formatSelect.value === "csv") {
+          if (formatSelect.value === "xlsx") {
+            downloadBackupXlsx(`siricharoen_backup_${DB.todayStr()}.xlsx`);
+          } else if (formatSelect.value === "csv") {
             downloadTextFile(`siricharoen_backup_${DB.todayStr()}.csv`, DB.exportBackupCsv());
           } else {
             downloadTextFile(`siricharoen_backup_${DB.todayStr()}.json`, DB.exportBackup());
@@ -6404,7 +6469,7 @@ if (typeof module !== "undefined") {
       el("p", { text: "ควรดาวน์โหลดไฟล์สำรองข้อมูลเก็บไว้เป็นระยะ เผื่อกรณีเบราว์เซอร์ล้างข้อมูลหรือเปลี่ยนเครื่อง" }),
       formField("ประเภทไฟล์", formatSelect),
       exportBtn,
-      el("p", { class: "muted", style: { fontSize: "13px" }, text: "หมายเหตุ: ไฟล์ .csv ใช้สำหรับเปิดดู/ตรวจสอบข้อมูลเท่านั้น การนำเข้ากู้คืนข้อมูลด้านล่างต้องใช้ไฟล์ .json เท่านั้น" }),
+      el("p", { class: "muted", style: { fontSize: "13px" }, text: "หมายเหตุ: ไฟล์ .xlsx และ .csv ใช้สำหรับเปิดดู/ตรวจสอบข้อมูลเท่านั้น (ไฟล์ .xlsx แบ่งเป็น worksheet ตามหน้าเมนู) การนำเข้ากู้คืนข้อมูลด้านล่างต้องใช้ไฟล์ .json เท่านั้น" }),
       el("hr"),
       el("p", { text: "นำเข้าข้อมูลจากไฟล์สำรอง (จะเขียนทับข้อมูลปัจจุบัน)" }),
       fileInput,
