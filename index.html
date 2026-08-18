@@ -1772,9 +1772,18 @@ function createDB(storageKey) {
     return JSON.stringify(store, null, 2);
   }
   // ช่วยแปลงค่าช่องหนึ่งให้เป็นข้อความปลอดภัยสำหรับ CSV (ค่าที่เป็น object/array ซ้อนอยู่ข้างในจะถูกแปลงเป็น JSON ในช่องเดียว)
+  function csvNestedToReadable(v) {
+    if (Array.isArray(v)) return v.map(csvNestedToReadable).join(" | ");
+    if (v && typeof v === "object") {
+      return Object.entries(v)
+        .map(([k, val]) => `${k}=${val && typeof val === "object" ? csvNestedToReadable(val) : val}`)
+        .join(" ");
+    }
+    return String(v);
+  }
   function csvCell(v) {
     if (v === undefined || v === null) return "";
-    if (typeof v === "object") v = JSON.stringify(v);
+    if (typeof v === "object") v = csvNestedToReadable(v);
     const s = String(v);
     if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) return '"' + s.replace(/"/g, '""') + '"';
     return s;
