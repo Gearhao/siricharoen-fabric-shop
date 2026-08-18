@@ -1827,6 +1827,26 @@ function createDB(storageKey) {
       ]],
     ];
   }
+  function fmtMoneyForBackup(x) {
+    const n = Number(x);
+    if (isNaN(n)) return "0.00";
+    return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  // จัดรายการสินค้าในบิลขายให้อ่านง่ายแบบเดียวกับที่โปรแกรมแสดงในตะกร้า/ใบเสร็จ (รหัส ชื่อ จำนวน หน่วย x ราคา = ยอดรวม)
+  // แทนที่จะ dump ทุก field ดิบๆ (fabric_id, stock_qty, is_misc ฯลฯ) ที่อ่านยาก
+  function formatSaleItemsReadable(items) {
+    if (!items || !items.length) return "";
+    return items
+      .map((it) => {
+        const label = [it.code, it.name].filter(Boolean).join(" ").trim() || (it.is_misc ? "รายการฝากซื้อ" : "");
+        const qtyUnit = `${it.qty}${it.unit ? " " + it.unit : ""}`;
+        const sub = it.subtotal !== undefined && it.subtotal !== null ? it.subtotal : it.qty * it.unit_price;
+        let line = `${label} ${qtyUnit} x ${fmtMoneyForBackup(it.unit_price)} = ${fmtMoneyForBackup(sub)}`;
+        if (it.note) line += ` (${it.note})`;
+        return line;
+      })
+      .join("\n");
+  }
   // ให้หน้า UI นำไปสร้างไฟล์ .xlsx แบบหลาย worksheet เอง (แปลงค่าที่เป็น object/array ซ้อนให้เป็นข้อความอ่านง่ายไว้ล่วงหน้าแล้ว
   // เหลือแค่ตัวเลข/ข้อความ/ว่าง ที่ SheetJS ใส่ลงเซลล์ได้ตรงๆ)
   function exportBackupPages() {
@@ -1839,7 +1859,11 @@ function createDB(storageKey) {
           const out = {};
           Object.keys(r || {}).forEach((k) => {
             const v = r[k];
-            out[k] = v && typeof v === "object" ? csvNestedToReadable(v) : v;
+            if (title === "บิลขาย (sales)" && k === "items") {
+              out[k] = formatSaleItemsReadable(v);
+            } else {
+              out[k] = v && typeof v === "object" ? csvNestedToReadable(v) : v;
+            }
           });
           return out;
         }),
