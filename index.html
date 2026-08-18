@@ -314,6 +314,7 @@ html, body {
 
 .totals-box { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); }
 .totals-line { text-align: right; padding: 2px 0; font-size: 14px; color: var(--text-muted); }
+.stock-hint { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
 .totals-main { font-size: 18px; font-weight: 700; color: var(--primary-dark); }
 
 .edit-banner {
@@ -4297,7 +4298,9 @@ if (typeof module !== "undefined") {
       itemsContainer
     );
 
-    openModal(`ประวัติการซื้อ - ${cust.name}`, body, { wide: true });
+    const totalDue = DB.getCustomerTotalDue(cust);
+    const titleSuffix = totalDue > 0 ? ` (ค้างชำระ ${money(totalDue)})` : "";
+    openModal(`ประวัติการซื้อ - ${cust.name}${titleSuffix}`, body, { wide: true });
   }
 
   function refreshCustomerHistoryItems(purchasedItems, container) {
@@ -4875,13 +4878,22 @@ if (typeof module !== "undefined") {
       const v = fabricSelect.getMatchedValue();
       return v ? Number(v) : 0;
     };
+    // แสดงจำนวนคงเหลือในสต็อกปัจจุบันของผ้าที่กำลังจะรับเข้า ให้เห็นทันทีตอนเลือกผ้า
+    const stockHint = el("span", { class: "stock-hint", text: "" });
+    function updateStockHint() {
+      const fid = fabricSelect.getFabricId();
+      const fab = fid ? fabrics.find((f) => f.id === fid) : null;
+      stockHint.textContent = fab ? `คงเหลือในสต็อก: ${round3(fab.stock_qty)} ${fab.unit}` : "";
+    }
     fabricSelect.inputEl.addEventListener("change", () => {
       const v = fabricSelect.getMatchedValue();
       if (v === null) {
         global.alert("ไม่พบผ้าตามที่พิมพ์ กรุณาเลือกจากรายการที่ปรากฏ");
         fabricSelect.setLabel("");
+        updateStockHint();
         return;
       }
+      updateStockHint();
       addItemFromRowNow({ alertOnInvalid: false });
     });
     const qtyInput = numberInput("");
@@ -5061,6 +5073,7 @@ if (typeof module !== "undefined") {
       costInput.value = "";
       itemDiscInput.value = "";
       itemDiscUnitSelect.value = "บาท";
+      updateStockHint();
       refreshItemsTable();
       syncPurchase();
       return true;
@@ -5075,7 +5088,17 @@ if (typeof module !== "undefined") {
       "เพิ่มรายการ"
     );
 
-    const addRow = el("div", { class: "toolbar" }, fabricSelect, qtyInput, unitSelect, costInput, itemDiscRow, addItemBtn);
+    const addRow = el(
+      "div",
+      { class: "toolbar" },
+      fabricSelect,
+      stockHint,
+      qtyInput,
+      unitSelect,
+      costInput,
+      itemDiscRow,
+      addItemBtn
+    );
 
     const saveBtn = el(
       "button",
