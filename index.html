@@ -3479,8 +3479,8 @@ if (typeof module !== "undefined") {
     if (showVat) lines.push(`${("ภาษีมูลค่าเพิ่ม " + Math.round(VAT_RATE * 100) + "%").padEnd(24)}${money(sale.vat_amount).padStart(14)}`);
     if (sale.shipping_fee) lines.push(`${"ค่าจัดส่ง".padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
     lines.push(`${"ยอดสุทธิ".padEnd(24)}${money(displayTotal).padStart(14)}`);
-    lines.push(`${"รับเงิน".padEnd(24)}${money(sale.paid).padStart(14)}`);
-    lines.push(`${"เงินทอน".padEnd(24)}${money(sale.change_amt).padStart(14)}`);
+    if (sale.paid) lines.push(`${"รับเงิน".padEnd(24)}${money(sale.paid).padStart(14)}`);
+    if (sale.change_amt) lines.push(`${"เงินทอน".padEnd(24)}${money(sale.change_amt).padStart(14)}`);
     if (sale.payment_method === "โอนเงิน" && (sale.bank_name || sale.bank_account_name)) {
       lines.push(`โอนเข้าธนาคาร: ${sale.bank_name || "-"}`);
       lines.push(`ชื่อบัญชี: ${sale.bank_account_name || "-"}`);
@@ -3532,8 +3532,12 @@ if (typeof module !== "undefined") {
     summaryRows += `<tr style="border-top:1px solid #000;"><td style="padding:6px 0 2px;font-weight:bold;">ยอดสุทธิ</td><td style="padding:6px 0 2px;text-align:right;font-weight:bold;">${money(
       displayTotal
     )}</td></tr>`;
-    summaryRows += `<tr><td style="padding:2px 0;color:#555;">รับเงิน</td><td style="padding:2px 0;text-align:right;">${money(sale.paid)}</td></tr>`;
-    summaryRows += `<tr><td style="padding:2px 0;color:#555;">เงินทอน</td><td style="padding:2px 0;text-align:right;">${money(sale.change_amt)}</td></tr>`;
+    if (sale.paid) {
+      summaryRows += `<tr><td style="padding:2px 0;color:#555;">รับเงิน</td><td style="padding:2px 0;text-align:right;">${money(sale.paid)}</td></tr>`;
+    }
+    if (sale.change_amt) {
+      summaryRows += `<tr><td style="padding:2px 0;color:#555;">เงินทอน</td><td style="padding:2px 0;text-align:right;">${money(sale.change_amt)}</td></tr>`;
+    }
     if (sale.payment_method === "โอนเงิน" && (sale.bank_name || sale.bank_account_name)) {
       summaryRows += `<tr><td style="padding:2px 0;color:#555;">โอนเข้าธนาคาร</td><td style="padding:2px 0;text-align:right;">${esc(
         sale.bank_name || "-"
