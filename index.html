@@ -3529,6 +3529,14 @@ if (typeof module !== "undefined") {
       linesNoSign.push("-".repeat(40));
       linesNoSign.push(`หมายเหตุ: ${sale.note}`);
     }
+    if (cust) {
+      const totalDue = DB.getCustomerTotalDue(cust);
+      if (totalDue > 0) {
+        linesNoSign.push("");
+        linesNoSign.push("-".repeat(40));
+        linesNoSign.push(`ยอดค้างชำระสะสมทั้งหมด: ${money(totalDue)} บาท`);
+      }
+    }
     const text = lines.join("\n");
     const textForCopy = linesNoSign.join("\n");
 
