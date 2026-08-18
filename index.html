@@ -1895,8 +1895,9 @@ function createDB(storageKey) {
     ]);
   }
   // สำรองข้อมูลเป็น CSV (สำหรับเปิดดู/ตรวจสอบใน Excel เท่านั้น ไม่รองรับการนำเข้ากลับ ใช้ไฟล์ .json สำหรับกู้คืนข้อมูล)
+  // ใช้ exportBackupPages() ตัวเดียวกับที่สร้างไฟล์ .xlsx เพื่อให้คอลัมน์ items อ่านง่ายเหมือนกัน
   function exportBackupCsv() {
-    const pages = buildBackupPages();
+    const pages = exportBackupPages();
     const bar = "=".repeat(50);
     const pageBlocks = pages.map(([pageTitle, sections]) => {
       const header = `${bar}\r\nหน้า: ${pageTitle}\r\n${bar}`;
