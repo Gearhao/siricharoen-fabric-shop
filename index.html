@@ -1853,6 +1853,22 @@ function createDB(storageKey) {
       })
       .join("\n");
   }
+  // จัดรายการผ้าในใบรับสินค้าเข้าให้อ่านง่ายแบบเดียวกับที่โปรแกรมแสดง (รหัส ชื่อ จำนวน หน่วย x ราคาต้นทุน = ยอดรวม)
+  // รายการรับสินค้าเข้าเก็บแค่ fabric_id ไม่ได้เก็บ code/name/unit ไว้ที่ตัว item เอง เลยต้องย้อนไปหาจากตารางผ้าเสมอ
+  function formatPurchaseItemsReadable(items) {
+    if (!items || !items.length) return "";
+    return items
+      .map((it) => {
+        const f = it.fabric_id ? getFabric(it.fabric_id) : null;
+        const label = f ? [f.code, f.name].filter(Boolean).join(" ").trim() : "(ไม่พบข้อมูลผ้า)";
+        const qtyUnit = `${it.qty}${f && f.unit ? " " + f.unit : ""}`;
+        const sub = it.subtotal !== undefined && it.subtotal !== null ? it.subtotal : it.qty * it.unit_cost;
+        let line = `${label} ${qtyUnit} x ${fmtMoneyForBackup(it.unit_cost)} = ${fmtMoneyForBackup(sub)}`;
+        if (it.discount) line += ` (ส่วนลด ${fmtMoneyForBackup(it.discount)})`;
+        return line;
+      })
+      .join("\n");
+  }
   // ให้หน้า UI นำไปสร้างไฟล์ .xlsx แบบหลาย worksheet เอง (แปลงค่าที่เป็น object/array ซ้อนให้เป็นข้อความอ่านง่ายไว้ล่วงหน้าแล้ว
   // เหลือแค่ตัวเลข/ข้อความ/ว่าง ที่ SheetJS ใส่ลงเซลล์ได้ตรงๆ)
   function exportBackupPages() {
@@ -1867,6 +1883,8 @@ function createDB(storageKey) {
             const v = r[k];
             if (title === "บิลขาย (sales)" && k === "items") {
               out[k] = formatSaleItemsReadable(v);
+            } else if (title === "ใบรับสินค้าเข้า (purchases)" && k === "items") {
+              out[k] = formatPurchaseItemsReadable(v);
             } else {
               out[k] = v && typeof v === "object" ? csvNestedToReadable(v) : v;
             }
