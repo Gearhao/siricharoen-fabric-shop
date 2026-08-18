@@ -5,15 +5,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ร้านผ้าศิริเจริญ - ระบบจัดการร้านค้า (ไม่มี VAT)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 
 /* styles.css - โปรแกรมร้านผ้าศิริเจริญ เวอร์ชันเว็บ */
 :root {
-  --primary: #2f6fb0;
-  --primary-dark: #1f4f80;
-  --primary-light: #e8f1fb;
-  --accent: #c9932f;
-  --bg: #f5f8fb;
+  --primary: #1f5c94;
+  --primary-dark: #123a5e;
+  --primary-light: #e5edf5;
+  --accent: #0a1420;
+  --bg: #eef1f5;
   --panel-bg: #ffffff;
   --border: #dbe4ee;
   --text: #22303f;
@@ -21,6 +24,12 @@
   --danger: #c0392b;
   --success: #2e8b57;
   --radius: 10px;
+  --sidebar-bg-top: #0f2338;
+  --sidebar-bg-bottom: #060d16;
+  --sidebar-bg-active: #16324f;
+  --sidebar-text: #9db3c9;
+  --sidebar-text-active: #ffffff;
+  --sidebar-border: rgba(255,255,255,0.08);
 }
 
 .vat-theme {
@@ -47,43 +56,58 @@ html, body {
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: "Sarabun", "Tahoma", "Leelawadee UI", "Segoe UI", sans-serif;
+  font-family: "Kanit", "Sarabun", "Tahoma", "Leelawadee UI", "Segoe UI", sans-serif;
   font-size: 15px;
 }
 
 .app {
   display: flex;
+  flex-direction: row;
+  min-height: 100vh;
+}
+
+.app-sidebar {
+  width: 232px;
+  flex-shrink: 0;
+  display: flex;
   flex-direction: column;
+  background: linear-gradient(180deg, var(--sidebar-bg-top), var(--sidebar-bg-bottom));
   min-height: 100vh;
 }
 
 .app-header {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: #fff;
-  padding: 14px 22px;
+  padding: 22px 18px 14px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 10px;
 }
-.shop-title { display: flex; align-items: center; gap: 12px; }
-.shop-title h1 { font-size: 20px; margin: 0; font-weight: 700; }
+.shop-title { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.shop-title h1 { font-size: 18px; margin: 0; font-weight: 600; line-height: 1.3; }
 .badge {
-  background: rgba(255,255,255,0.2);
-  border: 1px solid rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.22);
   padding: 3px 10px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11.5px;
+  color: #cfe0f0;
 }
-.header-actions { display: flex; gap: 8px; }
+.header-actions { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 4px; }
+.header-actions .btn { width: 100%; text-align: left; }
 
 .tabs {
   display: flex;
-  background: #fff;
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-  flex-wrap: wrap;
+  flex-direction: column;
+  background: transparent;
+  border-bottom: none;
+  border-top: 1px solid var(--sidebar-border);
+  overflow-x: visible;
+  overflow-y: auto;
+  flex-wrap: nowrap;
+  flex: 1;
+  padding: 10px 12px 16px;
+  gap: 2px;
 }
 .tab-btn {
   background: transparent;
@@ -98,12 +122,65 @@ html, body {
 }
 .tab-btn:hover { color: var(--primary-dark); background: var(--primary-light); }
 .tab-btn.active { color: var(--primary-dark); border-bottom-color: var(--primary); font-weight: 700; }
+.tabs .tab-btn {
+  border-bottom: none;
+  border-left: 3px solid transparent;
+  border-radius: 0 6px 6px 0;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--sidebar-text);
+  text-align: left;
+}
+.tabs .tab-btn:hover { color: #fff; background: rgba(255,255,255,0.06); }
+.tabs .tab-btn.active {
+  color: var(--sidebar-text-active);
+  background: var(--sidebar-bg-active);
+  border-left-color: #4a90d9;
+  font-weight: 500;
+}
 .tab-badge {
   display: inline-block; margin-left: 6px; background: var(--danger); color: #fff;
   font-size: 11px; font-weight: 700; line-height: 1; padding: 3px 6px; border-radius: 999px; vertical-align: middle;
 }
 
-.tab-content-wrap { flex: 1; }
+.tab-content-wrap { flex: 1; min-width: 0; }
+.tab-section { padding: 0; }
+.section-inner { padding: 18px 22px; max-width: 1400px; margin: 0 auto; }
+
+/* จอเล็ก/แท็บเล็ต: ยุบแถบเมนูข้างกลับมาเป็นแถบด้านบนแนวนอนเหมือนเดิม */
+@media (max-width: 860px) {
+  .app { flex-direction: column; }
+  .app-sidebar {
+    width: 100%;
+    min-height: auto;
+    flex-direction: column;
+  }
+  .app-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    gap: 10px;
+  }
+  .shop-title { flex-direction: row; align-items: center; }
+  .header-actions { flex-direction: row; width: auto; margin-top: 0; }
+  .header-actions .btn { width: auto; }
+  .tabs {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: visible;
+    flex-wrap: nowrap;
+    padding: 6px 10px 10px;
+    border-top: 1px solid var(--sidebar-border);
+  }
+  .tabs .tab-btn {
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 6px;
+  }
+  .tabs .tab-btn.active { border-left: none; border-bottom-color: #4a90d9; }
+}
 .tab-section { padding: 0; }
 .section-inner { padding: 18px 22px; max-width: 1400px; margin: 0 auto; }
 
@@ -2225,10 +2302,10 @@ if (typeof module !== "undefined") {
   const TABS = [
     { key: "dashboard", label: "หน้าหลัก" },
     { key: "pos", label: "ขายสินค้า" },
+    { key: "purchases", label: "รับสินค้าเข้า" },
     { key: "stock", label: "คลังผ้า" },
     { key: "customers", label: "ลูกค้า" },
     { key: "suppliers", label: "ซัพพลายเออร์" },
-    { key: "purchases", label: "รับสินค้าเข้า" },
       { key: "backorders", label: "รายการรอสินค้า" },
     { key: "customerOrders", label: "ลูกค้าสั่งผ้า" },
     { key: "accounting", label: "บัญชี" },
@@ -2339,7 +2416,8 @@ if (typeof module !== "undefined") {
       main.appendChild(sec);
     });
 
-    const root = el("div", { class: "app" }, header, nav, main);
+    const sidebar = el("div", { class: "app-sidebar" }, header, nav);
+    const root = el("div", { class: "app" }, sidebar, main);
     return root;
   }
 
