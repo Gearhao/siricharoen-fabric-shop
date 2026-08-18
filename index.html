@@ -2880,7 +2880,14 @@ if (typeof module !== "undefined") {
         {},
         saleNoCell,
         el("td", { text: fmtDate(s.date) }),
-        el("td", { text: c ? c.name : "ลูกค้าทั่วไป" }),
+        el("td", {
+          text:
+            c && DB.getCustomerTotalDue(c) > 0
+              ? `${c.name} (ค้างชำระ ${money(DB.getCustomerTotalDue(c))})`
+              : c
+              ? c.name
+              : "ลูกค้าทั่วไป",
+        }),
         el("td", { text: s.vat_amount ? money(s.vat_amount) : "-" }),
         totalCell,
         statusCell,
