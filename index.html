@@ -1800,24 +1800,38 @@ function createDB(storageKey) {
   }
   // สำรองข้อมูลเป็น CSV (สำหรับเปิดดู/ตรวจสอบใน Excel เท่านั้น ไม่รองรับการนำเข้ากลับ ใช้ไฟล์ .json สำหรับกู้คืนข้อมูล)
   function exportBackupCsv() {
-    const sections = [
-      ["ข้อมูลร้าน (shopInfo)", [store.shopInfo]],
-      ["ซัพพลายเออร์ (suppliers)", store.suppliers],
-      ["ลูกค้า (customers)", store.customers],
-      ["ผ้า-สินค้า (fabrics)", store.fabrics],
-      ["บิลขาย (sales)", store.sales],
-      ["ใบรับสินค้าเข้า (purchases)", store.purchases],
-      ["การชำระเงินลูกค้า (customerPayments)", store.customerPayments],
-      ["การชำระเงินซัพพลายเออร์ (supplierPayments)", store.supplierPayments],
-      ["รายจ่าย (expenses)", store.expenses],
-      ["หมวดรายจ่าย (expenseCategories)", store.expenseCategories],
-      ["ประวัติการปรับสต็อก (stockMovements)", store.stockMovements],
-      ["รายการรอสินค้า (backorders)", store.backorders],
-      ["บัญชีธนาคาร-เงินสด (bankAccounts)", store.bankAccounts],
-      ["ความเคลื่อนไหวบัญชี (accountMovements)", store.accountMovements],
-      ["คำสั่งซื้อออนไลน์ (customerOrders)", store.customerOrders],
+    const pages = [
+      ["ข้อมูลร้าน", [["ข้อมูลร้าน (shopInfo)", [store.shopInfo]]]],
+      ["ขายสินค้า", [
+        ["บิลขาย (sales)", store.sales],
+        ["การชำระเงินลูกค้า (customerPayments)", store.customerPayments],
+      ]],
+      ["รับสินค้าเข้า", [
+        ["ใบรับสินค้าเข้า (purchases)", store.purchases],
+        ["การชำระเงินซัพพลายเออร์ (supplierPayments)", store.supplierPayments],
+      ]],
+      ["คลังผ้า", [
+        ["ผ้า-สินค้า (fabrics)", store.fabrics],
+        ["ประวัติการปรับสต็อก (stockMovements)", store.stockMovements],
+      ]],
+      ["ลูกค้า", [["ลูกค้า (customers)", store.customers]]],
+      ["ซัพพลายเออร์", [["ซัพพลายเออร์ (suppliers)", store.suppliers]]],
+      ["รายการรอสินค้า", [["รายการรอสินค้า (backorders)", store.backorders]]],
+      ["ลูกค้าสั่งผ้า", [["คำสั่งซื้อออนไลน์ (customerOrders)", store.customerOrders]]],
+      ["บัญชี", [
+        ["บัญชีธนาคาร-เงินสด (bankAccounts)", store.bankAccounts],
+        ["ความเคลื่อนไหวบัญชี (accountMovements)", store.accountMovements],
+        ["รายจ่าย (expenses)", store.expenses],
+        ["หมวดรายจ่าย (expenseCategories)", store.expenseCategories],
+      ]],
     ];
-    return "﻿" + sections.map(([title, rows]) => csvSection(title, rows)).join("\r\n");
+    const bar = "=".repeat(50);
+    const pageBlocks = pages.map(([pageTitle, sections]) => {
+      const header = `${bar}\r\nหน้า: ${pageTitle}\r\n${bar}`;
+      const body = sections.map(([title, rows]) => csvSection(title, rows)).join("\r\n");
+      return `${header}\r\n${body}`;
+    });
+    return "﻿" + pageBlocks.join("\r\n");
   }
   function importBackup(json) {
     const data = JSON.parse(json);
