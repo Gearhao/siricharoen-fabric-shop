@@ -1785,8 +1785,11 @@ function createDB(storageKey) {
   function csvCell(v) {
     if (v === undefined || v === null) return "";
     if (typeof v === "object") v = csvNestedToReadable(v);
-    const s = String(v);
-    if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) return '"' + s.replace(/"/g, '""') + '"';
+    let s = String(v);
+    // แปลงขึ้นบรรทัดใหม่ในเซลล์ (เช่นรายการสินค้าหลายบรรทัด) ให้เป็นตัวคั่น " | " แทน เพราะเซลล์หลายบรรทัดใน .csv
+    // มักแสดงผลไม่ถูกต้องเมื่อเปิดใน Excel/โปรแกรมดู CSV บางตัว ทำให้อ่านยาก
+    s = s.replace(/\r\n|\r|\n/g, " | ");
+    if (s.includes(",") || s.includes('"')) return '"' + s.replace(/"/g, '""') + '"';
     return s;
   }
   // สร้าง CSV หนึ่งส่วน (หนึ่งตาราง) จากอาร์เรย์ของ object โดยรวมทุกคีย์ที่พบในแถวใดๆ มาเป็นหัวตาราง
