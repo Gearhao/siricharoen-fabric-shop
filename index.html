@@ -3617,8 +3617,9 @@ if (typeof module !== "undefined") {
       ? "ใบกำกับภาษีอย่างย่อ / ใบเสร็จรับเงิน"
       : "ใบเสร็จรับเงิน";
     const custName = cust ? cust.name : "ลูกค้าทั่วไป";
-    // ยอดสุทธิรวมค่าจัดส่งเสมอ (ถ้ามีค่าจัดส่ง) ทั้งใบส่งสินค้า VAT และเอกสารประเภทอื่น
-    const displayTotal = sale.total;
+    // สำหรับใบส่งสินค้าที่เป็นบิล VAT: แยกค่าจัดส่งออกจากยอดสุทธิ เพราะลูกค้าต้องโอนเงินค่าสินค้ากับค่าส่งแยกกัน
+    const excludeShippingFromTotal = isDeliveryDoc && showVat;
+    const displayTotal = excludeShippingFromTotal ? sale.total - (sale.shipping_fee || 0) : sale.total;
 
     // -------- plain text version (สำหรับดาวน์โหลดไฟล์ .txt) --------
     const lines = [];
@@ -3642,8 +3643,12 @@ if (typeof module !== "undefined") {
     lines.push(`${"ยอดรวมก่อนหักส่วนลด".padEnd(24)}${money(sale.subtotal).padStart(14)}`);
     if (sale.discount) lines.push(`${"ส่วนลด".padEnd(24)}${money(sale.discount).padStart(14)}`);
     if (showVat) lines.push(`${("ภาษีมูลค่าเพิ่ม " + Math.round(VAT_RATE * 100) + "%").padEnd(24)}${money(sale.vat_amount).padStart(14)}`);
-    if (sale.shipping_fee) lines.push(`${"ค่าจัดส่ง".padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
+    if (!excludeShippingFromTotal && sale.shipping_fee) lines.push(`${"ค่าจัดส่ง".padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
     lines.push(`${"ยอดสุทธิ".padEnd(24)}${money(displayTotal).padStart(14)}`);
+    if (excludeShippingFromTotal && sale.shipping_fee) {
+      lines.push("-".repeat(40));
+      lines.push(`${"ค่าจัดส่ง (ชำระแยกต่างหาก)".padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
+    }
     if (sale.paid) lines.push(`${"รับเงิน".padEnd(24)}${money(sale.paid).padStart(14)}`);
     if (sale.change_amt) lines.push(`${"เงินทอน".padEnd(24)}${money(sale.change_amt).padStart(14)}`);
     if (sale.payment_method === "โอนเงิน" && (sale.bank_name || sale.bank_account_name)) {
@@ -3704,12 +3709,17 @@ if (typeof module !== "undefined") {
         VAT_RATE * 100
       )}%</td><td style="padding:2px 0;text-align:right;">${money(sale.vat_amount)}</td></tr>`;
     }
-    if (sale.shipping_fee) {
+    if (!excludeShippingFromTotal && sale.shipping_fee) {
       summaryRows += `<tr><td style="padding:2px 0;color:#555;">ค่าจัดส่ง</td><td style="padding:2px 0;text-align:right;">${money(sale.shipping_fee)}</td></tr>`;
     }
     summaryRows += `<tr style="border-top:1px solid #000;"><td style="padding:6px 0 2px;font-weight:bold;">ยอดสุทธิ</td><td style="padding:6px 0 2px;text-align:right;font-weight:bold;">${money(
       displayTotal
     )}</td></tr>`;
+    if (excludeShippingFromTotal && sale.shipping_fee) {
+      summaryRows += `<tr style="border-top:1px dashed #999;"><td style="padding:6px 0 2px;color:#555;">ค่าจัดส่ง (ชำระแยกต่างหาก)</td><td style="padding:6px 0 2px;text-align:right;">${money(
+        sale.shipping_fee
+      )}</td></tr>`;
+    }
     if (sale.paid) {
       summaryRows += `<tr><td style="padding:2px 0;color:#555;">รับเงิน</td><td style="padding:2px 0;text-align:right;">${money(sale.paid)}</td></tr>`;
     }
