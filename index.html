@@ -6748,7 +6748,7 @@ if (typeof global.window !== "undefined") {
     if (global.document.readyState === "loading") {
       global.document.addEventListener("DOMContentLoaded", bootWithAuth);
     } else {
-      bootWithAuth);
+      bootWithAuth();
     }
   }
 })(typeof window !== "undefined" ? window : global);
