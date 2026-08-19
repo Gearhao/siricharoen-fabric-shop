@@ -3617,9 +3617,8 @@ if (typeof module !== "undefined") {
       ? "ใบกำกับภาษีอย่างย่อ / ใบเสร็จรับเงิน"
       : "ใบเสร็จรับเงิน";
     const custName = cust ? cust.name : "ลูกค้าทั่วไป";
-    // สำหรับใบส่งสินค้าที่เป็นบิล VAT: แยกค่าจัดส่งออกจากยอดสุทธิ ไม่รวมเข้าไปในยอดสุทธิ
-    const excludeShippingFromTotal = isDeliveryDoc && showVat;
-    const displayTotal = excludeShippingFromTotal ? sale.total - (sale.shipping_fee || 0) : sale.total;
+    // ยอดสุทธิรวมค่าจัดส่งเสมอ (ถ้ามีค่าจัดส่ง) ทั้งใบส่งสินค้า VAT และเอกสารประเภทอื่น
+    const displayTotal = sale.total;
 
     // -------- plain text version (สำหรับดาวน์โหลดไฟล์ .txt) --------
     const lines = [];
