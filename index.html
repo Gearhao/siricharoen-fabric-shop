@@ -3850,13 +3850,23 @@ if (typeof module !== "undefined") {
     return "BV" + d + seq;
   }
 
-  function buildBillingStatementDoc(cust, shop, sales, dueDateStr) {
+  function buildBillingStatementDoc(cust, shop, sales, dueDateStr, note) {
     const docNo = genBillingNo();
     const custName = cust ? cust.name : "ลูกค้าทั่วไป";
     const custAddress = cust && cust.address ? cust.address : "";
-    const grandTotal = sales.reduce((sum, s) => sum + (s.total || 0), 0);
+    // บิลที่เป็นแว็ดและมีค่าจัดส่ง: แยกค่าส่งออกจากยอดของบิลนั้น แล้วไปสรุปรวมเป็นบรรทัดแยกด้านล่าง
+    // (เพราะลูกค้าต้องโอนเงินค่าส่งแยกต่างหาก เหมือนใบส่งสินค้าที่เป็นแว็ด)
+    const rowsData = sales.map((s) => {
+      const isVatShip = !!s.is_vat && (s.shipping_fee || 0) > 0;
+      const shipAmt = isVatShip ? s.shipping_fee : 0;
+      const lineAmt = (s.total || 0) - shipAmt;
+      return { sale: s, lineAmt, shipAmt };
+    });
+    const grandTotal = rowsData.reduce((sum, r) => sum + r.lineAmt, 0);
+    const shippingTotal = rowsData.reduce((sum, r) => sum + r.shipAmt, 0);
     const todayDisplay = fmtDate(DB.todayStr());
     const dueDateDisplay = dueDateStr ? fmtDate(dueDateStr) : "";
+    const noteTrimmed = note ? String(note).trim() : "";
 
     const lines = [];
     if (shop.tax_id) lines.push(`เลขผู้เสียภาษี: ${shop.tax_id}`);
@@ -3867,25 +3877,34 @@ if (typeof module !== "undefined") {
     lines.push(`ลูกค้า: ${custName}`);
     if (custAddress) lines.push(`ที่อยู่: ${custAddress}`);
     lines.push("-".repeat(40));
-    sales.forEach((s) => {
-      lines.push(`${String(s.sale_no).padEnd(18)}${fmtDate(s.date).padStart(12)}${money(s.total).padStart(12)}`);
+    rowsData.forEach(({ sale: s, lineAmt }) => {
+      lines.push(`${String(s.sale_no).padEnd(18)}${fmtDate(s.date).padStart(12)}${money(lineAmt).padStart(12)}`);
     });
     lines.push("-".repeat(40));
     lines.push(`${"รวมเป็นเงินทั้งสิ้น".padEnd(24)}${money(grandTotal).padStart(14)}`);
+    if (shippingTotal > 0) {
+      lines.push("-".repeat(40));
+      lines.push(`${"ค่าจัดส่งรวม (ชำระแยกต่างหาก)".padEnd(24)}${money(shippingTotal).padStart(14)}`);
+    }
     lines.push("");
     lines.push("");
     lines.push("ลงชื่อ..................................... ผู้วางบิล");
     lines.push("");
     lines.push("ลงชื่อ..................................... ผู้รับวางบิล");
+    if (noteTrimmed) {
+      lines.push("");
+      lines.push("-".repeat(40));
+      lines.push(`หมายเหตุ: ${noteTrimmed}`);
+    }
     const text = lines.join("\n");
 
     const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const rows = sales
+    const rows = rowsData
       .map(
-        (s) =>
+        ({ sale: s, lineAmt }) =>
           `<tr style="border-bottom:1px solid #ddd;"><td style="padding:5px 4px;">${esc(s.sale_no)}</td><td style="padding:5px 4px;">${esc(
             fmtDate(s.date)
-          )}</td><td style="padding:5px 4px;text-align:right;">${money(s.total)}</td></tr>`
+          )}</td><td style="padding:5px 4px;text-align:right;">${money(lineAmt)}</td></tr>`
       )
       .join("");
     const taxIdLine = shop.tax_id
@@ -3896,6 +3915,15 @@ if (typeof module !== "undefined") {
       : "";
     const dueDateRow = dueDateDisplay
       ? `<tr><td style="padding:2px 0;color:#555;">กำหนดชำระ</td><td style="padding:2px 0;text-align:right;">${esc(dueDateDisplay)}</td></tr>`
+      : "";
+    const shippingRow =
+      shippingTotal > 0
+        ? `<tr style="border-top:1px dashed #999;"><td style="padding:6px 0 2px;color:#555;">ค่าจัดส่งรวม (ชำระแยกต่างหาก)</td><td style="padding:6px 0 2px;text-align:right;">${money(
+            shippingTotal
+          )} บาท</td></tr>`
+        : "";
+    const noteHtml = noteTrimmed
+      ? `<div style="border-top:1px dashed #999;margin-top:20px;padding-top:8px;font-size:11.5px;color:#333;">หมายเหตุ: ${esc(noteTrimmed)}</div>`
       : "";
     const html = `
       <div style="max-width:480px;margin:0;font-family:Tahoma,'Segoe UI',sans-serif;color:#111;">
@@ -3922,11 +3950,13 @@ if (typeof module !== "undefined") {
           <tr style="border-top:1px solid #000;"><td style="padding:6px 0 2px;font-weight:bold;">รวมเป็นเงินทั้งสิ้น</td><td style="padding:6px 0 2px;text-align:right;font-weight:bold;">${money(
             grandTotal
           )} บาท</td></tr>
+          ${shippingRow}
         </table>
         <div style="display:flex;justify-content:space-between;margin-top:32px;font-size:11.5px;">
           <div>ลงชื่อ..................... ผู้วางบิล</div>
           <div>ลงชื่อ..................... ผู้รับวางบิล</div>
         </div>
+        ${noteHtml}
       </div>
     `;
     return { docTitle: "ใบวางบิล", docNo, text, textForCopy: text, html };
@@ -3937,16 +3967,19 @@ if (typeof module !== "undefined") {
     const defaultDue = new Date();
     defaultDue.setDate(defaultDue.getDate() + 14);
     const dueDateInput = el("input", { type: "date", value: defaultDue.toISOString().slice(0, 10) });
+    const noteInput = textInput("");
+    noteInput.setAttribute("placeholder", "หมายเหตุ (จะพิมพ์ท้ายใบวางบิล)");
 
-    let current = buildBillingStatementDoc(cust, shop, sales, dueDateInput.value);
+    let current = buildBillingStatementDoc(cust, shop, sales, dueDateInput.value, noteInput.value);
     const previewBox = el("div", { class: "receipt-preview" });
     previewBox.innerHTML = current.html;
 
     function refresh() {
-      current = buildBillingStatementDoc(cust, shop, sales, dueDateInput.value);
+      current = buildBillingStatementDoc(cust, shop, sales, dueDateInput.value, noteInput.value);
       previewBox.innerHTML = current.html;
     }
     dueDateInput.addEventListener("change", refresh);
+    noteInput.addEventListener("input", refresh);
 
     const downloadBtn = el(
       "button",
@@ -3979,7 +4012,7 @@ if (typeof module !== "undefined") {
     const body = el(
       "div",
       {},
-      el("div", { class: "form-grid" }, formField("กำหนดชำระ", dueDateInput)),
+      el("div", { class: "form-grid" }, formField("กำหนดชำระ", dueDateInput), formField("หมายเหตุ", noteInput)),
       previewBox,
       el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn)
     );
