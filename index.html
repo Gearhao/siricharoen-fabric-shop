@@ -2076,7 +2076,10 @@ if (typeof module !== "undefined") {
   function buildBankAccountSelect(selectedAccountId) {
     const accounts = DB.getBankAccounts();
     const options = [{ value: "", label: "-- เลือกบัญชี --" }].concat(
-      accounts.map((a) => ({ value: String(a.id), label: a.is_cash ? "เงินสด" : `${a.bank_name} - ${a.account_name}` }))
+      accounts.map((a) => ({
+        value: String(a.id),
+        label: a.is_cash ? "เงินสด" : `${a.bank_name} - ${a.account_name}${a.account_no ? " เลขที่ " + a.account_no : ""}`,
+      }))
     );
     return selectInput(options, selectedAccountId ? String(selectedAccountId) : "");
   }
