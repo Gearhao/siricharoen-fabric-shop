@@ -2381,6 +2381,7 @@ if (typeof module !== "undefined") {
   let posHistoryDateTo = "";
   let posHistoryShowAll = false;
   let customerHistorySearch = "";
+  let billingStatementSelectedIds = new Set();
   const refs = {};
   const sections = {};
   const navButtons = {};
@@ -3842,6 +3843,155 @@ if (typeof module !== "undefined") {
     openModal(current.docTitle, body, { wide: true });
   }
 
+  function genBillingNo() {
+    const d = DB.todayStr().replace(/-/g, "");
+    const t = new Date();
+    const seq = String(t.getHours() * 60 + t.getMinutes()).padStart(4, "0");
+    return "BV" + d + seq;
+  }
+
+  function buildBillingStatementDoc(cust, shop, sales, dueDateStr) {
+    const docNo = genBillingNo();
+    const custName = cust ? cust.name : "ลูกค้าทั่วไป";
+    const custAddress = cust && cust.address ? cust.address : "";
+    const grandTotal = sales.reduce((sum, s) => sum + (s.total || 0), 0);
+    const todayDisplay = fmtDate(DB.todayStr());
+    const dueDateDisplay = dueDateStr ? fmtDate(dueDateStr) : "";
+
+    const lines = [];
+    if (shop.tax_id) lines.push(`เลขผู้เสียภาษี: ${shop.tax_id}`);
+    lines.push("ใบวางบิล");
+    lines.push(`เลขที่: ${docNo}`);
+    lines.push(`วันที่วางบิล: ${todayDisplay}`);
+    if (dueDateDisplay) lines.push(`กำหนดชำระ: ${dueDateDisplay}`);
+    lines.push(`ลูกค้า: ${custName}`);
+    if (custAddress) lines.push(`ที่อยู่: ${custAddress}`);
+    lines.push("-".repeat(40));
+    sales.forEach((s) => {
+      lines.push(`${String(s.sale_no).padEnd(18)}${fmtDate(s.date).padStart(12)}${money(s.total).padStart(12)}`);
+    });
+    lines.push("-".repeat(40));
+    lines.push(`${"รวมเป็นเงินทั้งสิ้น".padEnd(24)}${money(grandTotal).padStart(14)}`);
+    lines.push("");
+    lines.push("");
+    lines.push("ลงชื่อ..................................... ผู้วางบิล");
+    lines.push("");
+    lines.push("ลงชื่อ..................................... ผู้รับวางบิล");
+    const text = lines.join("\n");
+
+    const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const rows = sales
+      .map(
+        (s) =>
+          `<tr style="border-bottom:1px solid #ddd;"><td style="padding:5px 4px;">${esc(s.sale_no)}</td><td style="padding:5px 4px;">${esc(
+            fmtDate(s.date)
+          )}</td><td style="padding:5px 4px;text-align:right;">${money(s.total)}</td></tr>`
+      )
+      .join("");
+    const taxIdLine = shop.tax_id
+      ? `<div style="text-align:left;font-size:11px;color:#555;margin-bottom:6px;">เลขผู้เสียภาษี: ${esc(shop.tax_id)}</div>`
+      : "";
+    const addressLine = custAddress
+      ? `<tr><td style="padding:2px 0;color:#555;">ที่อยู่</td><td style="padding:2px 0;text-align:right;">${esc(custAddress)}</td></tr>`
+      : "";
+    const dueDateRow = dueDateDisplay
+      ? `<tr><td style="padding:2px 0;color:#555;">กำหนดชำระ</td><td style="padding:2px 0;text-align:right;">${esc(dueDateDisplay)}</td></tr>`
+      : "";
+    const html = `
+      <div style="max-width:480px;margin:0;font-family:Tahoma,'Segoe UI',sans-serif;color:#111;">
+        ${taxIdLine}
+        <div style="text-align:left;border-bottom:1px solid #000;padding-bottom:8px;margin-bottom:10px;">
+          <strong style="font-size:15px;">ใบวางบิล</strong>
+        </div>
+        <table style="width:100%;font-size:12px;margin-bottom:10px;border-collapse:collapse;">
+          <tr><td style="padding:2px 0;color:#555;">เลขที่</td><td style="padding:2px 0;text-align:right;">${esc(docNo)}</td></tr>
+          <tr><td style="padding:2px 0;color:#555;">วันที่วางบิล</td><td style="padding:2px 0;text-align:right;">${esc(todayDisplay)}</td></tr>
+          ${dueDateRow}
+          <tr><td style="padding:2px 0;color:#555;">ลูกค้า</td><td style="padding:2px 0;text-align:right;font-weight:bold;">${esc(custName)}</td></tr>
+          ${addressLine}
+        </table>
+        <table style="width:100%;font-size:11.5px;border-collapse:collapse;margin-bottom:8px;">
+          <tr style="border-bottom:1px solid #000;">
+            <td style="padding:5px 4px;font-weight:bold;">เลขที่บิล</td>
+            <td style="padding:5px 4px;font-weight:bold;">วันที่</td>
+            <td style="padding:5px 4px;font-weight:bold;text-align:right;">จำนวนเงิน</td>
+          </tr>
+          ${rows}
+        </table>
+        <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:16px;">
+          <tr style="border-top:1px solid #000;"><td style="padding:6px 0 2px;font-weight:bold;">รวมเป็นเงินทั้งสิ้น</td><td style="padding:6px 0 2px;text-align:right;font-weight:bold;">${money(
+            grandTotal
+          )} บาท</td></tr>
+        </table>
+        <div style="display:flex;justify-content:space-between;margin-top:32px;font-size:11.5px;">
+          <div>ลงชื่อ..................... ผู้วางบิล</div>
+          <div>ลงชื่อ..................... ผู้รับวางบิล</div>
+        </div>
+      </div>
+    `;
+    return { docTitle: "ใบวางบิล", docNo, text, textForCopy: text, html };
+  }
+
+  function openBillingStatementModal(cust, sales) {
+    const shop = DB.getShopInfo();
+    const defaultDue = new Date();
+    defaultDue.setDate(defaultDue.getDate() + 14);
+    const dueDateInput = el("input", { type: "date", value: defaultDue.toISOString().slice(0, 10) });
+
+    let current = buildBillingStatementDoc(cust, shop, sales, dueDateInput.value);
+    const previewBox = el("div", { class: "receipt-preview" });
+    previewBox.innerHTML = current.html;
+
+    function refresh() {
+      current = buildBillingStatementDoc(cust, shop, sales, dueDateInput.value);
+      previewBox.innerHTML = current.html;
+    }
+    dueDateInput.addEventListener("change", refresh);
+
+    const downloadBtn = el(
+      "button",
+      { class: "btn", onClick: () => downloadTextFile(`${current.docNo}.txt`, current.text) },
+      "บันทึกเป็นไฟล์ .txt"
+    );
+    const printBtn = el("button", { class: "btn", onClick: () => printReceiptHtml(current.html) }, "พิมพ์ใบวางบิล");
+    const copyBtn = el(
+      "button",
+      {
+        class: "btn",
+        onClick: () => {
+          copyTextToClipboard(current.textForCopy)
+            .then(() => {
+              const original = "คัดลอกข้อความใบวางบิล";
+              copyBtn.textContent = "คัดลอกแล้ว ✓";
+              setTimeout(() => {
+                copyBtn.textContent = original;
+              }, 1500);
+            })
+            .catch(() => {
+              alert("คัดลอกไม่สำเร็จ กรุณาลองใหม่");
+            });
+        },
+      },
+      "คัดลอกข้อความใบวางบิล"
+    );
+    const closeBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
+
+    const body = el(
+      "div",
+      {},
+      el("div", { class: "form-grid" }, formField("กำหนดชำระ", dueDateInput)),
+      previewBox,
+      el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn)
+    );
+    exposeTestRefs("billingStatement", {
+      get text() { return current.text; },
+      get html() { return current.html; },
+      get docNo() { return current.docNo; },
+      sales,
+    });
+    openModal("ใบวางบิล", body, { wide: true });
+  }
+
   // ================================================================ คลังผ้า
   let stockSearch = "";
   let stockLowOnly = false;
@@ -4407,12 +4557,32 @@ if (typeof module !== "undefined") {
 
   function openCustomerHistoryModal(cid) {
     customerHistorySearch = "";
+    billingStatementSelectedIds = new Set();
     renderCustomerHistoryModalBody(cid);
   }
 
   function renderCustomerHistoryModalBody(cid) {
     const cust = DB.getCustomer(cid);
     const sales = DB.getCustomerSales(cid);
+
+    const billingBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        disabled: true,
+        onClick: () => {
+          const selected = sales.filter((s) => billingStatementSelectedIds.has(s.id));
+          if (!selected.length) return;
+          openBillingStatementModal(cust, selected);
+        },
+      },
+      "สร้างใบวางบิล"
+    );
+    function updateBillingBtn() {
+      const n = billingStatementSelectedIds.size;
+      billingBtn.disabled = n === 0;
+      billingBtn.textContent = n > 0 ? `สร้างใบวางบิล (${n} ใบ)` : "สร้างใบวางบิล";
+    }
 
     const billsTable = el(
       "table",
@@ -4423,6 +4593,7 @@ if (typeof module !== "undefined") {
         el(
           "tr",
           {},
+          el("th", { text: "" }),
           el("th", { text: "เลขที่บิล" }),
           el("th", { text: "วันที่" }),
           el("th", { text: "ยอดรวม" }),
@@ -4434,10 +4605,20 @@ if (typeof module !== "undefined") {
         "tbody",
         {},
         ...(sales.length
-          ? sales.map((s) =>
-              el(
+          ? sales.map((s) => {
+              const chk = el("input", {
+                type: "checkbox",
+                checked: billingStatementSelectedIds.has(s.id),
+                onChange: (e) => {
+                  if (e.target.checked) billingStatementSelectedIds.add(s.id);
+                  else billingStatementSelectedIds.delete(s.id);
+                  updateBillingBtn();
+                },
+              });
+              return el(
                 "tr",
                 {},
+                el("td", {}, chk),
                 el(
                   "td",
                   {},
@@ -4447,11 +4628,12 @@ if (typeof module !== "undefined") {
                 el("td", { text: money(s.total) }),
                 el("td", { text: money(s.paid) }),
                 el("td", { text: s.status })
-              )
-            )
-          : [el("tr", {}, el("td", { colspan: 5, class: "empty", text: "ไม่มีข้อมูล" }))])
+              );
+            })
+          : [el("tr", {}, el("td", { colspan: 6, class: "empty", text: "ไม่มีข้อมูล" }))])
       )
     );
+    updateBillingBtn();
 
     const purchasedItems = [];
     sales.forEach((s) => {
@@ -4492,6 +4674,7 @@ if (typeof module !== "undefined") {
       {},
       el("h4", { text: "รายการบิลทั้งหมด (คลิกเลขที่บิลเพื่อดูรายละเอียด)", style: { marginTop: "0" } }),
       billsTable,
+      el("div", { class: "modal-actions", style: { justifyContent: "flex-start", margin: "4px 0 16px" } }, billingBtn),
       el("h4", { text: "ค้นหาผ้าที่เคยซื้อ" }),
       searchInput,
       itemsContainer
