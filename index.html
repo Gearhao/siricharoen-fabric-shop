@@ -247,36 +247,6 @@ html, body {
   white-space: nowrap;
   max-width: none;
 }
-.actions-menu-wrap { position: relative; display: inline-block; }
-.actions-menu-btn { padding: 4px 10px; font-weight: 700; line-height: 1; }
-.actions-menu-popup {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 2px;
-  background: var(--panel-bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
-  z-index: 500;
-  min-width: 130px;
-  display: flex;
-  flex-direction: column;
-  padding: 4px;
-}
-.actions-menu-popup.hidden { display: none; }
-.actions-menu-popup button {
-  background: transparent;
-  border: none;
-  text-align: left;
-  padding: 7px 10px;
-  font-size: 13px;
-  color: var(--text);
-  border-radius: 4px;
-  cursor: pointer;
-}
-.actions-menu-popup button:hover { background: var(--primary-light); }
-
 .discount-input-row {
   display: flex;
   gap: 6px;
@@ -2215,13 +2185,7 @@ if (typeof module !== "undefined") {
     return buildDataTable(headers, rows);
   }
 
-  // ปิดเมนู ⋮ (จัดการ) ทุกอันที่เปิดอยู่ในตาราง เวลาคลิกที่อื่นนอกเมนู หรือเวลาเลือกรายการในเมนูแล้ว
-  function closeAllActionMenus() {
-    global.document.querySelectorAll(".actions-menu-popup").forEach((p) => p.classList.add("hidden"));
-  }
-  global.document.addEventListener("click", closeAllActionMenus);
-
-  function buildDataTable(columns, dataRows, opts) {
+function buildDataTable(columns, dataRows, opts) {
     opts = opts || {};
     const headers = opts.actions ? columns.concat(["จัดการ"]) : columns;
     const thead = el(
@@ -2244,38 +2208,9 @@ if (typeof module !== "undefined") {
       });
       if (opts.actions) {
         const actionsCell = el("td", { class: "actions-cell" });
-        const actionList = opts.actions(idx);
-        if (actionList.length <= 1) {
-          // ปุ่มเดียว ไม่ต้องย่อเป็นเมนู
-          actionList.forEach((a) => {
-            actionsCell.appendChild(el("button", { class: "btn btn-sm", onClick: () => a.onClick() }, a.label));
-          });
-        } else {
-          // ย่อปุ่มจัดการหลายปุ่มเป็นเมนู ⋮ เดียว กันตารางกว้างจนต้องเลื่อนเพื่อไปกดปุ่มลบ
-          const menuPopup = el("div", { class: "actions-menu-popup hidden" });
-          actionList.forEach((a) => {
-            menuPopup.appendChild(
-              el(
-                "button",
-                {
-                  onClick: () => {
-                    menuPopup.classList.add("hidden");
-                    a.onClick();
-                  },
-                },
-                a.label
-              )
-            );
-          });
-          const menuBtn = el("button", { class: "btn btn-sm actions-menu-btn", text: "⋮" });
-          menuBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            const willOpen = menuPopup.classList.contains("hidden");
-            closeAllActionMenus();
-            if (willOpen) menuPopup.classList.remove("hidden");
-          });
-          actionsCell.appendChild(el("div", { class: "actions-menu-wrap" }, menuBtn, menuPopup));
-        }
+        opts.actions(idx).forEach((a) => {
+          actionsCell.appendChild(el("button", { class: "btn btn-sm", onClick: () => a.onClick() }, a.label));
+        });
         tr.appendChild(actionsCell);
       }
       tbody.appendChild(tr);
