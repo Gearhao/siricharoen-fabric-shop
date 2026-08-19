@@ -6491,7 +6491,7 @@ if (typeof module !== "undefined") {
           try {
             const { error } = await global.__supabaseClient__.auth.updateUser({ password: newPassword });
             if (error) {
-              passwordErrorMsg.textContent = "เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่";
+              passwordErrorMsg.textContent = "เปลี่ยนรหัสผ่านไม่สำเร็จ: " + (error.message || "กรุณาลองใหม่");
               changePasswordBtn.disabled = false;
               changePasswordBtn.textContent = "เปลี่ยนรหัสผ่าน";
               return;
@@ -6502,7 +6502,7 @@ if (typeof module !== "undefined") {
             changePasswordBtn.disabled = false;
             changePasswordBtn.textContent = "เปลี่ยนรหัสผ่าน";
           } catch (e) {
-            passwordErrorMsg.textContent = "เชื่อมต่อไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
+            passwordErrorMsg.textContent = "เชื่อมต่อไม่สำเร็จ: " + (e && e.message ? e.message : "กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่");
             changePasswordBtn.disabled = false;
             changePasswordBtn.textContent = "เปลี่ยนรหัสผ่าน";
           }
