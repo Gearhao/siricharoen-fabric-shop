@@ -6457,6 +6457,76 @@ if (typeof module !== "undefined") {
       },
       "บันทึก"
     );
+    const newPasswordInput = textInput("");
+    newPasswordInput.type = "password";
+    newPasswordInput.placeholder = "รหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)";
+    const confirmPasswordInput = textInput("");
+    confirmPasswordInput.type = "password";
+    confirmPasswordInput.placeholder = "ยืนยันรหัสผ่านใหม่";
+    const passwordErrorMsg = el("div", { style: { color: "var(--danger, #c0392b)", minHeight: "18px", fontSize: "13px", marginTop: "4px" } });
+    const passwordSuccessMsg = el("div", { style: { color: "var(--success, #2e7d32)", minHeight: "18px", fontSize: "13px", marginTop: "4px" } });
+    const changePasswordBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: async () => {
+          passwordErrorMsg.textContent = "";
+          passwordSuccessMsg.textContent = "";
+          const newPassword = newPasswordInput.value;
+          const confirmPassword = confirmPasswordInput.value;
+          if (!newPassword || !confirmPassword) {
+            passwordErrorMsg.textContent = "กรุณากรอกรหัสผ่านใหม่และยืนยันรหัสผ่าน";
+            return;
+          }
+          if (newPassword.length < 6) {
+            passwordErrorMsg.textContent = "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร";
+            return;
+          }
+          if (newPassword !== confirmPassword) {
+            passwordErrorMsg.textContent = "รหัสผ่านใหม่และการยืนยันไม่ตรงกัน";
+            return;
+          }
+          changePasswordBtn.disabled = true;
+          changePasswordBtn.textContent = "กำลังเปลี่ยนรหัสผ่าน...";
+          try {
+            const { error } = await global.__supabaseClient__.auth.updateUser({ password: newPassword });
+            if (error) {
+              passwordErrorMsg.textContent = "เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่";
+              changePasswordBtn.disabled = false;
+              changePasswordBtn.textContent = "เปลี่ยนรหัสผ่าน";
+              return;
+            }
+            newPasswordInput.value = "";
+            confirmPasswordInput.value = "";
+            passwordSuccessMsg.textContent = "เปลี่ยนรหัสผ่านสำเร็จแล้ว";
+            changePasswordBtn.disabled = false;
+            changePasswordBtn.textContent = "เปลี่ยนรหัสผ่าน";
+          } catch (e) {
+            passwordErrorMsg.textContent = "เชื่อมต่อไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
+            changePasswordBtn.disabled = false;
+            changePasswordBtn.textContent = "เปลี่ยนรหัสผ่าน";
+          }
+        },
+      },
+      "เปลี่ยนรหัสผ่าน"
+    );
+    const passwordSection = global.__supabaseClient__
+      ? el(
+          "div",
+          {},
+          el("hr"),
+          el("h3", { style: { margin: "12px 0 8px" } }, "เปลี่ยนรหัสผ่านเข้าสู่ระบบ"),
+          el(
+            "div",
+            { class: "form-grid" },
+            formField("รหัสผ่านใหม่", newPasswordInput),
+            formField("ยืนยันรหัสผ่านใหม่", confirmPasswordInput)
+          ),
+          passwordErrorMsg,
+          passwordSuccessMsg,
+          el("div", { class: "modal-actions" }, changePasswordBtn)
+        )
+      : null;
     const body = el(
       "div",
       {},
@@ -6468,9 +6538,19 @@ if (typeof module !== "undefined") {
         formField("เบอร์โทรร้าน", phoneInput),
         VAT_ENABLED ? formField("เลขประจำตัวผู้เสียภาษี", taxInput) : null
       ),
-      el("div", { class: "modal-actions" }, saveBtn)
+      el("div", { class: "modal-actions" }, saveBtn),
+      passwordSection
     );
-    exposeTestRefs("settingsForm", { nameInput, addressInput, phoneInput, taxInput, saveBtn });
+    exposeTestRefs("settingsForm", {
+      nameInput,
+      addressInput,
+      phoneInput,
+      taxInput,
+      saveBtn,
+      newPasswordInput,
+      confirmPasswordInput,
+      changePasswordBtn,
+    });
     openModal("ตั้งค่าร้าน", body);
   }
 
