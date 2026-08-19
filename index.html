@@ -3850,7 +3850,9 @@ if (typeof module !== "undefined") {
     return "BV" + d + seq;
   }
 
-  function buildBillingStatementDoc(cust, shop, sales, dueDateStr, note) {
+  const BILLING_FABRIC_ACCOUNT_TEXT = "หจก. นิวศิริเจริญ ธ.กสิกรไทย (KBank) เลขที่ 0458527326";
+
+  function buildBillingStatementDoc(cust, shop, sales, dueDateStr, note, shipAccountLabel, wholeAccountLabel) {
     const docNo = genBillingNo();
     const custName = cust ? cust.name : "ลูกค้าทั่วไป";
     const custAddress = cust && cust.address ? cust.address : "";
@@ -3883,8 +3885,12 @@ if (typeof module !== "undefined") {
     lines.push("-".repeat(40));
     lines.push(`${"รวมเป็นเงินทั้งสิ้น".padEnd(24)}${money(grandTotal).padStart(14)}`);
     if (shippingTotal > 0) {
+      lines.push(`  โอนเข้าบัญชี ${BILLING_FABRIC_ACCOUNT_TEXT}`);
       lines.push("-".repeat(40));
       lines.push(`${"ค่าจัดส่งรวม (ชำระแยกต่างหาก)".padEnd(24)}${money(shippingTotal).padStart(14)}`);
+      if (shipAccountLabel) lines.push(`  โอนเข้าบัญชี ${shipAccountLabel}`);
+    } else if (wholeAccountLabel) {
+      lines.push(`  โอนเข้าบัญชี ${wholeAccountLabel}`);
     }
     lines.push("");
     lines.push("");
@@ -3916,11 +3922,23 @@ if (typeof module !== "undefined") {
     const dueDateRow = dueDateDisplay
       ? `<tr><td style="padding:2px 0;color:#555;">กำหนดชำระ</td><td style="padding:2px 0;text-align:right;">${esc(dueDateDisplay)}</td></tr>`
       : "";
+    const fabricAcctRow =
+      shippingTotal > 0
+        ? `<tr><td colspan="2" style="padding:0 0 4px;font-size:10.5px;color:#555;">โอนเข้าบัญชี ${esc(BILLING_FABRIC_ACCOUNT_TEXT)}</td></tr>`
+        : "";
     const shippingRow =
       shippingTotal > 0
         ? `<tr style="border-top:1px dashed #999;"><td style="padding:6px 0 2px;color:#555;">ค่าจัดส่งรวม (ชำระแยกต่างหาก)</td><td style="padding:6px 0 2px;text-align:right;">${money(
             shippingTotal
           )} บาท</td></tr>`
+        : "";
+    const shippingAcctRow =
+      shippingTotal > 0 && shipAccountLabel
+        ? `<tr><td colspan="2" style="padding:0 0 4px;font-size:10.5px;color:#555;">โอนเข้าบัญชี ${esc(shipAccountLabel)}</td></tr>`
+        : "";
+    const wholeAcctRow =
+      shippingTotal <= 0 && wholeAccountLabel
+        ? `<tr><td colspan="2" style="padding:0 0 4px;font-size:10.5px;color:#555;">โอนเข้าบัญชี ${esc(wholeAccountLabel)}</td></tr>`
         : "";
     const noteHtml = noteTrimmed
       ? `<div style="border-top:1px dashed #999;margin-top:20px;padding-top:8px;font-size:11.5px;color:#333;">หมายเหตุ: ${esc(noteTrimmed)}</div>`
@@ -3950,7 +3968,10 @@ if (typeof module !== "undefined") {
           <tr style="border-top:1px solid #000;"><td style="padding:6px 0 2px;font-weight:bold;">รวมเป็นเงินทั้งสิ้น</td><td style="padding:6px 0 2px;text-align:right;font-weight:bold;">${money(
             grandTotal
           )} บาท</td></tr>
+          ${fabricAcctRow}
+          ${wholeAcctRow}
           ${shippingRow}
+          ${shippingAcctRow}
         </table>
         <div style="display:flex;justify-content:space-between;margin-top:32px;font-size:11.5px;">
           <div>ลงชื่อ..................... ผู้วางบิล</div>
@@ -3970,16 +3991,29 @@ if (typeof module !== "undefined") {
     const noteInput = textInput("");
     noteInput.setAttribute("placeholder", "หมายเหตุ (จะพิมพ์ท้ายใบวางบิล)");
 
-    let current = buildBillingStatementDoc(cust, shop, sales, dueDateInput.value, noteInput.value);
+    // มีบิลแว็ดที่แยกค่าส่งไหม: ถ้ามี ค่าผ้าจะโอนเข้าบัญชีคงที่ของร้าน ส่วนค่าส่งให้เลือกบัญชีเอง
+    // ถ้าไม่มี (ใบวางบิลที่ไม่แว็ด/ไม่มีค่าส่งแยก) ยอดทั้งหมดให้เลือกบัญชีเอง
+    const hasShipping = sales.some((s) => !!s.is_vat && (s.shipping_fee || 0) > 0);
+    const shipAccountSelect = hasShipping ? buildBankAccountSelect("") : null;
+    const wholeAccountSelect = !hasShipping ? buildBankAccountSelect("") : null;
+    function selLabel(sel) {
+      if (!sel) return "";
+      const opt = sel.options[sel.selectedIndex];
+      return opt ? opt.textContent : "";
+    }
+
+    let current = buildBillingStatementDoc(cust, shop, sales, dueDateInput.value, noteInput.value, selLabel(shipAccountSelect), selLabel(wholeAccountSelect));
     const previewBox = el("div", { class: "receipt-preview" });
     previewBox.innerHTML = current.html;
 
     function refresh() {
-      current = buildBillingStatementDoc(cust, shop, sales, dueDateInput.value, noteInput.value);
+      current = buildBillingStatementDoc(cust, shop, sales, dueDateInput.value, noteInput.value, selLabel(shipAccountSelect), selLabel(wholeAccountSelect));
       previewBox.innerHTML = current.html;
     }
     dueDateInput.addEventListener("change", refresh);
     noteInput.addEventListener("input", refresh);
+    if (shipAccountSelect) shipAccountSelect.addEventListener("change", refresh);
+    if (wholeAccountSelect) wholeAccountSelect.addEventListener("change", refresh);
 
     const downloadBtn = el(
       "button",
@@ -4012,7 +4046,14 @@ if (typeof module !== "undefined") {
     const body = el(
       "div",
       {},
-      el("div", { class: "form-grid" }, formField("กำหนดชำระ", dueDateInput), formField("หมายเหตุ", noteInput)),
+      el(
+        "div",
+        { class: "form-grid" },
+        formField("กำหนดชำระ", dueDateInput),
+        formField("หมายเหตุ", noteInput),
+        shipAccountSelect ? formField("บัญชีรับเงินค่าจัดส่ง", shipAccountSelect) : null,
+        wholeAccountSelect ? formField("บัญชีรับเงิน", wholeAccountSelect) : null
+      ),
       previewBox,
       el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn)
     );
