@@ -820,10 +820,6 @@ function createDB(storageKey) {
   function describeSplits(splits) {
     const list = normalizeSplits(splits);
     if (list.length === 0) return { bank_name: "", bank_account_name: "" };
-    if (list.length === 1) {
-      const acct = getBankAccount(list[0].account_id);
-      return { bank_name: acct ? acct.bank_name : "", bank_account_name: acct ? acct.account_name : "" };
-    }
     const parts = list.map((s) => {
       const acct = getBankAccount(s.account_id);
       if (!acct) return "";
