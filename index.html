@@ -581,7 +581,7 @@ function createDB(storageKey) {
 
   function emptyStore() {
     return {
-      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1, bankAccount: 1, customerOrder: 1, expenseCategory: 1 },
+      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1, bankAccount: 1, customerOrder: 1, expenseCategory: 1, quotation: 1 },
       shopInfo: { name: "ร้านผ้าศิริเจริญ", address: "", phone: "", tax_id: "" },
       suppliers: [],
       customers: [],
@@ -597,6 +597,7 @@ function createDB(storageKey) {
       bankAccounts: [],
       accountMovements: [],
       customerOrders: [],
+      quotations: [],
     };
   }
 
@@ -613,11 +614,13 @@ function createDB(storageKey) {
         if (!data.accountMovements) data.accountMovements = [];
         if (!data.customerOrders) data.customerOrders = [];
         if (!data.expenseCategories) data.expenseCategories = [];
+        if (!data.quotations) data.quotations = [];
         if (!data.nextId) data.nextId = {};
         if (!data.nextId.backorder) data.nextId.backorder = data.backorders.length + 1;
         if (!data.nextId.bankAccount) data.nextId.bankAccount = data.bankAccounts.length + 1;
         if (!data.nextId.customerOrder) data.nextId.customerOrder = data.customerOrders.length + 1;
         if (!data.nextId.expenseCategory) data.nextId.expenseCategory = data.expenseCategories.length + 1;
+        if (!data.nextId.quotation) data.nextId.quotation = data.quotations.length + 1;
         migrateCodes(data);
         return data;
       }
@@ -1695,6 +1698,72 @@ function createDB(storageKey) {
     return store.customerOrders.find((x) => x.id === id) || null;
   }
 
+  // -------------------------------------------------------------- ใบเสนอราคา
+  function addQuotation(data) {
+    const seq = genId("quotation");
+    const yy = String(new Date().getFullYear()).slice(-2);
+    const item = {
+      id: seq,
+      quote_no: "O" + yy + "/" + pad(seq, 3),
+      date: nowStr(),
+      valid_until: (data && data.valid_until) || "",
+      customer_id: (data && data.customer_id) || null,
+      customer_name: (data && data.customer_name) || "",
+      customer_address: (data && data.customer_address) || "",
+      customer_phone: (data && data.customer_phone) || "",
+      items: (data && Array.isArray(data.items)) ? data.items : [],
+      is_vat: !!(data && data.is_vat),
+      note: (data && data.note) || "",
+      status: "รอตอบรับ",
+      converted_sale_id: null,
+    };
+    store.quotations.push(item);
+    save();
+    return item;
+  }
+  function updateQuotation(id, data) {
+    const q = store.quotations.find((x) => x.id === id);
+    if (!q) return null;
+    Object.assign(q, data);
+    save();
+    return q;
+  }
+  function deleteQuotation(id) {
+    const idx = store.quotations.findIndex((x) => x.id === id);
+    if (idx === -1) return false;
+    store.quotations.splice(idx, 1);
+    save();
+    return true;
+  }
+  function getQuotations(search) {
+    let rows = [...(store.quotations || [])].sort((a, b) => b.id - a.id);
+    const q = (search || "").trim().toLowerCase();
+    if (q) {
+      rows = rows.filter(
+        (r) => (r.quote_no || "").toLowerCase().includes(q) || (r.customer_name || "").toLowerCase().includes(q)
+      );
+    }
+    return rows;
+  }
+  function getQuotation(id) {
+    return store.quotations.find((x) => x.id === id) || null;
+  }
+  function setQuotationStatus(id, status) {
+    const q = getQuotation(id);
+    if (!q) return null;
+    q.status = status;
+    save();
+    return q;
+  }
+  function markQuotationConverted(id, saleId) {
+    const q = getQuotation(id);
+    if (!q) return null;
+    q.status = "ตอบรับแล้ว";
+    q.converted_sale_id = saleId || null;
+    save();
+    return q;
+  }
+
 
   // -------------------------------------------------------------- reports
   function salesSummary(start, end) {
@@ -1936,6 +2005,7 @@ function createDB(storageKey) {
     getExpenseCategories, addExpenseCategory, updateExpenseCategory, deleteExpenseCategory,
     addBackorder, updateBackorder, deleteBackorder, markBackorderDone, markBackorderUndone, getBackorders, getBackorder,
     addCustomerOrder, updateCustomerOrder, deleteCustomerOrder, markCustomerOrderDone, markCustomerOrderUndone, getCustomerOrders, getCustomerOrder,
+    addQuotation, updateQuotation, deleteQuotation, getQuotations, getQuotation, setQuotationStatus, markQuotationConverted,
     getBankAccounts, getBankAccount, getCashAccount, createBankAccount, updateBankAccount, deleteBankAccount, adjustBankAccountBalance, transferBetweenAccounts, getAccountMovements,
     salesSummary, cogsSummary, expensesSummary, shippingSummary, bestSellers, lowStockList,
     arAging, apAging, getCustomerCashPendingTotal, getCustomerTotalDue,
@@ -2408,6 +2478,7 @@ function buildDataTable(columns, dataRows, opts) {
     { key: "suppliers", label: "ซัพพลายเออร์" },
       { key: "backorders", label: "รายการรอสินค้า" },
     { key: "customerOrders", label: "ลูกค้าสั่งผ้า" },
+    { key: "quotations", label: "ใบเสนอราคา" },
     { key: "accounting", label: "บัญชี" },
     { key: "reports", label: "รายงาน" },
   ];
@@ -6233,6 +6304,464 @@ function buildDataTable(columns, dataRows, opts) {
     );
   }
 
+  // =================================================================== ใบเสนอราคา
+  let quotationSearch = "";
+
+  function renderQuotations() {
+    const sec = sections.quotations;
+    clear(sec);
+    const searchInput = el("input", {
+      type: "text",
+      placeholder: "ค้นหา (เลขที่/ชื่อลูกค้า)",
+      value: quotationSearch,
+      onInput: (e) => {
+        quotationSearch = e.target.value;
+        renderQuotationTable();
+      },
+    });
+    const toolbar = el(
+      "div",
+      { class: "toolbar" },
+      searchInput,
+      el("button", { class: "btn btn-primary", onClick: () => openQuotationModal() }, "+ สร้างใบเสนอราคา")
+    );
+    const tableContainer = el("div", { class: "table-container" });
+    refs.quotationTableContainer = tableContainer;
+    sec.appendChild(el("div", { class: "section-inner" }, toolbar, tableContainer));
+    renderQuotationTable();
+  }
+
+  function quotationTotal(q) {
+    const subtotal = (q.items || []).reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.unit_price) || 0), 0);
+    const vat = q.is_vat ? Math.round(subtotal * VAT_RATE * 100) / 100 : 0;
+    return { subtotal, vat, total: subtotal + vat };
+  }
+
+  function renderQuotationTable() {
+    const container = refs.quotationTableContainer;
+    if (!container) return;
+    clear(container);
+    const rows = DB.getQuotations(quotationSearch);
+    const table = buildDataTable(
+      ["เลขที่", "วันที่", "ลูกค้า", "ยอดรวม", "สถานะ"],
+      rows.map((q) => {
+        const { total } = quotationTotal(q);
+        return [q.quote_no, fmtDate(q.date), q.customer_name || "-", money(total) + " บาท", q.status];
+      }),
+      {
+        cellStyle: (row, ci, colName) => (colName === "สถานะ" && row[ci] === "ตอบรับแล้ว" ? { color: "var(--success, #2e7d32)", fontWeight: "600" } : null),
+        actions: (idx) => {
+          const q = rows[idx];
+          const acts = [
+            { label: "ดู/พิมพ์", onClick: () => openQuotationDocModal(q) },
+            { label: "แก้ไข", onClick: () => openQuotationModal(q) },
+          ];
+          if (q.status !== "ตอบรับแล้ว") {
+            acts.push({
+              label: "ทำเครื่องหมายตอบรับแล้ว",
+              onClick: () => {
+                DB.setQuotationStatus(q.id, "ตอบรับแล้ว");
+                renderQuotationTable();
+              },
+            });
+          } else {
+            acts.push({
+              label: "ทำเครื่องหมายรอตอบรับ",
+              onClick: () => {
+                DB.setQuotationStatus(q.id, "รอตอบรับ");
+                renderQuotationTable();
+              },
+            });
+          }
+          if (!q.converted_sale_id) {
+            acts.push({ label: "แปลงเป็นบิลขาย", onClick: () => convertQuotationToSale(q) });
+          }
+          acts.push({
+            label: "ลบ",
+            onClick: () => {
+              if (!global.confirm(`ยืนยันลบใบเสนอราคา ${q.quote_no}?`)) return;
+              DB.deleteQuotation(q.id);
+              renderQuotationTable();
+            },
+          });
+          return acts;
+        },
+      }
+    );
+    container.appendChild(table);
+  }
+
+  // นำรายการจากใบเสนอราคาไปเติมในตะกร้าหน้าขายสินค้า เพื่อให้ทำการขายจริงต่อได้ตามขั้นตอนปกติ
+  function convertQuotationToSale(q) {
+    if (!global.confirm(`นำรายการจากใบเสนอราคา ${q.quote_no} ไปที่หน้าขายสินค้าหรือไม่? (ระบบจะแทนที่ตะกร้าปัจจุบัน)`)) return;
+    cart = (q.items || []).map((it) => {
+      const f = it.fabric_id ? DB.getFabric(it.fabric_id) : null;
+      return {
+        fabric_id: it.fabric_id || null,
+        is_misc: !it.fabric_id,
+        name: it.name || "",
+        code: it.code || "",
+        unit: it.unit || "หลา",
+        qty: it.qty || 0,
+        unit_price: it.unit_price || 0,
+        cost_price: f ? f.cost_price : 0,
+        note: "",
+        stock_qty: f ? f.stock_qty : null,
+        baseUnit: f ? f.unit : null,
+      };
+    });
+    DB.markQuotationConverted(q.id, null);
+    switchTab("pos");
+    if (refs.posCustomerSelect && q.customer_id) refs.posCustomerSelect.setCustomerId(q.customer_id);
+    renderPosItemsTable();
+    updatePosTotals();
+    renderQuotationTable();
+    global.alert("นำรายการจากใบเสนอราคาไปที่ตะกร้าขายสินค้าแล้ว กรุณาตรวจสอบและบันทึกการขายตามปกติ");
+  }
+
+  function openQuotationModal(existing) {
+    const customerSelect = buildCustomerSelectOptions();
+    if (existing && existing.customer_id) customerSelect.setCustomerId(existing.customer_id);
+    const validUntilInput = el("input", { type: "date", value: existing && existing.valid_until ? existing.valid_until : "" });
+    const isVatChk = el("input", { type: "checkbox", checked: existing ? !!existing.is_vat : VAT_ENABLED });
+    const noteInput = textInput(existing ? existing.note : "");
+    noteInput.setAttribute("placeholder", "เงื่อนไข/บัญชีโอนเงิน/หมายเหตุ (จะพิมพ์ท้ายใบเสนอราคา)");
+
+    let modalItems =
+      existing && existing.items && existing.items.length
+        ? existing.items.map((it) => ({ ...it }))
+        : [{ fabric_id: null, code: "", name: "", color: "", qty: "", unit: "หลา", unit_price: "" }];
+
+    const { opts: fabricOptsBase, fabrics } = fabricSelectOptions();
+    const itemsContainer = el("div", {});
+    function renderItemsRows() {
+      clear(itemsContainer);
+      modalItems.forEach((it, idx) => {
+        const fabricSelect = searchSelectInput(fabricOptsBase, it.fabric_id ? String(it.fabric_id) : "", "พิมพ์รหัส/ชื่อผ้า (ถ้ามี)");
+        fabricSelect.inputEl.addEventListener("change", () => {
+          const v = fabricSelect.getMatchedValue();
+          if (v === null) {
+            global.alert("ไม่พบผ้าตามที่พิมพ์ กรุณาเลือกจากรายการที่ปรากฏ หรือเว้นว่างไว้ถ้าเป็นรายการอื่น (เช่น ค่าส่ง)");
+            const cur = fabricOptsBase.find((o) => o.value === (it.fabric_id ? String(it.fabric_id) : ""));
+            fabricSelect.setLabel(cur ? cur.label : "");
+            return;
+          }
+          const fid = v ? Number(v) : null;
+          it.fabric_id = fid;
+          const f = fid ? fabrics.find((x) => x.id === fid) : null;
+          if (f) {
+            it.code = f.code;
+            it.name = f.name;
+            it.color = f.color || it.color;
+            it.unit = f.unit || it.unit;
+            it.unit_price = f.sell_price || it.unit_price;
+          }
+          renderItemsRows();
+        });
+
+        const nameInput = textInput(it.name || "");
+        nameInput.setAttribute("placeholder", "ชื่อรายการ (พิมพ์เองได้ เช่น ค่าส่ง)");
+        nameInput.addEventListener("input", (e) => {
+          it.name = e.target.value;
+        });
+
+        const colorInput = textInput(it.color || "");
+        colorInput.setAttribute("placeholder", "สี");
+        colorInput.addEventListener("input", (e) => {
+          it.color = e.target.value;
+        });
+
+        const qtyInput = numberInput(it.qty || 0);
+        qtyInput.style.width = "80px";
+        qtyInput.addEventListener("input", (e) => {
+          it.qty = Number(e.target.value) || 0;
+          updateLineTotal();
+        });
+
+        const unitSelect = selectInput(
+          [
+            { value: "หลา", label: "หลา" },
+            { value: "เมตร", label: "เมตร" },
+          ],
+          it.unit || "หลา"
+        );
+        unitSelect.addEventListener("change", (e) => {
+          it.unit = e.target.value;
+        });
+
+        const priceInput = numberInput(it.unit_price || 0);
+        priceInput.style.width = "90px";
+        priceInput.addEventListener("input", (e) => {
+          it.unit_price = Number(e.target.value) || 0;
+          updateLineTotal();
+        });
+
+        const lineTotalSpan = el("span", {
+          text: money((Number(it.qty) || 0) * (Number(it.unit_price) || 0)),
+          style: { minWidth: "80px", display: "inline-block", textAlign: "right" },
+        });
+        function updateLineTotal() {
+          lineTotalSpan.textContent = money((Number(it.qty) || 0) * (Number(it.unit_price) || 0));
+        }
+
+        const removeBtn = el(
+          "button",
+          {
+            class: "btn btn-sm",
+            onClick: () => {
+              if (modalItems.length > 1) {
+                modalItems.splice(idx, 1);
+                renderItemsRows();
+              }
+            },
+          },
+          "ลบ"
+        );
+
+        const row = el(
+          "div",
+          { class: "item-entry-row", style: { display: "flex", gap: "6px", alignItems: "center", marginBottom: "8px", flexWrap: "wrap" } },
+          el("span", { text: `${idx + 1}.`, style: { minWidth: "18px" } }),
+          fabricSelect,
+          nameInput,
+          colorInput,
+          qtyInput,
+          unitSelect,
+          priceInput,
+          lineTotalSpan,
+          removeBtn
+        );
+        itemsContainer.appendChild(row);
+      });
+    }
+    renderItemsRows();
+    const addItemBtn = el(
+      "button",
+      {
+        class: "btn btn-sm",
+        onClick: () => {
+          modalItems.push({ fabric_id: null, code: "", name: "", color: "", qty: "", unit: "หลา", unit_price: "" });
+          renderItemsRows();
+        },
+      },
+      "+ เพิ่มรายการ"
+    );
+
+    const errorMsg = el("div", { style: { color: "var(--danger, #c0392b)", minHeight: "18px", fontSize: "13px" } });
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          errorMsg.textContent = "";
+          const customerId = customerSelect.getCustomerId();
+          const customer = customerId ? DB.getCustomer(customerId) : null;
+          const cleanItems = modalItems
+            .filter((it) => (it.name || "").trim() && Number(it.qty) > 0)
+            .map((it) => ({
+              fabric_id: it.fabric_id || null,
+              code: it.code || "",
+              name: (it.name || "").trim(),
+              color: (it.color || "").trim(),
+              qty: Number(it.qty) || 0,
+              unit: it.unit || "หลา",
+              unit_price: Number(it.unit_price) || 0,
+            }));
+          if (cleanItems.length === 0) {
+            errorMsg.textContent = "กรุณาเพิ่มรายการอย่างน้อย 1 รายการ (ระบุชื่อและจำนวน)";
+            return;
+          }
+          const data = {
+            customer_id: customerId || null,
+            customer_name: customer ? customer.name : "ลูกค้าทั่วไป",
+            customer_address: customer ? customer.address || "" : "",
+            customer_phone: customer ? customer.phone || "" : "",
+            valid_until: validUntilInput.value || "",
+            is_vat: isVatChk.checked,
+            note: noteInput.value.trim(),
+            items: cleanItems,
+          };
+          if (existing) {
+            DB.updateQuotation(existing.id, data);
+          } else {
+            DB.addQuotation(data);
+          }
+          closeModal();
+          renderQuotationTable();
+        },
+      },
+      "บันทึก"
+    );
+
+    const form = el(
+      "div",
+      { class: "form-panel" },
+      formField("ลูกค้า", customerSelect),
+      formField("รายการสินค้า", el("div", {}, itemsContainer, addItemBtn)),
+      el("label", { class: "chk-label", style: { display: "block", margin: "10px 0" } }, isVatChk, ` คิดภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%`),
+      formField("ใช้ได้ถึงวันที่ (ถ้ามี)", validUntilInput),
+      formField("หมายเหตุ/เงื่อนไข", noteInput),
+      errorMsg,
+      el("div", { class: "modal-actions" }, saveBtn)
+    );
+    exposeTestRefs("quotationForm", { customerSelect, validUntilInput, isVatChk, noteInput, saveBtn });
+    openModal(existing ? "แก้ไขใบเสนอราคา" : "สร้างใบเสนอราคา", form, { wide: true });
+  }
+
+  function buildQuotationDoc(q, shop, cust) {
+    const custName = q.customer_name || "ลูกค้าทั่วไป";
+    const { subtotal, vat, total } = quotationTotal(q);
+    const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const validUntilDisplay = q.valid_until ? fmtDate(q.valid_until) : "";
+    const noteTrimmed = q.note ? String(q.note).trim() : "";
+
+    const lines = [];
+    lines.push("ใบเสนอราคา");
+    lines.push(`เลขที่: ${q.quote_no}`);
+    lines.push(`วันที่: ${fmtDate(q.date)}`);
+    if (validUntilDisplay) lines.push(`ใช้ได้ถึง: ${validUntilDisplay}`);
+    lines.push(`ลูกค้า: ${custName}`);
+    if (q.customer_address) lines.push(`ที่อยู่: ${q.customer_address}`);
+    lines.push("-".repeat(40));
+    (q.items || []).forEach((it) => {
+      const sub = (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
+      const qtyUnit = `${it.qty}${it.unit ? " " + it.unit : ""}`;
+      const label = [it.name, it.color].filter(Boolean).join(" - ");
+      lines.push(`${label.slice(0, 20).padEnd(20)}${qtyUnit.padStart(10)} x ${money(it.unit_price).padStart(9)} = ${money(sub).padStart(11)}`);
+    });
+    lines.push("-".repeat(40));
+    if (q.is_vat) {
+      lines.push(`${"ยอดก่อน VAT".padEnd(24)}${money(subtotal).padStart(14)}`);
+      lines.push(`${("VAT " + Math.round(VAT_RATE * 100) + "%").padEnd(24)}${money(vat).padStart(14)}`);
+    }
+    lines.push(`${"ราคารวม".padEnd(24)}${money(total).padStart(14)}`);
+    const linesNoSign = lines.slice();
+    lines.push("");
+    lines.push("ข้าพเจ้าตกลงสั่งซื้อสินค้าตามรายการ และเงื่อนไขทั้งหมด");
+    lines.push("");
+    lines.push("ลงชื่อ..................................... ผู้รับเสนอราคา");
+    lines.push("ลงชื่อ..................................... ผู้อนุมัติ");
+    if (noteTrimmed) {
+      lines.push("");
+      lines.push("-".repeat(40));
+      lines.push(`หมายเหตุ: ${noteTrimmed}`);
+      linesNoSign.push("");
+      linesNoSign.push("-".repeat(40));
+      linesNoSign.push(`หมายเหตุ: ${noteTrimmed}`);
+    }
+    const text = lines.join("\n");
+    const textForCopy = linesNoSign.join("\n");
+
+    const itemRows = (q.items || [])
+      .map((it, i) => {
+        const sub = (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
+        const qtyUnit = `${it.qty}${it.unit ? " " + it.unit : ""}`;
+        const rowBorder = i === (q.items || []).length - 1 ? "" : "border-bottom:1px dotted #999;";
+        return `<tr><td style="padding:7px 4px;${rowBorder}">${esc(it.code || "-")}</td><td style="padding:7px 4px;${rowBorder}">${esc(
+          it.name
+        )}</td><td style="padding:7px 4px;${rowBorder}">${esc(it.color || "-")}</td><td style="padding:7px 4px;text-align:right;${rowBorder}">${esc(
+          qtyUnit
+        )}</td><td style="padding:7px 4px;text-align:right;${rowBorder}">${money(it.unit_price)}</td><td style="padding:7px 4px;text-align:right;${rowBorder}">${money(sub)}</td></tr>`;
+      })
+      .join("");
+
+    let vatRowsHtml = "";
+    if (q.is_vat) {
+      vatRowsHtml = `<tr><td style="padding:2px 0;color:#444;">ยอดก่อน VAT</td><td style="padding:2px 0;text-align:right;">${money(
+        subtotal
+      )}</td></tr><tr><td style="padding:2px 0;color:#444;">VAT ${Math.round(VAT_RATE * 100)}%</td><td style="padding:2px 0;text-align:right;">${money(
+        vat
+      )}</td></tr>`;
+    }
+    const shopAddressLine = shop.address ? `<div>${esc(shop.address)}</div>` : "";
+    const shopPhoneLine = shop.phone ? `<div>โทร ${esc(shop.phone)}</div>` : "";
+    const custAddressRow = q.customer_address
+      ? `<tr><td style="padding:3px 0;color:#444;">ที่อยู่</td><td style="padding:3px 0;text-align:right;">${esc(q.customer_address)}</td></tr>`
+      : "";
+    const validUntilRow = validUntilDisplay
+      ? `<tr><td style="padding:3px 0;color:#444;">ใช้ได้ถึง</td><td style="padding:3px 0;text-align:right;">${esc(validUntilDisplay)}</td></tr>`
+      : "";
+    const noteHtml = noteTrimmed
+      ? `<div style="font-size:12px;color:#444;margin-top:14px;padding-top:8px;border-top:1px dashed #999;">หมายเหตุ: ${esc(noteTrimmed)}</div>`
+      : "";
+    const html = `
+      <div style="max-width:480px;margin:0;font-family:Tahoma,'Segoe UI',sans-serif;color:#111;">
+        <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px;">
+          <div style="font-size:17px;font-weight:bold;letter-spacing:0.5px;">ใบเสนอราคา</div>
+          <div style="font-size:11px;color:#888;margin-top:3px;">เลขที่ ${esc(q.quote_no)}</div>
+          <div style="font-size:11px;color:#888;margin-top:4px;">${esc(shop.name || "")}${shopAddressLine}${shopPhoneLine}</div>
+        </div>
+        <table style="width:100%;font-size:12px;margin-bottom:12px;border-collapse:collapse;">
+          <tr><td style="padding:3px 0;color:#444;">วันที่</td><td style="padding:3px 0;text-align:right;">${esc(fmtDate(q.date))}</td></tr>
+          ${validUntilRow}
+          <tr><td style="padding:3px 0;color:#444;">ลูกค้า</td><td style="padding:3px 0;text-align:right;font-weight:bold;font-size:14px;">${esc(custName)}</td></tr>
+          ${custAddressRow}
+        </table>
+        <table style="width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:12px;">
+          <thead>
+            <tr style="border-top:1.5px solid #000;border-bottom:1.5px solid #000;">
+              <th style="text-align:left;padding:6px 4px;">รหัส</th>
+              <th style="text-align:left;padding:6px 4px;">ชื่อสินค้า</th>
+              <th style="text-align:left;padding:6px 4px;">สี</th>
+              <th style="text-align:right;padding:6px 4px;">จำนวน</th>
+              <th style="text-align:right;padding:6px 4px;">ราคา</th>
+              <th style="text-align:right;padding:6px 4px;">รวม</th>
+            </tr>
+          </thead>
+          <tbody>${itemRows}</tbody>
+        </table>
+        <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:6px;">${vatRowsHtml}</table>
+        <div style="border:1.5px solid #000;border-radius:4px;padding:8px 10px;display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px;">
+          <span style="font-weight:bold;font-size:14px;">ราคารวม</span>
+          <span style="font-weight:bold;font-size:16px;">${money(total)} บาท</span>
+        </div>
+        <div style="font-size:12px;color:#444;">ข้าพเจ้าตกลงสั่งซื้อสินค้าตามรายการ และเงื่อนไขทั้งหมด</div>
+        <div style="display:flex;justify-content:space-between;margin-top:28px;font-size:11px;text-align:center;color:#000;">
+          <div style="width:45%;border-top:1px solid #000;padding-top:4px;">ผู้รับเสนอราคา</div>
+          <div style="width:45%;border-top:1px solid #000;padding-top:4px;">ผู้อนุมัติ</div>
+        </div>
+        ${noteHtml}
+      </div>`;
+
+    return { docTitle: "ใบเสนอราคา", text, textForCopy, html };
+  }
+
+  function openQuotationDocModal(q) {
+    const shop = DB.getShopInfo();
+    const current = buildQuotationDoc(q, shop);
+    const previewBox = el("div", { class: "receipt-preview" });
+    previewBox.innerHTML = current.html;
+    const downloadBtn = el(
+      "button",
+      { class: "btn", onClick: () => downloadTextFile(`${q.quote_no.replace("/", "-")}.txt`, current.text) },
+      "บันทึกเป็นไฟล์ .txt"
+    );
+    const printBtn = el("button", { class: "btn", onClick: () => printReceiptHtml(current.html) }, "พิมพ์ใบเสนอราคา");
+    const copyBtn = el(
+      "button",
+      {
+        class: "btn",
+        onClick: () => {
+          copyTextToClipboard(current.textForCopy)
+            .then(() => {
+              const original = "คัดลอกข้อความใบเสนอราคา";
+              copyBtn.textContent = "คัดลอกแล้ว ✓";
+              setTimeout(() => {
+                copyBtn.textContent = original;
+              }, 1500);
+            })
+            .catch(() => {
+              alert("คัดลอกไม่สำเร็จ กรุณาลองใหม่");
+            });
+        },
+      },
+      "คัดลอกข้อความใบเสนอราคา"
+    );
+    const closeBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
+    const body = el("div", {}, previewBox, el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn));
+    openModal("ใบเสนอราคา", body, { wide: true });
+  }
+
   // =================================================================== บัญชี
   let acctStart = "";
   let acctEnd = "";
@@ -6995,6 +7524,7 @@ function buildDataTable(columns, dataRows, opts) {
     renderers.purchases = renderPurchases;
     renderers.backorders = renderBackorders;
     renderers.customerOrders = renderCustomerOrders;
+    renderers.quotations = renderQuotations;
     renderers.accounting = renderAccounting;
     renderers.reports = renderReports;
 
