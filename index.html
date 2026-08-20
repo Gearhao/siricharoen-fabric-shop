@@ -3685,97 +3685,98 @@ function buildDataTable(columns, dataRows, opts) {
     // -------- HTML table version (สำหรับแสดงตัวอย่าง/พิมพ์) --------
     const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const itemRows = cartItems
-      .map((it) => {
+      .map((it, i) => {
         const sub = it.qty * it.unit_price;
         const qtyUnit = `${it.qty}${it.unit ? " " + it.unit : ""}`;
         const label = it.code || it.name || "";
         const noteHtml = it.note ? `<div style="font-size:10.5px;color:#666;margin-top:2px;">${esc(it.note)}</div>` : "";
-        return `<tr style="border-bottom:1px solid #ddd;"><td style="padding:5px 4px;">${esc(label)}${noteHtml}</td><td style="padding:5px 4px;text-align:right;">${esc(
+        const rowBorder = i === cartItems.length - 1 ? "" : "border-bottom:1px dotted #999;";
+        return `<tr><td style="padding:7px 4px;${rowBorder}">${esc(label)}${noteHtml}</td><td style="padding:7px 4px;text-align:right;${rowBorder}">${esc(
           qtyUnit
-        )}</td><td style="padding:5px 4px;text-align:right;">${money(it.unit_price)}</td><td style="padding:5px 4px;text-align:right;">${money(sub)}</td></tr>`;
+        )}</td><td style="padding:7px 4px;text-align:right;${rowBorder}">${money(it.unit_price)}</td><td style="padding:7px 4px;text-align:right;${rowBorder}">${money(sub)}</td></tr>`;
       })
       .join("");
 
-    let summaryRows = `<tr><td style="padding:2px 0;color:#555;">ยอดรวมก่อนหักส่วนลด</td><td style="padding:2px 0;text-align:right;">${money(
+    let summaryRowsTop = `<tr><td style="padding:2px 0;color:#444;">ยอดรวมก่อนหักส่วนลด</td><td style="padding:2px 0;text-align:right;">${money(
       sale.subtotal
     )}</td></tr>`;
     if (sale.discount) {
-      summaryRows += `<tr><td style="padding:2px 0;color:#555;">ส่วนลด</td><td style="padding:2px 0;text-align:right;">${money(sale.discount)}</td></tr>`;
+      summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">ส่วนลด</td><td style="padding:2px 0;text-align:right;">${money(sale.discount)}</td></tr>`;
     }
     if (showVat) {
-      summaryRows += `<tr><td style="padding:2px 0;color:#555;">ภาษีมูลค่าเพิ่ม ${Math.round(
+      summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">ภาษีมูลค่าเพิ่ม ${Math.round(
         VAT_RATE * 100
       )}%</td><td style="padding:2px 0;text-align:right;">${money(sale.vat_amount)}</td></tr>`;
     }
     if (!excludeShippingFromTotal && sale.shipping_fee) {
-      summaryRows += `<tr><td style="padding:2px 0;color:#555;">ค่าจัดส่ง</td><td style="padding:2px 0;text-align:right;">${money(sale.shipping_fee)}</td></tr>`;
+      summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">ค่าจัดส่ง</td><td style="padding:2px 0;text-align:right;">${money(sale.shipping_fee)}</td></tr>`;
     }
-    summaryRows += `<tr style="border-top:1px solid #000;"><td style="padding:6px 0 2px;font-weight:bold;">ยอดสุทธิ</td><td style="padding:6px 0 2px;text-align:right;font-weight:bold;">${money(
-      displayTotal
-    )}</td></tr>`;
+
+    let summaryRowsBottom = "";
     if (excludeShippingFromTotal && sale.shipping_fee) {
-      summaryRows += `<tr style="border-top:1px dashed #999;"><td style="padding:6px 0 2px;color:#555;">ค่าจัดส่ง (ชำระแยกต่างหาก)</td><td style="padding:6px 0 2px;text-align:right;">${money(
+      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">ค่าจัดส่ง (ชำระแยกต่างหาก)</td><td style="padding:3px 0;text-align:right;">${money(
         sale.shipping_fee
       )}</td></tr>`;
     }
     if (sale.paid) {
-      summaryRows += `<tr><td style="padding:2px 0;color:#555;">รับเงิน</td><td style="padding:2px 0;text-align:right;">${money(sale.paid)}</td></tr>`;
+      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">รับเงิน</td><td style="padding:3px 0;text-align:right;">${money(sale.paid)}</td></tr>`;
     }
     if (sale.change_amt) {
-      summaryRows += `<tr><td style="padding:2px 0;color:#555;">เงินทอน</td><td style="padding:2px 0;text-align:right;">${money(sale.change_amt)}</td></tr>`;
+      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">เงินทอน</td><td style="padding:3px 0;text-align:right;">${money(sale.change_amt)}</td></tr>`;
     }
     if (sale.payment_method === "โอนเงิน" && (sale.bank_name || sale.bank_account_name)) {
-      summaryRows += `<tr><td style="padding:2px 0;color:#555;">โอนเข้าธนาคาร</td><td style="padding:2px 0;text-align:right;">${esc(
+      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">โอนเข้าธนาคาร</td><td style="padding:3px 0;text-align:right;">${esc(
         sale.bank_name || "-"
       )}</td></tr>`;
-      summaryRows += `<tr><td style="padding:2px 0;color:#555;">ชื่อบัญชี</td><td style="padding:2px 0;text-align:right;">${esc(
+      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">ชื่อบัญชี</td><td style="padding:3px 0;text-align:right;">${esc(
         sale.bank_account_name || "-"
       )}</td></tr>`;
     }
 
     const taxIdLine =
       showVat && !isDeliveryDoc && shop.tax_id
-        ? `<div style="text-align:left;font-size:11px;color:#555;margin-bottom:6px;">เลขผู้เสียภาษี: ${esc(shop.tax_id)}</div>`
+        ? `<div style="font-size:11px;color:#888;letter-spacing:0.5px;margin-top:3px;">เลขผู้เสียภาษี: ${esc(shop.tax_id)}</div>`
         : "";
     const shippingMethodRow = sale.shipping_method
-      ? `<tr><td style="padding:2px 0;color:#555;">วิธีจัดส่ง</td><td style="padding:2px 0;text-align:right;">${esc(sale.shipping_method)}</td></tr>`
+      ? `<tr><td style="padding:2px 0;color:#444;">วิธีจัดส่ง</td><td style="padding:2px 0;text-align:right;">${esc(sale.shipping_method)}</td></tr>`
       : "";
 
     const html = `
       <div style="max-width:380px;margin:0;font-family:Tahoma,'Segoe UI',sans-serif;color:#111;">
-        ${taxIdLine}
-        <div style="text-align:left;border-bottom:1px solid #000;padding-bottom:8px;margin-bottom:10px;">
-          <strong style="font-size:15px;">${esc(docTitle)}</strong>
+        <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px;">
+          <div style="font-size:17px;font-weight:bold;letter-spacing:0.5px;">${esc(docTitle)}</div>
+          <div style="font-size:11px;color:#888;margin-top:3px;">เลขที่ ${esc(sale.sale_no)}</div>
+          ${taxIdLine}
         </div>
-        <table style="width:100%;font-size:12px;margin-bottom:10px;border-collapse:collapse;">
-          <tr><td style="padding:2px 0;color:#555;">เลขที่บิล</td><td style="padding:2px 0;text-align:right;">${esc(sale.sale_no)}</td></tr>
-          <tr><td style="padding:2px 0;color:#555;">วันที่</td><td style="padding:2px 0;text-align:right;">${esc(fmtDate(sale.date))}</td></tr>
-          <tr><td style="padding:2px 0;color:#555;">ลูกค้า</td><td style="padding:2px 0;text-align:right;font-weight:bold;font-size:15px;">${esc(custName)}</td></tr>
+        <table style="width:100%;font-size:12px;margin-bottom:12px;border-collapse:collapse;">
+          <tr><td style="padding:3px 0;color:#444;">วันที่</td><td style="padding:3px 0;text-align:right;">${esc(fmtDate(sale.date))}</td></tr>
+          <tr><td style="padding:3px 0;color:#444;">ลูกค้า</td><td style="padding:3px 0;text-align:right;font-weight:bold;font-size:14px;">${esc(custName)}</td></tr>
           ${shippingMethodRow}
         </table>
-        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
           <thead>
-            <tr style="border-top:1px solid #000;border-bottom:1px solid #000;">
-              <th style="text-align:left;padding:5px 4px;">รายการ</th>
-              <th style="text-align:right;padding:5px 4px;">จำนวน</th>
-              <th style="text-align:right;padding:5px 4px;">ราคา</th>
-              <th style="text-align:right;padding:5px 4px;">รวม</th>
+            <tr style="border-top:1.5px solid #000;border-bottom:1.5px solid #000;">
+              <th style="text-align:left;padding:6px 4px;">รายการ</th>
+              <th style="text-align:right;padding:6px 4px;">จำนวน</th>
+              <th style="text-align:right;padding:6px 4px;">ราคา</th>
+              <th style="text-align:right;padding:6px 4px;">รวม</th>
             </tr>
           </thead>
           <tbody>${itemRows}</tbody>
         </table>
-        <table style="width:100%;font-size:12px;border-collapse:collapse;">${summaryRows}</table>
-        <div style="text-align:left;font-size:12px;color:#555;margin-top:12px;">ขอบคุณที่ใช้บริการ</div>
-        <div style="display:flex;justify-content:space-between;margin-top:36px;font-size:11px;text-align:center;">
-          <div style="width:30%;">
-            <div style="border-top:1px solid #000;margin-top:24px;padding-top:4px;">ผู้ส่งสินค้า</div>
-          </div>
-          <div style="width:30%;">
-            <div style="border-top:1px solid #000;margin-top:24px;padding-top:4px;">ผู้รับสินค้า</div>
-          </div>
-          <div style="width:30%;">
-            <div style="border-top:1px solid #000;margin-top:24px;padding-top:4px;">ผู้รับเงิน</div>
-          </div>
+        <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:6px;">${summaryRowsTop}</table>
+        <div style="border:1.5px solid #000;border-radius:4px;padding:8px 10px;display:flex;justify-content:space-between;align-items:baseline;margin-bottom:${
+          summaryRowsBottom ? "10px" : "16px"
+        };">
+          <span style="font-weight:bold;font-size:14px;">ยอดสุทธิ</span>
+          <span style="font-weight:bold;font-size:16px;">${money(displayTotal)} บาท</span>
+        </div>
+        ${summaryRowsBottom ? `<table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:16px;">${summaryRowsBottom}</table>` : ""}
+        <div style="font-size:12px;color:#444;text-align:center;margin-bottom:18px;">ขอบคุณที่ใช้บริการ</div>
+        <div style="display:flex;justify-content:space-between;margin-top:28px;font-size:11px;text-align:center;color:#000;">
+          <div style="width:30%;border-top:1px solid #000;padding-top:4px;">ผู้ส่งสินค้า</div>
+          <div style="width:30%;border-top:1px solid #000;padding-top:4px;">ผู้รับสินค้า</div>
+          <div style="width:30%;border-top:1px solid #000;padding-top:4px;">ผู้รับเงิน</div>
         </div>
         ${sale.note ? `<div style="text-align:left;font-size:12px;color:#111;margin-top:16px;padding-top:8px;border-top:1px dashed #999;">หมายเหตุ: ${esc(sale.note)}</div>` : ""}
       </div>`;
