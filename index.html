@@ -740,6 +740,20 @@ function createDB(storageKey) {
     if (delta !== 0) recordAccountMovement(id, delta, "adjust", null, note || "ปรับปรุงยอดบัญชี");
     return acct;
   }
+    // โยกเงินจากบัญชีหนึ่งไปอีกบัญชีหนึ่ง (เช่น เงินสด -> ธนาคาร หรือระหว่างบัญชีธนาคาร)
+  function transferBetweenAccounts(fromId, toId, amount, note) {
+    const from = getBankAccount(fromId);
+    const to = getBankAccount(toId);
+    const amt = Number(amount) || 0;
+    if (!from || !to || fromId === toId || amt <= 0) return null;
+    const fromLabel = from.is_cash ? "เงินสด" : `${from.bank_name} - ${from.account_name}`;
+    const toLabel = to.is_cash ? "เงินสด" : `${to.bank_name} - ${to.account_name}`;
+    const transferRef = "TR" + Date.now();
+    const noteSuffix = note ? ` (${note})` : "";
+    recordAccountMovement(fromId, -amt, "transfer_out", transferRef, `โยกเงินไป ${toLabel}${noteSuffix}`);
+    recordAccountMovement(toId, amt, "transfer_in", transferRef, `รับโอนจาก ${fromLabel}${noteSuffix}`);
+    return transferRef;
+  }
   function recordAccountMovement(accountId, delta, refType, refId, note) {
     if (!accountId || !delta) return;
     const acct = getBankAccount(accountId);
@@ -1922,7 +1936,7 @@ function createDB(storageKey) {
     getExpenseCategories, addExpenseCategory, updateExpenseCategory, deleteExpenseCategory,
     addBackorder, updateBackorder, deleteBackorder, markBackorderDone, markBackorderUndone, getBackorders, getBackorder,
     addCustomerOrder, updateCustomerOrder, deleteCustomerOrder, markCustomerOrderDone, markCustomerOrderUndone, getCustomerOrders, getCustomerOrder,
-    getBankAccounts, getBankAccount, getCashAccount, createBankAccount, updateBankAccount, deleteBankAccount, adjustBankAccountBalance, getAccountMovements,
+    getBankAccounts, getBankAccount, getCashAccount, createBankAccount, updateBankAccount, deleteBankAccount, adjustBankAccountBalance, transferBetweenAccounts, getAccountMovements,
     salesSummary, cogsSummary, expensesSummary, shippingSummary, bestSellers, lowStockList,
     arAging, apAging, getCustomerCashPendingTotal, getCustomerTotalDue,
     exportBackup, exportBackupCsv, exportBackupPages, importBackup, resetAll,
@@ -3890,6 +3904,7 @@ function buildDataTable(columns, dataRows, opts) {
     } else if (wholeAccountLabel) {
       lines.push(`  โอนเข้าบัญชี ${wholeAccountLabel}`);
     }
+    const linesNoSign = lines.slice();
     lines.push("");
     lines.push("");
     lines.push("ลงชื่อ..................................... ผู้วางบิล");
@@ -3899,8 +3914,12 @@ function buildDataTable(columns, dataRows, opts) {
       lines.push("");
       lines.push("-".repeat(40));
       lines.push(`หมายเหตุ: ${noteTrimmed}`);
+      linesNoSign.push("");
+      linesNoSign.push("-".repeat(40));
+      linesNoSign.push(`หมายเหตุ: ${noteTrimmed}`);
     }
     const text = lines.join("\n");
+    const textForCopy = linesNoSign.join("\n");
 
     const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const rows = rowsData
@@ -3978,7 +3997,7 @@ function buildDataTable(columns, dataRows, opts) {
         ${noteHtml}
       </div>
     `;
-    return { docTitle: "ใบวางบิล", docNo, text, textForCopy: text, html };
+    return { docTitle: "ใบวางบิล", docNo, text, textForCopy, html };
   }
 
   function openBillingStatementModal(cust, sales) {
@@ -6243,7 +6262,12 @@ function buildDataTable(columns, dataRows, opts) {
     refs.acctArContainer = arContainer;
     refs.acctApContainer = apContainer;
 
-    const bankToolbar = el("div", { class: "toolbar" }, el("button", { class: "btn btn-primary", onClick: () => openBankAccountModal() }, "+ เพิ่มบัญชีธนาคาร"));
+    const bankToolbar = el(
+      "div",
+      { class: "toolbar" },
+      el("button", { class: "btn btn-primary", onClick: () => openBankAccountModal() }, "+ เพิ่มบัญชีธนาคาร"),
+      el("button", { class: "btn", onClick: () => openTransferAccountModal() }, "โยกเงินระหว่างบัญชี")
+    );
     const bankTableContainer = el("div", { class: "table-container" });
     refs.acctBankContainer = bankTableContainer;
 
@@ -6391,6 +6415,63 @@ function buildDataTable(columns, dataRows, opts) {
     );
     exposeTestRefs("adjustBalanceForm", { balanceInput, noteInput, saveBtn });
     openModal("ปรับยอดบัญชี", body);
+  }
+
+  function openTransferAccountModal() {
+    const fromSelect = buildBankAccountSelect("");
+    const toSelect = buildBankAccountSelect("");
+    const amountInput = numberInput(0);
+    const noteInput = textInput("");
+    const balanceHint = el("div", { style: { fontSize: "12px", color: "var(--text-muted)", marginTop: "-4px", marginBottom: "8px" } });
+    function updateBalanceHint() {
+      const fromId = Number(fromSelect.value) || null;
+      const acct = fromId ? DB.getBankAccount(fromId) : null;
+      balanceHint.textContent = acct ? `ยอดคงเหลือปัจจุบัน: ${money(acct.balance || 0)} บาท` : "";
+    }
+    fromSelect.addEventListener("change", updateBalanceHint);
+    updateBalanceHint();
+    const errorMsg = el("div", { style: { color: "var(--danger, #c0392b)", minHeight: "18px", fontSize: "13px" } });
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          errorMsg.textContent = "";
+          const fromId = Number(fromSelect.value) || null;
+          const toId = Number(toSelect.value) || null;
+          const amount = Number(amountInput.value) || 0;
+          if (!fromId || !toId) {
+            errorMsg.textContent = "กรุณาเลือกบัญชีต้นทางและปลายทาง";
+            return;
+          }
+          if (fromId === toId) {
+            errorMsg.textContent = "บัญชีต้นทางและปลายทางต้องไม่ใช่บัญชีเดียวกัน";
+            return;
+          }
+          if (amount <= 0) {
+            errorMsg.textContent = "กรุณาระบุจำนวนเงินให้มากกว่า 0";
+            return;
+          }
+          DB.transferBetweenAccounts(fromId, toId, amount, noteInput.value.trim());
+          closeModal();
+          refreshBankAccountsTable();
+        },
+      },
+      "โยกเงิน"
+    );
+    const body = el(
+      "div",
+      {},
+      formField("จากบัญชี", fromSelect),
+      balanceHint,
+      formField("ไปยังบัญชี", toSelect),
+      formField("จำนวนเงิน", amountInput),
+      formField("หมายเหตุ (ถ้ามี)", noteInput),
+      errorMsg,
+      el("div", { class: "modal-actions" }, saveBtn)
+    );
+    exposeTestRefs("transferAccountForm", { fromSelect, toSelect, amountInput, noteInput, saveBtn });
+    openModal("โยกเงินระหว่างบัญชี", body);
   }
 
   function openAccountMovementsModal(accountId) {
