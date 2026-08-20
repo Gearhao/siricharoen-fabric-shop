@@ -3652,8 +3652,10 @@ function buildDataTable(columns, dataRows, opts) {
       if (it.note) lines.push(`    (${it.note})`);
     });
     lines.push("-".repeat(40));
-    lines.push(`${"ยอดรวมก่อนหักส่วนลด".padEnd(24)}${money(sale.subtotal).padStart(14)}`);
-    if (sale.discount) lines.push(`${"ส่วนลด".padEnd(24)}${money(sale.discount).padStart(14)}`);
+    if (sale.discount) {
+      lines.push(`${"ยอดรวมก่อนหักส่วนลด".padEnd(24)}${money(sale.subtotal).padStart(14)}`);
+      lines.push(`${"ส่วนลด".padEnd(24)}${money(sale.discount).padStart(14)}`);
+    }
     if (showVat) lines.push(`${("ภาษีมูลค่าเพิ่ม " + Math.round(VAT_RATE * 100) + "%").padEnd(24)}${money(sale.vat_amount).padStart(14)}`);
     if (!excludeShippingFromTotal && sale.shipping_fee) lines.push(`${"ค่าจัดส่ง".padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
     lines.push(`${"ยอดสุทธิ".padEnd(24)}${money(displayTotal).padStart(14)}`);
@@ -3711,10 +3713,11 @@ function buildDataTable(columns, dataRows, opts) {
       })
       .join("");
 
-    let summaryRowsTop = `<tr><td style="padding:2px 0;color:#444;">ยอดรวมก่อนหักส่วนลด</td><td style="padding:2px 0;text-align:right;">${money(
-      sale.subtotal
-    )}</td></tr>`;
+    let summaryRowsTop = "";
     if (sale.discount) {
+      summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">ยอดรวมก่อนหักส่วนลด</td><td style="padding:2px 0;text-align:right;">${money(
+        sale.subtotal
+      )}</td></tr>`;
       summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">ส่วนลด</td><td style="padding:2px 0;text-align:right;">${money(sale.discount)}</td></tr>`;
     }
     if (showVat) {
