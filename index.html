@@ -3122,7 +3122,11 @@ function buildDataTable(columns, dataRows, opts) {
       const saleNoCell = el(
         "td",
         {},
-        el("button", { class: "btn btn-sm btn-danger", onClick: () => openSaleDetailModal(s.id) }, s.sale_no)
+        el(
+          "button",
+          { class: `btn btn-sm ${isUnpaidStatus ? "btn-danger" : "btn-primary"}`, onClick: () => openSaleDetailModal(s.id) },
+          s.sale_no
+        )
       );
       const tr = el(
         "tr",
