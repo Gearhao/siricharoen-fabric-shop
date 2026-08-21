@@ -4339,7 +4339,7 @@ function buildDataTable(columns, dataRows, opts) {
       rows,
       {
         cellStyle: (row, ci, colName) =>
-          colName === "คงเหลือ" && Number(row[ci]) < 0 ? { color: "var(--danger)", fontWeight: "600" } : null,
+          colName === "คงเหลือ" && Number(row[ci]) <= 0 ? { color: "var(--danger)", fontWeight: "600" } : null,
         actions: (idx) => {
           const f = fabrics[idx];
           return [
