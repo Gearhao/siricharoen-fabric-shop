@@ -3872,6 +3872,113 @@ function buildDataTable(columns, dataRows, opts) {
     return { docTitle, text, textForCopy, html };
   }
 
+  function buildShippingReceiptDoc(sale, cust, shop, shipAccountLabel) {
+    const custName = cust ? cust.name : sale.customer_name || "ลูกค้าทั่วไป";
+    const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const shipFee = sale.shipping_fee || 0;
+
+    const lines = [];
+    lines.push("ใบเสร็จค่าจัดส่ง");
+    lines.push(`อ้างอิงบิลเลขที่: ${sale.sale_no}`);
+    lines.push(`วันที่: ${fmtDate(sale.date)}`);
+    lines.push(`ลูกค้า: ${custName}`);
+    lines.push("-".repeat(40));
+    lines.push(`${"ค่าจัดส่ง".padEnd(24)}${money(shipFee).padStart(14)}`);
+    lines.push("-".repeat(40));
+    lines.push(`${"ยอดสุทธิ".padEnd(24)}${money(shipFee).padStart(14)}`);
+    if (shipAccountLabel) lines.push(`โอนเข้าบัญชี ${shipAccountLabel}`);
+    const linesNoSign = lines.slice();
+    lines.push("");
+    lines.push("ขอบคุณที่ใช้บริการ");
+    lines.push("");
+    lines.push("ลงชื่อ..................................... ผู้รับเงิน");
+    const text = lines.join("\n");
+    const textForCopy = linesNoSign.join("\n");
+
+    const acctLine = shipAccountLabel
+      ? `<div style="font-size:11px;color:#888;margin-bottom:16px;">โอนเข้าบัญชี ${esc(shipAccountLabel)}</div>`
+      : "";
+    const html = `
+      <div style="max-width:380px;margin:0;font-family:Tahoma,'Segoe UI',sans-serif;color:#111;">
+        <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px;">
+          <div style="font-size:17px;font-weight:bold;letter-spacing:0.5px;">ใบเสร็จค่าจัดส่ง</div>
+          <div style="font-size:11px;color:#888;margin-top:3px;">อ้างอิงบิลเลขที่ ${esc(sale.sale_no)}</div>
+        </div>
+        <table style="width:100%;font-size:12px;margin-bottom:12px;border-collapse:collapse;">
+          <tr><td style="padding:3px 0;color:#444;">วันที่</td><td style="padding:3px 0;text-align:right;">${esc(fmtDate(sale.date))}</td></tr>
+          <tr><td style="padding:3px 0;color:#444;">ลูกค้า</td><td style="padding:3px 0;text-align:right;font-weight:bold;font-size:14px;">${esc(custName)}</td></tr>
+        </table>
+        <div style="border:1.5px solid #000;border-radius:4px;padding:8px 10px;display:flex;justify-content:space-between;align-items:baseline;margin-bottom:${
+          shipAccountLabel ? "10px" : "16px"
+        };">
+          <span style="font-weight:bold;font-size:14px;">ค่าจัดส่ง</span>
+          <span style="font-weight:bold;font-size:16px;">${money(shipFee)} บาท</span>
+        </div>
+        ${acctLine}
+        <div style="font-size:12px;color:#444;text-align:center;margin-bottom:18px;">ขอบคุณที่ใช้บริการ</div>
+        <div style="font-size:11px;text-align:center;color:#000;">
+          <div style="width:45%;margin:0 auto;border-top:1px solid #000;padding-top:4px;">ผู้รับเงิน</div>
+        </div>
+      </div>`;
+
+    return { docTitle: "ใบเสร็จค่าจัดส่ง", text, textForCopy, html };
+  }
+
+  function openShippingReceiptModal(sale, custId) {
+    const cust = custId ? DB.getCustomer(custId) : null;
+    const shop = DB.getShopInfo();
+    const accountSelect = buildBankAccountSelect("");
+    function selLabel(sel) {
+      const opt = sel.options[sel.selectedIndex];
+      return opt ? opt.textContent : "";
+    }
+    let current = buildShippingReceiptDoc(sale, cust, shop, selLabel(accountSelect));
+    const previewBox = el("div", { class: "receipt-preview" });
+    previewBox.innerHTML = current.html;
+    function refresh() {
+      current = buildShippingReceiptDoc(sale, cust, shop, selLabel(accountSelect));
+      previewBox.innerHTML = current.html;
+    }
+    accountSelect.addEventListener("change", refresh);
+
+    const downloadBtn = el(
+      "button",
+      { class: "btn", onClick: () => downloadTextFile(`${sale.sale_no}-shipping.txt`, current.text) },
+      "บันทึกเป็นไฟล์ .txt"
+    );
+    const printBtn = el("button", { class: "btn", onClick: () => printReceiptHtml(current.html) }, "พิมพ์ใบเสร็จค่าส่ง");
+    const copyBtn = el(
+      "button",
+      {
+        class: "btn",
+        onClick: () => {
+          copyTextToClipboard(current.textForCopy)
+            .then(() => {
+              const original = "คัดลอกข้อความใบเสร็จค่าส่ง";
+              copyBtn.textContent = "คัดลอกแล้ว ✓";
+              setTimeout(() => {
+                copyBtn.textContent = original;
+              }, 1500);
+            })
+            .catch(() => {
+              alert("คัดลอกไม่สำเร็จ กรุณาลองใหม่");
+            });
+        },
+      },
+      "คัดลอกข้อความใบเสร็จค่าส่ง"
+    );
+    const closeBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
+
+    const body = el(
+      "div",
+      {},
+      formField("บัญชีรับเงินค่าส่ง (ถ้ามี)", accountSelect),
+      previewBox,
+      el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn)
+    );
+    openModal("ใบเสร็จค่าจัดส่ง", body, { wide: true });
+  }
+
   function showReceiptModal(sale, custId, cartItems) {
     const cust = custId ? DB.getCustomer(custId) : null;
     const shop = DB.getShopInfo();
@@ -3917,13 +4024,17 @@ function buildDataTable(columns, dataRows, opts) {
     }
 
     const docTypeToggle = null;
+    const shippingBtn =
+      sale.shipping_fee > 0
+        ? el("button", { class: "btn", onClick: () => openShippingReceiptModal(sale, custId) }, "ออกใบเสร็จค่าส่งแยก")
+        : null;
 
     const body = el(
       "div",
       {},
       docTypeToggle,
       previewBox,
-      el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn)
+      el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, shippingBtn, closeBtn)
     );
     exposeTestRefs("receipt", { get text() { return current.text; }, get html() { return current.html; }, sale, setDocType: (t) => { docType = t; refresh(); } });
     openModal(current.docTitle, body, { wide: true });
