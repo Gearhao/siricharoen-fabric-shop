@@ -3350,7 +3350,7 @@ function buildDataTable(columns, dataRows, opts) {
   function fabricSelectOptions(selectedId) {
     const fabrics = DB.getFabrics("");
     const opts = [{ value: "", label: "-- เลือกผ้า --" }].concat(
-      fabrics.map((f) => ({ value: String(f.id), label: `${f.code} - ${f.name}` }))
+      fabrics.map((f) => ({ value: String(f.id), label: `${f.code} - ${f.name} (คงเหลือ ${round3(f.stock_qty)} ${f.unit})` }))
     );
     return { opts, fabrics };
   }
