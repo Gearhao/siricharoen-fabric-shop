@@ -2952,6 +2952,10 @@ function buildDataTable(columns, dataRows, opts) {
 
     if (cart.length === 0) addPosRow();
     else renderPosItemsTable();
+    if (editingSaleId) {
+      const editingSale = DB.getSale(editingSaleId);
+      if (editingSale) applySaleFieldsToPosForm(editingSale);
+    }
     updatePosTotals();
     renderPosSalesHistory();
     updateEditBannerUI();
@@ -3224,6 +3228,21 @@ function buildDataTable(columns, dataRows, opts) {
     openModal("บันทึกการชำระเงิน", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
   }
 
+  function applySaleFieldsToPosForm(sale) {
+    refs.posCustomerSelect.setCustomerId(sale.customer_id || 0);
+    if (refs.posVatChk) refs.posVatChk.checked = !!sale.is_vat;
+    refs.posDiscountInput.value = sale.discount || 0;
+    if (refs.posDiscountUnitSelect) refs.posDiscountUnitSelect.value = "บาท";
+    refs.posShippingFeeInput.value = sale.shipping_fee || 0;
+    refs.posShippingMethodInput.value = sale.shipping_method || "";
+    refs.posDueDateInput.value = sale.due_date || "";
+    refs.posPaymentSelect.value = sale.payment_method;
+    refs.posPaidInput.value = sale.paid;
+    refs.posAccountSplit.setSplits(sale.account_splits || []);
+    refs.posAccountSplitRow.style.display = sale.payment_method === "โอนเงิน" ? "" : "none";
+    refs.posNoteInput.value = sale.note || "";
+  }
+
   function editSalePOS(saleId) {
     const sale = DB.getSale(saleId);
     if (!sale) return;
@@ -3261,18 +3280,7 @@ function buildDataTable(columns, dataRows, opts) {
     });
     if (cart.length === 0) addPosRow();
     else renderPosItemsTable();
-    refs.posCustomerSelect.setCustomerId(sale.customer_id || 0);
-    if (refs.posVatChk) refs.posVatChk.checked = !!sale.is_vat;
-    refs.posDiscountInput.value = sale.discount || 0;
-    if (refs.posDiscountUnitSelect) refs.posDiscountUnitSelect.value = "บาท";
-    refs.posShippingFeeInput.value = sale.shipping_fee || 0;
-    refs.posShippingMethodInput.value = sale.shipping_method || "";
-    refs.posDueDateInput.value = sale.due_date || "";
-    refs.posPaymentSelect.value = sale.payment_method;
-    refs.posPaidInput.value = sale.paid;
-    refs.posAccountSplit.setSplits(sale.account_splits || []);
-    refs.posAccountSplitRow.style.display = sale.payment_method === "โอนเงิน" ? "" : "none";
-    refs.posNoteInput.value = sale.note || "";
+    applySaleFieldsToPosForm(sale);
     updatePosTotals();
     updateEditBannerUI();
     sections.pos.scrollIntoView({ behavior: "smooth", block: "start" });
