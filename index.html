@@ -32,6 +32,16 @@
   --sidebar-border: rgba(255,255,255,0.08);
 }
 
+/* เอาลูกศรขึ้น-ลงในช่องกรอกตัวเลขออกทั้งหมด เพราะเผลอเลื่อนเมาส์แล้วค่าเปลี่ยนไปโดยไม่ตั้งใจบ่อย (ยังพิมพ์ตัวเลขปกติได้) */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 .vat-theme {
   --primary: #c0392b;
   --primary-dark: #922b21;
@@ -8107,6 +8117,15 @@ function buildDataTable(columns, dataRows, opts) {
   }
 if (typeof global.window !== "undefined") {
     global.window.SiriCharoenApp = api;
+    // ป้องกันเผลอเลื่อนเมาส์แล้วค่าตัวเลขในช่องกรอกเปลี่ยนไปโดยไม่ตั้งใจ: เอาโฟกัสออกจากช่องตัวเลขทันทีที่มีการเลื่อนเมาส์
+    global.document.addEventListener(
+      "wheel",
+      (e) => {
+        const el = global.document.activeElement;
+        if (el && el.tagName === "INPUT" && el.type === "number") el.blur();
+      },
+      { passive: true }
+    );
     if (global.document.readyState === "loading") {
       global.document.addEventListener("DOMContentLoaded", bootWithAuth);
     } else {
