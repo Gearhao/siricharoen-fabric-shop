@@ -3804,6 +3804,7 @@ function buildDataTable(columns, dataRows, opts) {
           totalDueAll: "Total outstanding balance",
           currency: "THB",
           payAccount: "Payment Account",
+          transferTo: "Transfer to account",
         }
       : {
           deliveryNote: "ใบส่งสินค้า",
@@ -3839,6 +3840,7 @@ function buildDataTable(columns, dataRows, opts) {
           totalDueAll: "ยอดค้างชำระสะสมทั้งหมด",
           currency: "บาท",
           payAccount: "บัญชีสำหรับโอนเงิน",
+          transferTo: "โอนเข้าบัญชี",
         };
     const showVat = VAT_ENABLED || !!(sale && sale.is_vat);
     const isDeliveryDoc = docType === "delivery";
@@ -3850,8 +3852,8 @@ function buildDataTable(columns, dataRows, opts) {
       ? L.taxInvoiceReceipt
       : L.receipt;
     const custName = cust ? cust.name : L.generalCustomer;
-    // สำหรับใบส่งสินค้าที่เป็นบิล VAT: แยกค่าจัดส่งออกจากยอดสุทธิ เพราะลูกค้าต้องโอนเงินค่าสินค้ากับค่าส่งแยกกัน
-    const excludeShippingFromTotal = isDeliveryDoc && showVat;
+    // บิลที่เป็นแว็ดและมีค่าจัดส่ง: แยกค่าส่งออกจากยอดสุทธิเสมอ (ไม่ว่าจะเป็นใบส่งสินค้าหรือใบเสร็จ) เพราะลูกค้าต้องโอนเงินค่าสินค้ากับค่าส่งแยกบัญชีกัน เหมือนใบวางบิล
+    const excludeShippingFromTotal = showVat && docType !== "cash" && (sale.shipping_fee || 0) > 0;
     const displayTotal = excludeShippingFromTotal ? sale.total - (sale.shipping_fee || 0) : sale.total;
 
     // -------- plain text version (สำหรับดาวน์โหลดไฟล์ .txt) --------
@@ -3883,9 +3885,11 @@ function buildDataTable(columns, dataRows, opts) {
       lines.push(`${L.shippingFee.padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
     }
     lines.push(`${L.total.padEnd(24)}${money(displayTotal).padStart(14)}`);
-    if (excludeShippingFromTotal && sale.shipping_fee) {
+    if (excludeShippingFromTotal) {
+      lines.push(`  ${L.transferTo} ${BILLING_FABRIC_ACCOUNT_TEXT}`);
       lines.push("-".repeat(40));
       lines.push(`${L.shippingFeeSeparate.padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
+      if (payAccountLabel) lines.push(`  ${L.transferTo} ${payAccountLabel}`);
     }
     if (sale.paid) lines.push(`${L.paid.padEnd(24)}${money(sale.paid).padStart(14)}`);
     if (sale.change_amt) lines.push(`${L.change.padEnd(24)}${money(sale.change_amt).padStart(14)}`);
@@ -3920,7 +3924,8 @@ function buildDataTable(columns, dataRows, opts) {
       }
     }
     // บัญชีสำหรับโอนเงิน: ใส่ไว้ล่างสุดของข้อความเสมอ เพื่อให้ลูกค้าเห็นชัดตอนอ่านที่แชท/ไลน์
-    if (payAccountLabel) {
+    // (ถ้าแยกค่าจัดส่งออกจากยอดแล้ว บัญชีจะถูกระบุไว้คู่กับแต่ละยอดด้านบนแทน ไม่ต้องซ้ำตรงนี้)
+    if (payAccountLabel && !excludeShippingFromTotal) {
       lines.push("");
       lines.push(`${L.payAccount}: ${payAccountLabel}`);
       linesNoSign.push("");
@@ -3964,10 +3969,14 @@ function buildDataTable(columns, dataRows, opts) {
     }
 
     let summaryRowsBottom = "";
-    if (excludeShippingFromTotal && sale.shipping_fee) {
-      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">${L.shippingFeeSeparate}</td><td style="padding:3px 0;text-align:right;">${money(
+    if (excludeShippingFromTotal) {
+      summaryRowsBottom += `<tr><td colspan="2" style="padding:0 0 4px;font-size:10.5px;color:#555;">${L.transferTo} ${esc(BILLING_FABRIC_ACCOUNT_TEXT)}</td></tr>`;
+      summaryRowsBottom += `<tr><td style="padding:6px 0 2px;color:#444;">${L.shippingFeeSeparate}</td><td style="padding:6px 0 2px;text-align:right;">${money(
         sale.shipping_fee
       )}</td></tr>`;
+      if (payAccountLabel) {
+        summaryRowsBottom += `<tr><td colspan="2" style="padding:0 0 4px;font-size:10.5px;color:#555;">${L.transferTo} ${esc(payAccountLabel)}</td></tr>`;
+      }
     }
     if (sale.paid) {
       summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">${L.paid}</td><td style="padding:3px 0;text-align:right;">${money(sale.paid)}</td></tr>`;
@@ -3991,9 +4000,11 @@ function buildDataTable(columns, dataRows, opts) {
     const shippingMethodRow = sale.shipping_method
       ? `<tr><td style="padding:2px 0;color:#444;">${L.shippingMethod}</td><td style="padding:2px 0;text-align:right;">${esc(sale.shipping_method)}</td></tr>`
       : "";
-    const payAccountRow = payAccountLabel
-      ? `<tr><td style="padding:2px 0;color:#444;">${L.payAccount}</td><td style="padding:2px 0;text-align:right;">${esc(payAccountLabel)}</td></tr>`
-      : "";
+    // ถ้าแยกค่าจัดส่งออกจากยอด (บิลแว็ดที่มีค่าส่ง) จะไปโชว์บัญชีคู่กับแต่ละยอดในส่วนสรุปด้านล่างแทน (แบบเดียวกับใบวางบิล) ไม่ต้องซ้ำในตารางข้อมูลบนนี้
+    const payAccountRow =
+      payAccountLabel && !excludeShippingFromTotal
+        ? `<tr><td style="padding:2px 0;color:#444;">${L.payAccount}</td><td style="padding:2px 0;text-align:right;">${esc(payAccountLabel)}</td></tr>`
+        : "";
 
     const html = `
       <div style="max-width:380px;margin:0;font-family:Tahoma,'Segoe UI',sans-serif;color:#111;">
