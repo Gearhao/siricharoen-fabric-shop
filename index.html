@@ -3706,30 +3706,99 @@ function buildDataTable(columns, dataRows, opts) {
     renderPosSalesHistory();
   }
 
-  function buildReceiptDoc(sale, cust, shop, cartItems, docType) {
-    const showVat = VAT_ENABLED || !!(sale && sale.is_vat);
+  function buildReceiptDoc(sale, cust, shop, cartItems, docType, lang) {
     // docType: "delivery" (ใบส่งสินค้า) | "cash" (บิลเงินสด) | "normal" (ใบเสร็จปกติ)
+    // lang: "th" (ค่าเริ่มต้น) | "en" (สำหรับลูกค้าต่างชาติ)
+    const isEn = lang === "en";
+    const L = isEn
+      ? {
+          deliveryNote: "Delivery Note",
+          cashBill: "Cash Bill",
+          taxInvoiceReceipt: "Abbreviated Tax Invoice / Receipt",
+          receipt: "Receipt",
+          generalCustomer: "Walk-in Customer",
+          taxId: "Tax ID",
+          invoiceNo: "No.",
+          date: "Date",
+          customer: "Customer",
+          shippingMethod: "Shipping Method",
+          item: "Item",
+          qty: "Qty",
+          price: "Price",
+          amount: "Amount",
+          subtotalBeforeDiscount: "Subtotal (before discount)",
+          discount: "Discount",
+          vatLabel: (pct) => `VAT ${pct}%`,
+          shippingFee: "Shipping Fee",
+          shippingFeeSeparate: "Shipping Fee (paid separately)",
+          total: "Total",
+          paid: "Paid",
+          change: "Change",
+          bank: "Bank",
+          accountName: "Account Name",
+          thankYou: "Thank you for your business",
+          deliveredBy: "Delivered by",
+          receivedGoodsBy: "Received by",
+          receivedPaymentBy: "Received Payment by",
+          note: "Note",
+          totalDueAll: "Total outstanding balance",
+          currency: "THB",
+        }
+      : {
+          deliveryNote: "ใบส่งสินค้า",
+          cashBill: "บิลเงินสด",
+          taxInvoiceReceipt: "ใบกำกับภาษีอย่างย่อ / ใบเสร็จรับเงิน",
+          receipt: "ใบเสร็จรับเงิน",
+          generalCustomer: "ลูกค้าทั่วไป",
+          taxId: "เลขผู้เสียภาษี",
+          invoiceNo: "เลขที่บิล",
+          date: "วันที่",
+          customer: "ลูกค้า",
+          shippingMethod: "วิธีจัดส่ง",
+          item: "รายการ",
+          qty: "จำนวน",
+          price: "ราคา",
+          amount: "รวม",
+          subtotalBeforeDiscount: "ยอดรวมก่อนหักส่วนลด",
+          discount: "ส่วนลด",
+          vatLabel: (pct) => `ภาษีมูลค่าเพิ่ม ${pct}%`,
+          shippingFee: "ค่าจัดส่ง",
+          shippingFeeSeparate: "ค่าจัดส่ง (ชำระแยกต่างหาก)",
+          total: "ยอดสุทธิ",
+          paid: "รับเงิน",
+          change: "เงินทอน",
+          bank: "โอนเข้าธนาคาร",
+          accountName: "ชื่อบัญชี",
+          thankYou: "ขอบคุณที่ใช้บริการ",
+          deliveredBy: "ผู้ส่งสินค้า",
+          receivedGoodsBy: "ผู้รับสินค้า",
+          receivedPaymentBy: "ผู้รับเงิน",
+          note: "หมายเหตุ",
+          totalDueAll: "ยอดค้างชำระสะสมทั้งหมด",
+          currency: "บาท",
+        };
+    const showVat = VAT_ENABLED || !!(sale && sale.is_vat);
     const isDeliveryDoc = docType === "delivery";
     const docTitle = isDeliveryDoc
-      ? "ใบส่งสินค้า"
+      ? L.deliveryNote
       : docType === "cash"
-      ? "บิลเงินสด"
+      ? L.cashBill
       : showVat
-      ? "ใบกำกับภาษีอย่างย่อ / ใบเสร็จรับเงิน"
-      : "ใบเสร็จรับเงิน";
-    const custName = cust ? cust.name : "ลูกค้าทั่วไป";
-    // สำหรับใบส่งสินค้าที่เป็นบิล VAT: แยกค่าจัดส่งออกจากยอดสุทธิ เพราะลูกค้าต้องโอนเงินค่าสินค้ากับค่าส่งแยกกัน
+      ? L.taxInvoiceReceipt
+      : L.receipt;
+    const custName = cust ? cust.name : L.generalCustomer;
+    // สำหรับใบส่งสินค้าที่เป็นบิล VAT: แยกค่าจัดส่งออกจากยอดสุทธิ เพราะลูกค้าต้องโอนเงินค่าสินค่ากับค่าส่งแยก������น
     const excludeShippingFromTotal = isDeliveryDoc && showVat;
     const displayTotal = excludeShippingFromTotal ? sale.total - (sale.shipping_fee || 0) : sale.total;
 
     // -------- plain text version (สำหรับดาวน์โหลดไฟล์ .txt) --------
     const lines = [];
-    if (showVat && !isDeliveryDoc && shop.tax_id) lines.push(`เลขผู้เสียภาษี: ${shop.tax_id}`);
+    if (showVat && !isDeliveryDoc && shop.tax_id) lines.push(`${L.taxId}: ${shop.tax_id}`);
     lines.push(docTitle);
-    lines.push(`เลขที่บิล: ${sale.sale_no}`);
-    lines.push(`วันที่: ${fmtDate(sale.date)}`);
-    lines.push(`ลูกค้า: ${custName}`);
-    if (sale.shipping_method) lines.push(`วิธีจัดส่ง: ${sale.shipping_method}`);
+    lines.push(`${L.invoiceNo}: ${sale.sale_no}`);
+    lines.push(`${L.date}: ${fmtDate(sale.date)}`);
+    lines.push(`${L.customer}: ${custName}`);
+    if (sale.shipping_method) lines.push(`${L.shippingMethod}: ${sale.shipping_method}`);
     lines.push("-".repeat(40));
     cartItems.forEach((it) => {
       const sub = it.qty * it.unit_price;
@@ -3742,46 +3811,46 @@ function buildDataTable(columns, dataRows, opts) {
     });
     lines.push("-".repeat(40));
     if (sale.discount) {
-      lines.push(`${"ยอดรวมก่อนหักส่วนลด".padEnd(24)}${money(sale.subtotal).padStart(14)}`);
-      lines.push(`${"ส่วนลด".padEnd(24)}${money(sale.discount).padStart(14)}`);
+      lines.push(`${L.subtotalBeforeDiscount.padEnd(24)}${money(sale.subtotal).padStart(14)}`);
+      lines.push(`${L.discount.padEnd(24)}${money(sale.discount).padStart(14)}`);
     }
-    if (showVat) lines.push(`${("ภาษีมูลค่าเพิ่ม " + Math.round(VAT_RATE * 100) + "%").padEnd(24)}${money(sale.vat_amount).padStart(14)}`);
-    if (!excludeShippingFromTotal && sale.shipping_fee) lines.push(`${"ค่าจัดส่ง".padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
-    lines.push(`${"ยอดสุทธิ".padEnd(24)}${money(displayTotal).padStart(14)}`);
+    if (showVat) lines.push(`${L.vatLabel(Math.round(VAT_RATE * 100)).padEnd(24)}${money(sale.vat_amount).padStart(14)}`);
+    if (!excludeShippingFromTotal && sale.shipping_fee) lines.push(`${L.shippingFee.padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
+    lines.push(`${L.total.padEnd(24)}${money(displayTotal).padStart(14)}`);
     if (excludeShippingFromTotal && sale.shipping_fee) {
       lines.push("-".repeat(40));
-      lines.push(`${"ค่าจัดส่ง (ชำระแยกต่างหาก)".padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
+      lines.push(`${L.shippingFeeSeparate.padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
     }
-    if (sale.paid) lines.push(`${"รับเงิน".padEnd(24)}${money(sale.paid).padStart(14)}`);
-    if (sale.change_amt) lines.push(`${"เงินทอน".padEnd(24)}${money(sale.change_amt).padStart(14)}`);
+    if (sale.paid) lines.push(`${L.paid.padEnd(24)}${money(sale.paid).padStart(14)}`);
+    if (sale.change_amt) lines.push(`${L.change.padEnd(24)}${money(sale.change_amt).padStart(14)}`);
     if (sale.payment_method === "โอนเงิน" && (sale.bank_name || sale.bank_account_name)) {
-      lines.push(`โอนเข้าธนาคาร: ${sale.bank_name || "-"}`);
-      lines.push(`ชื่อบัญชี: ${sale.bank_account_name || "-"}`);
+      lines.push(`${L.bank}: ${sale.bank_name || "-"}`);
+      lines.push(`${L.accountName}: ${sale.bank_account_name || "-"}`);
     }
     lines.push("-".repeat(40));
-    lines.push("ขอบคุณที่ใช้บริการ");
+    lines.push(L.thankYou);
     const linesNoSign = lines.slice();
     lines.push("");
     lines.push("");
-    lines.push("ลงชื่อ..................................... ผู้ส่งสินค้า");
+    lines.push(`.....................................  ${L.deliveredBy}`);
     lines.push("");
-    lines.push("ลงชื่อ..................................... ผู้รับสินค้า");
+    lines.push(`.....................................  ${L.receivedGoodsBy}`);
     lines.push("");
-    lines.push("ลงชื่อ..................................... ผู้รับเงิน");
+    lines.push(`.....................................  ${L.receivedPaymentBy}`);
     if (sale.note) {
       lines.push("");
       lines.push("-".repeat(40));
-      lines.push(`หมายเหตุ: ${sale.note}`);
+      lines.push(`${L.note}: ${sale.note}`);
       linesNoSign.push("");
       linesNoSign.push("-".repeat(40));
-      linesNoSign.push(`หมายเหตุ: ${sale.note}`);
+      linesNoSign.push(`${L.note}: ${sale.note}`);
     }
     if (cust) {
       const totalDue = DB.getCustomerTotalDue(cust);
       if (totalDue > 0) {
         linesNoSign.push("");
         linesNoSign.push("-".repeat(40));
-        linesNoSign.push(`ยอดค้างชำระสะสมทั้งหมด: ${money(totalDue)} บาท`);
+        linesNoSign.push(`${L.totalDueAll}: ${money(totalDue)} ${L.currency}`);
       }
     }
     const text = lines.join("\n");
@@ -3804,68 +3873,68 @@ function buildDataTable(columns, dataRows, opts) {
 
     let summaryRowsTop = "";
     if (sale.discount) {
-      summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">ยอดรวมก่อนหักส่วนลด</td><td style="padding:2px 0;text-align:right;">${money(
+      summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">${L.subtotalBeforeDiscount}</td><td style="padding:2px 0;text-align:right;">${money(
         sale.subtotal
       )}</td></tr>`;
-      summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">ส่วนลด</td><td style="padding:2px 0;text-align:right;">${money(sale.discount)}</td></tr>`;
+      summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">${L.discount}</td><td style="padding:2px 0;text-align:right;">${money(sale.discount)}</td></tr>`;
     }
     if (showVat) {
-      summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">ภาษีมูลค่าเพิ่ม ${Math.round(
-        VAT_RATE * 100
-      )}%</td><td style="padding:2px 0;text-align:right;">${money(sale.vat_amount)}</td></tr>`;
+      summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">${L.vatLabel(
+        Math.round(VAT_RATE * 100)
+      )}</td><td style="padding:2px 0;text-align:right;">${money(sale.vat_amount)}</td></tr>`;
     }
     if (!excludeShippingFromTotal && sale.shipping_fee) {
-      summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">ค่าจัดส่ง</td><td style="padding:2px 0;text-align:right;">${money(sale.shipping_fee)}</td></tr>`;
+      summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">${L.shippingFee}</td><td style="padding:2px 0;text-align:right;">${money(sale.shipping_fee)}</td></tr>`;
     }
 
     let summaryRowsBottom = "";
     if (excludeShippingFromTotal && sale.shipping_fee) {
-      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">ค่าจัดส่ง (ชำระแยกต่างหาก)</td><td style="padding:3px 0;text-align:right;">${money(
+      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">${L.shippingFeeSeparate}</td><td style="padding:3px 0;text-align:right;">${money(
         sale.shipping_fee
       )}</td></tr>`;
     }
     if (sale.paid) {
-      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">รับเงิน</td><td style="padding:3px 0;text-align:right;">${money(sale.paid)}</td></tr>`;
+      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">${L.paid}</td><td style="padding:3px 0;text-align:right;">${money(sale.paid)}</td></tr>`;
     }
     if (sale.change_amt) {
-      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">เงินทอน</td><td style="padding:3px 0;text-align:right;">${money(sale.change_amt)}</td></tr>`;
+      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">${L.change}</td><td style="padding:3px 0;text-align:right;">${money(sale.change_amt)}</td></tr>`;
     }
     if (sale.payment_method === "โอนเงิน" && (sale.bank_name || sale.bank_account_name)) {
-      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">โอนเข้าธนาคาร</td><td style="padding:3px 0;text-align:right;">${esc(
+      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">${L.bank}</td><td style="padding:3px 0;text-align:right;">${esc(
         sale.bank_name || "-"
       )}</td></tr>`;
-      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">ชื่อบัญชี</td><td style="padding:3px 0;text-align:right;">${esc(
+      summaryRowsBottom += `<tr><td style="padding:3px 0;color:#444;">${L.accountName}</td><td style="padding:3px 0;text-align:right;">${esc(
         sale.bank_account_name || "-"
       )}</td></tr>`;
     }
 
     const taxIdLine =
       showVat && !isDeliveryDoc && shop.tax_id
-        ? `<div style="font-size:11px;color:#888;letter-spacing:0.5px;margin-top:3px;">เลขผู้เสียภาษี: ${esc(shop.tax_id)}</div>`
+        ? `<div style="font-size:11px;color:#888;letter-spacing:0.5px;margin-top:3px;">${L.taxId}: ${esc(shop.tax_id)}</div>`
         : "";
     const shippingMethodRow = sale.shipping_method
-      ? `<tr><td style="padding:2px 0;color:#444;">วิธีจัดส่ง</td><td style="padding:2px 0;text-align:right;">${esc(sale.shipping_method)}</td></tr>`
+      ? `<tr><td style="padding:2px 0;color:#444;">${L.shippingMethod}</td><td style="padding:2px 0;text-align:right;">${esc(sale.shipping_method)}</td></tr>`
       : "";
 
     const html = `
       <div style="max-width:380px;margin:0;font-family:Tahoma,'Segoe UI',sans-serif;color:#111;">
         <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px;">
           <div style="font-size:17px;font-weight:bold;letter-spacing:0.5px;">${esc(docTitle)}</div>
-          <div style="font-size:11px;color:#888;margin-top:3px;">เลขที่ ${esc(sale.sale_no)}</div>
+          <div style="font-size:11px;color:#888;margin-top:3px;">${isEn ? "No." : "เลขที่"} ${esc(sale.sale_no)}</div>
           ${taxIdLine}
         </div>
         <table style="width:100%;font-size:12px;margin-bottom:12px;border-collapse:collapse;">
-          <tr><td style="padding:3px 0;color:#444;">วันที่</td><td style="padding:3px 0;text-align:right;">${esc(fmtDate(sale.date))}</td></tr>
-          <tr><td style="padding:3px 0;color:#444;">ลูกค้า</td><td style="padding:3px 0;text-align:right;font-weight:bold;font-size:14px;">${esc(custName)}</td></tr>
+          <tr><td style="padding:3px 0;color:#444;">${L.date}</td><td style="padding:3px 0;text-align:right;">${esc(fmtDate(sale.date))}</td></tr>
+          <tr><td style="padding:3px 0;color:#444;">${L.customer}</td><td style="padding:3px 0;text-align:right;font-weight:bold;font-size:14px;">${esc(custName)}</td></tr>
           ${shippingMethodRow}
         </table>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
           <thead>
             <tr style="border-top:1.5px solid #000;border-bottom:1.5px solid #000;">
-              <th style="text-align:left;padding:6px 4px;">รายการ</th>
-              <th style="text-align:right;padding:6px 4px;">จำนวน</th>
-              <th style="text-align:right;padding:6px 4px;">ราคา</th>
-              <th style="text-align:right;padding:6px 4px;">รวม</th>
+              <th style="text-align:left;padding:6px 4px;">${L.item}</th>
+              <th style="text-align:right;padding:6px 4px;">${L.qty}</th>
+              <th style="text-align:right;padding:6px 4px;">${L.price}</th>
+              <th style="text-align:right;padding:6px 4px;">${L.amount}</th>
             </tr>
           </thead>
           <tbody>${itemRows}</tbody>
@@ -3874,22 +3943,23 @@ function buildDataTable(columns, dataRows, opts) {
         <div style="border:1.5px solid #000;border-radius:4px;padding:8px 10px;display:flex;justify-content:space-between;align-items:baseline;margin-bottom:${
           summaryRowsBottom ? "10px" : "16px"
         };">
-          <span style="font-weight:bold;font-size:14px;">ยอดสุทธิ</span>
-          <span style="font-weight:bold;font-size:16px;">${money(displayTotal)} บาท</span>
+          <span style="font-weight:bold;font-size:14px;">${L.total}</span>
+          <span style="font-weight:bold;font-size:16px;">${money(displayTotal)} ${L.currency}</span>
         </div>
         ${summaryRowsBottom ? `<table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:16px;">${summaryRowsBottom}</table>` : ""}
-        <div style="font-size:12px;color:#444;text-align:center;margin-bottom:18px;">ขอบคุณที่ใช้บริการ</div>
+        <div style="font-size:12px;color:#444;text-align:center;margin-bottom:18px;">${L.thankYou}</div>
         <div style="display:flex;justify-content:space-between;margin-top:28px;font-size:11px;text-align:center;color:#000;">
-          <div style="width:30%;border-top:1px solid #000;padding-top:4px;">ผู้ส่งสินค้า</div>
-          <div style="width:30%;border-top:1px solid #000;padding-top:4px;">ผู้รับสินค้า</div>
-          <div style="width:30%;border-top:1px solid #000;padding-top:4px;">ผู้รับเงิน</div>
+          <div style="width:30%;border-top:1px solid #000;padding-top:4px;">${L.deliveredBy}</div>
+          <div style="width:30%;border-top:1px solid #000;padding-top:4px;">${L.receivedGoodsBy}</div>
+          <div style="width:30%;border-top:1px solid #000;padding-top:4px;">${L.receivedPaymentBy}</div>
         </div>
-        ${sale.note ? `<div style="text-align:left;font-size:12px;color:#111;margin-top:16px;padding-top:8px;border-top:1px dashed #999;">หมายเหตุ: ${esc(sale.note)}</div>` : ""}
+        ${sale.note ? `<div style="text-align:left;font-size:12px;color:#111;margin-top:16px;padding-top:8px;border-top:1px dashed #999;">${L.note}: ${esc(sale.note)}</div>` : ""}
       </div>`;
 
     return { docTitle, text, textForCopy, html };
   }
 
+  // ใบเสร็จที่ออกเฉพาะค่าจัดส่งอย่างเดียว แยกจากบิลขายเดิม (กรณีลูกค้าโอนค่าส่งแยกต่างหากจากค้าสินค้า)
   function buildShippingReceiptDoc(sale, cust, shop, shipAccountLabel) {
     const custName = cust ? cust.name : sale.customer_name || "ลูกค้าทั่วไป";
     const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -3972,7 +4042,7 @@ function buildDataTable(columns, dataRows, opts) {
         onClick: () => {
           copyTextToClipboard(current.textForCopy)
             .then(() => {
-              const original = "คัดลอกข้อความใบเสร็จค่าส่ง";
+              const original = "คัดลอกข้อความใบเสร็จ";
               copyBtn.textContent = "คัดลอกแล้ว ✓";
               setTimeout(() => {
                 copyBtn.textContent = original;
@@ -4002,7 +4072,8 @@ function buildDataTable(columns, dataRows, opts) {
     const shop = DB.getShopInfo();
     const isCredit = sale.payment_method === "เงินเชื่อ";
     let docType = isCredit ? "delivery" : "normal";
-    let current = buildReceiptDoc(sale, cust, shop, cartItems, docType);
+    let lang = "th";
+    let current = buildReceiptDoc(sale, cust, shop, cartItems, docType, lang);
 
     const previewBox = el("div", { class: "receipt-preview" });
     previewBox.innerHTML = current.html;
@@ -4035,13 +4106,30 @@ function buildDataTable(columns, dataRows, opts) {
     const closeBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
 
     function refresh() {
-      current = buildReceiptDoc(sale, cust, shop, cartItems, docType);
+      current = buildReceiptDoc(sale, cust, shop, cartItems, docType, lang);
       previewBox.innerHTML = current.html;
       printBtn.textContent = `พิมพ์${current.docTitle}`;
       modalTitleEl.textContent = current.docTitle;
     }
 
     const docTypeToggle = null;
+    const langSelect = selectInput(
+      [
+        { value: "th", label: "ภาษาไทย" },
+        { value: "en", label: "English" },
+      ],
+      lang
+    );
+    langSelect.addEventListener("change", () => {
+      lang = langSelect.value;
+      refresh();
+    });
+    const langRow = el(
+      "div",
+      { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" } },
+      el("span", { text: "ภาษาใบเสร็จ:" }),
+      langSelect
+    );
     const shippingBtn =
       sale.shipping_fee > 0
         ? el("button", { class: "btn", onClick: () => openShippingReceiptModal(sale, custId) }, "ออกใบเสร็จค่าส่งแยก")
@@ -4051,6 +4139,7 @@ function buildDataTable(columns, dataRows, opts) {
       "div",
       {},
       docTypeToggle,
+      langRow,
       previewBox,
       el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, shippingBtn, closeBtn)
     );
