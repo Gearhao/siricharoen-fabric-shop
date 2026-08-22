@@ -3787,6 +3787,7 @@ function buildDataTable(columns, dataRows, opts) {
           amount: "Amount",
           subtotalBeforeDiscount: "Subtotal (before discount)",
           discount: "Discount",
+          beforeVat: "Subtotal (before VAT)",
           vatLabel: (pct) => `VAT ${pct}%`,
           beforeShipping: "Subtotal (before shipping)",
           shippingFee: "Shipping Fee",
@@ -3823,6 +3824,7 @@ function buildDataTable(columns, dataRows, opts) {
           amount: "รวม",
           subtotalBeforeDiscount: "ยอดรวมก่อนหักส่วนลด",
           discount: "ส่วนลด",
+          beforeVat: "ยอดรวมก่อนภาษีมูลค่าเพิ่ม",
           vatLabel: (pct) => `ภาษีมูลค่าเพิ่ม ${pct}%`,
           beforeShipping: "ยอดรวมก่อนค่าจัดส่ง",
           shippingFee: "ค่าจัดส่ง",
@@ -3879,7 +3881,10 @@ function buildDataTable(columns, dataRows, opts) {
       lines.push(`${L.subtotalBeforeDiscount.padEnd(24)}${money(sale.subtotal).padStart(14)}`);
       lines.push(`${L.discount.padEnd(24)}${money(sale.discount).padStart(14)}`);
     }
-    if (showVat) lines.push(`${L.vatLabel(Math.round(VAT_RATE * 100)).padEnd(24)}${money(sale.vat_amount).padStart(14)}`);
+    if (showVat) {
+      lines.push(`${L.beforeVat.padEnd(24)}${money(sale.subtotal - (sale.discount || 0)).padStart(14)}`);
+      lines.push(`${L.vatLabel(Math.round(VAT_RATE * 100)).padEnd(24)}${money(sale.vat_amount).padStart(14)}`);
+    }
     if (!excludeShippingFromTotal && sale.shipping_fee) {
       lines.push(`${L.beforeShipping.padEnd(24)}${money(displayTotal - sale.shipping_fee).padStart(14)}`);
       lines.push(`${L.shippingFee.padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
@@ -3957,6 +3962,9 @@ function buildDataTable(columns, dataRows, opts) {
       summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">${L.discount}</td><td style="padding:2px 0;text-align:right;">${money(sale.discount)}</td></tr>`;
     }
     if (showVat) {
+      summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">${L.beforeVat}</td><td style="padding:2px 0;text-align:right;">${money(
+        sale.subtotal - (sale.discount || 0)
+      )}</td></tr>`;
       summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">${L.vatLabel(
         Math.round(VAT_RATE * 100)
       )}</td><td style="padding:2px 0;text-align:right;">${money(sale.vat_amount)}</td></tr>`;
