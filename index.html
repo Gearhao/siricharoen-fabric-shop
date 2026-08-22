@@ -6961,6 +6961,26 @@ function buildDataTable(columns, dataRows, opts) {
     refreshBankAccountsTable();
   }
 
+  // คืนสีประจำธนาคาร (อิงจากสีแบรนด์ที่คุ้นตา) ให้กับชื่อธนาคารที่พิมพ์เอง ถ้าไม่ตรงกับธนาคารที่รู้จักจะคืน null (ใช้สีปกติ)
+  function bankBrandColor(bankName) {
+    const s = String(bankName || "").toLowerCase();
+    if (s.includes("กสิกร") || s.includes("kbank") || s.includes("kasikorn")) return "#138f2d";
+    if (s.includes("ไทยพาณิชย์") || s.includes("scb")) return "#4e2a84";
+    if (s.includes("กรุงไทย") || s.includes("ktb")) return "#1ba5e1";
+    if (s.includes("กรุงเทพ") || s.includes("bbl") || s.includes("bangkok bank")) return "#1e4598";
+    if (s.includes("กรุงศรี") || s.includes("bay") || s.includes("krungsri")) return "#ffb800";
+    if (s.includes("ทหารไทยธนชาต") || s.includes("ทหารไทย") || s.includes("ธนชาต") || s.includes("ttb")) return "#1279be";
+    if (s.includes("ออมสิน") || s.includes("gsb")) return "#eb198d";
+    if (s.includes("อาคารสงเคราะห์") || s.includes("ghb")) return "#f7941d";
+    if (s.includes("ธ.ก.ส") || s.includes("ธกส") || s.includes("baac")) return "#4c8c2b";
+    if (s.includes("ยูโอบี") || s.includes("uob")) return "#0b3979";
+    if (s.includes("ซีไอเอ็มบี") || s.includes("cimb")) return "#7e2e38";
+    if (s.includes("เกียรตินาคิน") || s.includes("kkp")) return "#00a19a";
+    if (s.includes("ไอซีบีซี") || s.includes("icbc")) return "#c8161d";
+    if (s.includes("แลนด์ แอนด์ เฮ้าส์") || s.includes("lh bank") || s.includes("lhbank")) return "#6d6e71";
+    return null;
+  }
+
   function refreshBankAccountsTable() {
     if (!refs.acctBankContainer) return;
     clear(refs.acctBankContainer);
@@ -6974,6 +6994,11 @@ function buildDataTable(columns, dataRows, opts) {
         ["ธนาคาร", "ชื่อบัญชี", "เลขบัญชี", "ยอดคงเหลือ"],
         accounts.map((a) => [a.bank_name, a.account_name, a.account_no || "-", money(a.balance || 0)]),
         {
+          cellStyle: (row, ci, colName) => {
+            if (colName !== "ธนาคาร") return null;
+            const c = bankBrandColor(row[ci]);
+            return c ? { color: c, fontWeight: "600" } : null;
+          },
           actions: (idx) => {
             const a = accounts[idx];
             const acts = [
