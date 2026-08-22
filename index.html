@@ -357,7 +357,7 @@ html, body {
   position: fixed; inset: 0;
   background: rgba(30, 20, 40, 0.45);
   display: flex; align-items: flex-start; justify-content: center;
-  padding: 14px 16px;
+  padding: 40px 16px;
   overflow-y: auto;
   z-index: 1000;
 }
@@ -367,15 +367,11 @@ html, body {
   border-radius: var(--radius);
   width: 100%;
   max-width: 520px;
-  max-height: 96vh;
+  max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 10px 40px rgba(0,0,0,0.25);
 }
-.modal-box.wide { max-width: 900px; }
-.receipt-modal-layout { display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap; }
-.receipt-modal-controls { flex: 1 1 220px; min-width: 200px; display: flex; flex-direction: column; gap: 10px; }
-.receipt-modal-controls .modal-actions { justify-content: flex-start; flex-wrap: wrap; margin-top: 4px; }
-.receipt-modal-preview-col { flex: 0 1 auto; }
+.modal-box.wide { max-width: 820px; }
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px;
@@ -1348,14 +1344,19 @@ function createDB(storageKey) {
       discount: disc,
       vat_amount: vatAmount,
       total,
-      paid: 0,
+      // ซื้อเงินสด: ถือว่าจ่ายครบทันทีตอนรับสินค้าเข้า (เหมือนบิลขายเงินสด) ไม่ต้องกดบันทึกจ่ายเงินแยกอีกขั้นตอน
+      paid: paymentMethod === "เงินสด" ? total : 0,
       payment_method: paymentMethod,
       status: "รับสินค้าแล้ว",
-      payment_status: "ค้างชำระ",
+      payment_status: paymentMethod === "เงินสด" ? "ชำระแล้ว" : "ค้างชำระ",
+      cash_auto_paid: paymentMethod === "เงินสด",
       note: note || "",
     };
     store.purchases.push(purchase);
     applyPurchaseEffects(purchase);
+    if (paymentMethod === "เงินสด" && total > 0) {
+      syncPurchaseAccountBalance(purchase, [{ account_id: getCashAccount().id, amount: total }]);
+    }
     save();
     return purchase;
   }
@@ -1433,7 +1434,21 @@ function createDB(storageKey) {
     purchase.payment_method = paymentMethod;
     purchase.note = note || "";
     if (wasReceived) {
-      purchase.payment_status = purchase.paid >= purchase.total ? "ชำระแล้ว" : purchase.paid > 0 ? "ชำระบางส่วน" : "ค้างชำระ";
+      // ซื้อเงินสด: ให้ยอดจ่ายตามยอดรวมล่าสุดเสมอ (จ่ายครบทันที เหมือนบิลขายเงินสด)
+      if (paymentMethod === "เงินสด") {
+        purchase.paid = purchase.total;
+        purchase.payment_status = "ชำระแล้ว";
+        purchase.cash_auto_paid = true;
+        syncPurchaseAccountBalance(purchase, purchase.total > 0 ? [{ account_id: getCashAccount().id, amount: purchase.total }] : []);
+      } else {
+        // เปลี่ยนจากเงินสดมาเป็นวิธีอื่น: ล้างยอดที่เคยจ่ายอัตโนมัติตอนเป็นเงินสดคืน กลับเป็นค้างชำระ (ไม่แตะยอดที่จ่ายจริงผ่าน "บันทึกจ่ายเงิน")
+        if (purchase.cash_auto_paid) {
+          purchase.paid = 0;
+          syncPurchaseAccountBalance(purchase, []);
+        }
+        purchase.cash_auto_paid = false;
+        purchase.payment_status = purchase.paid >= purchase.total ? "ชำระแล้ว" : purchase.paid > 0 ? "ชำระบางส่วน" : "ค้างชำระ";
+      }
       applyPurchaseEffects(purchase);
     }
     save();
@@ -4087,21 +4102,7 @@ function buildDataTable(columns, dataRows, opts) {
     );
     const closeBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
 
-    const body = el(
-      "div",
-      {},
-      el(
-        "div",
-        { class: "receipt-modal-layout" },
-        el(
-          "div",
-          { class: "receipt-modal-controls" },
-          formField("บัญชีรับเงินค่าส่ง (ถ้ามี)", accountSelect),
-          el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn)
-        ),
-        el("div", { class: "receipt-modal-preview-col" }, previewBox)
-      )
-    );
+    const body = el("div", {}, formField("บัญชีรับเงินค่าส่ง (ถ้ามี)", accountSelect), previewBox, el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn));
     openModal("ใบเสร็จค่าจัดส่ง", body, { wide: true });
   }
 
@@ -4182,19 +4183,11 @@ function buildDataTable(columns, dataRows, opts) {
     const body = el(
       "div",
       {},
-      el(
-        "div",
-        { class: "receipt-modal-layout" },
-        el(
-          "div",
-          { class: "receipt-modal-controls" },
-          docTypeToggle,
-          langRow,
-          accountRow,
-          el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, shippingBtn, closeBtn)
-        ),
-        el("div", { class: "receipt-modal-preview-col" }, previewBox)
-      )
+      docTypeToggle,
+      langRow,
+      accountRow,
+      previewBox,
+      el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, shippingBtn, closeBtn)
     );
     exposeTestRefs("receipt", { get text() { return current.text; }, get html() { return current.html; }, sale, setDocType: (t) => { docType = t; refresh(); } });
     openModal(current.docTitle, body, { wide: true });
@@ -4431,18 +4424,14 @@ function buildDataTable(columns, dataRows, opts) {
       {},
       el(
         "div",
-        { class: "receipt-modal-layout" },
-        el(
-          "div",
-          { class: "receipt-modal-controls" },
-          formField("กำหนดชำระ", dueDateInput),
-          formField("หมายเหตุ", noteInput),
-          shipAccountSelect ? formField("บัญชีรับเงินค่าจัดส่ง", shipAccountSelect) : null,
-          wholeAccountSelect ? formField("บัญชีรับเงิน", wholeAccountSelect) : null,
-          el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn)
-        ),
-        el("div", { class: "receipt-modal-preview-col" }, previewBox)
-      )
+        { class: "form-grid" },
+        formField("กำหนดชำระ", dueDateInput),
+        formField("หมายเหตุ", noteInput),
+        shipAccountSelect ? formField("บัญชีรับเงินค่าจัดส่ง", shipAccountSelect) : null,
+        wholeAccountSelect ? formField("บัญชีรับเงิน", wholeAccountSelect) : null
+      ),
+      previewBox,
+      el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn)
     );
     exposeTestRefs("billingStatement", {
       get text() { return current.text; },
@@ -7076,21 +7065,7 @@ function buildDataTable(columns, dataRows, opts) {
       "คัดลอกข้อความใบเสนอราคา"
     );
     const closeBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
-    const body = el(
-      "div",
-      {},
-      el(
-        "div",
-        { class: "receipt-modal-layout" },
-        el(
-          "div",
-          { class: "receipt-modal-controls" },
-          formField("บัญชีสำหรับโอนเงิน (ถ้ามี)", accountSelect),
-          el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn)
-        ),
-        el("div", { class: "receipt-modal-preview-col" }, previewBox)
-      )
-    );
+    const body = el("div", {}, formField("บัญชีสำหรับโอนเงิน (ถ้ามี)", accountSelect), previewBox, el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn));
     openModal("ใบเสนอราคา", body, { wide: true });
   }
 
