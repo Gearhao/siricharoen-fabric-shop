@@ -3773,6 +3773,7 @@ function buildDataTable(columns, dataRows, opts) {
           subtotalBeforeDiscount: "Subtotal (before discount)",
           discount: "Discount",
           vatLabel: (pct) => `VAT ${pct}%`,
+          beforeShipping: "Subtotal (before shipping)",
           shippingFee: "Shipping Fee",
           shippingFeeSeparate: "Shipping Fee (paid separately)",
           total: "Total",
@@ -3807,6 +3808,7 @@ function buildDataTable(columns, dataRows, opts) {
           subtotalBeforeDiscount: "ยอดรวมก่อนหักส่วนลด",
           discount: "ส่วนลด",
           vatLabel: (pct) => `ภาษีมูลค่าเพิ่ม ${pct}%`,
+          beforeShipping: "ยอดรวมก่อนค่าจัดส่ง",
           shippingFee: "ค่าจัดส่ง",
           shippingFeeSeparate: "ค่าจัดส่ง (ชำระแยกต่างหาก)",
           total: "ยอดสุทธิ",
@@ -3861,7 +3863,10 @@ function buildDataTable(columns, dataRows, opts) {
       lines.push(`${L.discount.padEnd(24)}${money(sale.discount).padStart(14)}`);
     }
     if (showVat) lines.push(`${L.vatLabel(Math.round(VAT_RATE * 100)).padEnd(24)}${money(sale.vat_amount).padStart(14)}`);
-    if (!excludeShippingFromTotal && sale.shipping_fee) lines.push(`${L.shippingFee.padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
+    if (!excludeShippingFromTotal && sale.shipping_fee) {
+      lines.push(`${L.beforeShipping.padEnd(24)}${money(displayTotal - sale.shipping_fee).padStart(14)}`);
+      lines.push(`${L.shippingFee.padEnd(24)}${money(sale.shipping_fee).padStart(14)}`);
+    }
     lines.push(`${L.total.padEnd(24)}${money(displayTotal).padStart(14)}`);
     if (excludeShippingFromTotal && sale.shipping_fee) {
       lines.push("-".repeat(40));
@@ -3937,6 +3942,9 @@ function buildDataTable(columns, dataRows, opts) {
       )}</td><td style="padding:2px 0;text-align:right;">${money(sale.vat_amount)}</td></tr>`;
     }
     if (!excludeShippingFromTotal && sale.shipping_fee) {
+      summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">${L.beforeShipping}</td><td style="padding:2px 0;text-align:right;">${money(
+        displayTotal - sale.shipping_fee
+      )}</td></tr>`;
       summaryRowsTop += `<tr><td style="padding:2px 0;color:#444;">${L.shippingFee}</td><td style="padding:2px 0;text-align:right;">${money(sale.shipping_fee)}</td></tr>`;
     }
 
