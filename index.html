@@ -384,7 +384,16 @@ html, body {
   line-height: 1;
 }
 .modal-body { padding: 18px; }
-.modal-actions { margin-top: 14px; display: flex; gap: 10px; justify-content: flex-end; }
+/* ล็อคแถวปุ่ม (พิมพ์/คัดลอก/ปิด ฯลฯ) ไว้ล่างสุดของป็อปอัพเสมอ ไม่ต้องเลื่อนตามหาปุ่ม โดยไม่ต้องจัดตำแหน่งเนื้อหาอื่นใหม่ */
+.modal-actions {
+  margin-top: 14px;
+  display: flex; gap: 10px; justify-content: flex-end;
+  position: sticky; bottom: 0;
+  background: #fff;
+  padding-top: 10px; padding-bottom: 4px;
+  border-top: 1px solid var(--border);
+  z-index: 2;
+}
 
 .receipt-text {
   font-family: "Courier New", monospace;
