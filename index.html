@@ -3836,7 +3836,6 @@ function buildDataTable(columns, dataRows, opts) {
     lines.push(`${L.date}: ${fmtDate(sale.date)}`);
     lines.push(`${L.customer}: ${custName}`);
     if (sale.shipping_method) lines.push(`${L.shippingMethod}: ${sale.shipping_method}`);
-    if (payAccountLabel) lines.push(`${L.payAccount}: ${payAccountLabel}`);
     lines.push("-".repeat(40));
     cartItems.forEach((it) => {
       const sub = it.qty * it.unit_price;
@@ -3890,6 +3889,13 @@ function buildDataTable(columns, dataRows, opts) {
         linesNoSign.push("-".repeat(40));
         linesNoSign.push(`${L.totalDueAll}: ${money(totalDue)} ${L.currency}`);
       }
+    }
+    // บัญชีสำหรับโอนเงิน: ใส่ไว้ล่างสุดของข้อความเสมอ เพื่อให้ลูกค้าเห็นชัดตอนอ่านที่แชท/ไลน์
+    if (payAccountLabel) {
+      lines.push("");
+      lines.push(`${L.payAccount}: ${payAccountLabel}`);
+      linesNoSign.push("");
+      linesNoSign.push(`${L.payAccount}: ${payAccountLabel}`);
     }
     const text = lines.join("\n");
     const textForCopy = linesNoSign.join("\n");
