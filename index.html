@@ -5454,6 +5454,7 @@ function buildDataTable(columns, dataRows, opts) {
   let purchaseDate = "";
   let purchaseDateTo = "";
   let purchaseShowAll = false;
+  let purchasePaymentFilter = "";
 
   function renderPurchases() {
     const sec = sections.purchases;
@@ -5522,6 +5523,20 @@ function buildDataTable(columns, dataRows, opts) {
       },
     });
     refs.purchaseShowAllChk = showAllChk;
+    const paymentFilterSelect = selectInput(
+      [
+        { value: "", label: "สถานะชำระเงิน: ทั้งหมด" },
+        { value: "ค้างชำระ", label: "เฉพาะค้างชำระ" },
+        { value: "ชำระบางส่วน", label: "เฉพาะชำระบางส่วน" },
+        { value: "ชำระแล้ว", label: "เฉพาะชำระแล้ว" },
+      ],
+      purchasePaymentFilter
+    );
+    paymentFilterSelect.addEventListener("change", () => {
+      purchasePaymentFilter = paymentFilterSelect.value;
+      renderPurchaseTable();
+    });
+    refs.purchasePaymentFilterSelect = paymentFilterSelect;
     const toolbar = el(
       "div",
       { class: "toolbar" },
@@ -5531,6 +5546,7 @@ function buildDataTable(columns, dataRows, opts) {
       dateToInput,
       todayBtn,
       el("label", { class: "chk-label" }, showAllChk, " แสดงทั้งหมดทุกวัน"),
+      paymentFilterSelect,
       el("button", { class: "btn btn-primary", onClick: () => openPurchaseModal() }, "+ สร้างใบรับสินค้าเข้าใหม่")
     );
     const summary = el("div", { class: "totals-line" });
@@ -5560,6 +5576,9 @@ function buildDataTable(columns, dataRows, opts) {
         const supName = s ? s.name : "";
         return (p.po_no || "").toLowerCase().includes(pq) || supName.toLowerCase().includes(pq);
       });
+    }
+    if (purchasePaymentFilter) {
+      purchases = purchases.filter((p) => p.payment_status === purchasePaymentFilter);
     }
     if (refs.purchaseSummary) {
       const totalAmount = purchases.reduce((sum, p) => sum + p.total, 0);
