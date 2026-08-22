@@ -555,11 +555,13 @@ function createDB(storageKey) {
           if (!store.accountMovements) store.accountMovements = [];
           if (!store.customerOrders) store.customerOrders = [];
           if (!store.expenseCategories) store.expenseCategories = [];
+          if (!store.quotations) store.quotations = [];
           if (!store.nextId) store.nextId = {};
           if (!store.nextId.backorder) store.nextId.backorder = store.backorders.length + 1;
           if (!store.nextId.bankAccount) store.nextId.bankAccount = store.bankAccounts.length + 1;
           if (!store.nextId.customerOrder) store.nextId.customerOrder = store.customerOrders.length + 1;
           if (!store.nextId.expenseCategory) store.nextId.expenseCategory = store.expenseCategories.length + 1;
+          if (!store.nextId.quotation) store.nextId.quotation = store.quotations.length + 1;
           migrateCodes(store);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
           cloudStatus = "synced";
@@ -1713,6 +1715,7 @@ function createDB(storageKey) {
       customer_phone: (data && data.customer_phone) || "",
       items: (data && Array.isArray(data.items)) ? data.items : [],
       is_vat: !!(data && data.is_vat),
+      shipping_fee: Number(data && data.shipping_fee) || 0,
       note: (data && data.note) || "",
       status: "รอตอบรับ",
       converted_sale_id: null,
@@ -6457,7 +6460,8 @@ function buildDataTable(columns, dataRows, opts) {
   function quotationTotal(q) {
     const subtotal = (q.items || []).reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.unit_price) || 0), 0);
     const vat = q.is_vat ? Math.round(subtotal * VAT_RATE * 100) / 100 : 0;
-    return { subtotal, vat, total: subtotal + vat };
+    const shippingFee = Number(q.shipping_fee) || 0;
+    return { subtotal, vat, shippingFee, total: subtotal + vat + shippingFee };
   }
 
   function renderQuotationTable() {
@@ -6537,6 +6541,7 @@ function buildDataTable(columns, dataRows, opts) {
     switchTab("pos");
     if (refs.posCustomerSelect && q.customer_id) refs.posCustomerSelect.setCustomerId(q.customer_id);
     renderPosItemsTable();
+    if (refs.posShippingFeeInput) refs.posShippingFeeInput.value = q.shipping_fee || 0;
     updatePosTotals();
     renderQuotationTable();
     global.alert("นำรายการจากใบเสนอราคาไปที่ตะกร้าขายสินค้าแล้ว กรุณาตรวจสอบและบันทึกการขายตามปกติ");
@@ -6547,6 +6552,7 @@ function buildDataTable(columns, dataRows, opts) {
     if (existing && existing.customer_id) customerSelect.setCustomerId(existing.customer_id);
     const validUntilInput = el("input", { type: "date", value: existing && existing.valid_until ? existing.valid_until : "" });
     const isVatChk = el("input", { type: "checkbox", checked: existing ? !!existing.is_vat : VAT_ENABLED });
+    const shippingFeeInput = numberInput(existing ? existing.shipping_fee || 0 : 0);
     const noteInput = textInput(existing ? existing.note : "");
     noteInput.setAttribute("placeholder", "เงื่อนไข/บัญชีโอนเงิน/หมายเหตุ (จะพิมพ์ท้ายใบเสนอราคา)");
 
@@ -6701,6 +6707,7 @@ function buildDataTable(columns, dataRows, opts) {
             customer_phone: customer ? customer.phone || "" : "",
             valid_until: validUntilInput.value || "",
             is_vat: isVatChk.checked,
+            shipping_fee: Number(shippingFeeInput.value) || 0,
             note: noteInput.value.trim(),
             items: cleanItems,
           };
@@ -6722,18 +6729,19 @@ function buildDataTable(columns, dataRows, opts) {
       formField("ลูกค้า", customerSelect),
       formField("รายการสินค้า", el("div", {}, itemsContainer, addItemBtn)),
       el("label", { class: "chk-label", style: { display: "block", margin: "10px 0" } }, isVatChk, ` คิดภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%`),
+      formField("ค่าจัดส่ง (บาท)", shippingFeeInput),
       formField("ใช้ได้ถึงวันที่ (ถ้ามี)", validUntilInput),
       formField("หมายเหตุ/เงื่อนไข", noteInput),
       errorMsg,
       el("div", { class: "modal-actions" }, saveBtn)
     );
-    exposeTestRefs("quotationForm", { customerSelect, validUntilInput, isVatChk, noteInput, saveBtn });
+    exposeTestRefs("quotationForm", { customerSelect, validUntilInput, isVatChk, shippingFeeInput, noteInput, saveBtn });
     openModal(existing ? "แก้ไขใบเสนอราคา" : "สร้างใบเสนอราคา", form, { wide: true });
   }
 
   function buildQuotationDoc(q, shop, cust) {
     const custName = q.customer_name || "ลูกค้าทั่วไป";
-    const { subtotal, vat, total } = quotationTotal(q);
+    const { subtotal, vat, shippingFee, total } = quotationTotal(q);
     const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const validUntilDisplay = q.valid_until ? fmtDate(q.valid_until) : "";
     const noteTrimmed = q.note ? String(q.note).trim() : "";
@@ -6757,6 +6765,7 @@ function buildDataTable(columns, dataRows, opts) {
       lines.push(`${"ยอดก่อน VAT".padEnd(24)}${money(subtotal).padStart(14)}`);
       lines.push(`${("VAT " + Math.round(VAT_RATE * 100) + "%").padEnd(24)}${money(vat).padStart(14)}`);
     }
+    if (shippingFee) lines.push(`${"ค่าจัดส่ง".padEnd(24)}${money(shippingFee).padStart(14)}`);
     lines.push(`${"ราคารวม".padEnd(24)}${money(total).padStart(14)}`);
     const linesNoSign = lines.slice();
     lines.push("");
@@ -6795,6 +6804,9 @@ function buildDataTable(columns, dataRows, opts) {
       )}</td></tr><tr><td style="padding:2px 0;color:#444;">VAT ${Math.round(VAT_RATE * 100)}%</td><td style="padding:2px 0;text-align:right;">${money(
         vat
       )}</td></tr>`;
+    }
+    if (shippingFee) {
+      vatRowsHtml += `<tr><td style="padding:2px 0;color:#444;">ค่าจัดส่ง</td><td style="padding:2px 0;text-align:right;">${money(shippingFee)}</td></tr>`;
     }
     const shopAddressLine = shop.address ? `<div>${esc(shop.address)}</div>` : "";
     const shopPhoneLine = shop.phone ? `<div>โทร ${esc(shop.phone)}</div>` : "";
