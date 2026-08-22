@@ -2151,7 +2151,9 @@ if (typeof module !== "undefined") {
   }
   function selectInput(options, selectedValue) {
     const sel = el("select", {});
-    options.forEach((o) => sel.appendChild(el("option", { value: o.value, text: o.label })));
+    options.forEach((o) =>
+      sel.appendChild(el("option", { value: o.value, text: o.label, style: o.color ? { color: o.color, fontWeight: "600" } : null }))
+    );
     sel.value = selectedValue !== undefined && selectedValue !== null ? String(selectedValue) : (options[0] ? options[0].value : "");
     return sel;
   }
@@ -2162,6 +2164,7 @@ if (typeof module !== "undefined") {
       accounts.map((a) => ({
         value: String(a.id),
         label: a.is_cash ? "เงินสด" : `${a.bank_name} - ${a.account_name}${a.account_no ? " เลขที่ " + a.account_no : ""}`,
+        color: a.is_cash ? null : bankBrandColor(a.bank_name),
       }))
     );
     return selectInput(options, selectedAccountId ? String(selectedAccountId) : "");
@@ -7100,7 +7103,15 @@ function buildDataTable(columns, dataRows, opts) {
     const body = el(
       "div",
       {},
-      el("p", { text: `${account.bank_name} - ${account.account_name} ยอดปัจจุบัน ${money(account.balance || 0)} บาท` }),
+      el(
+        "p",
+        {},
+        el("span", {
+          text: `${account.bank_name} - ${account.account_name}`,
+          style: bankBrandColor(account.bank_name) ? { color: bankBrandColor(account.bank_name), fontWeight: "600" } : {},
+        }),
+        ` ยอดปัจจุบัน ${money(account.balance || 0)} บาท`
+      ),
       formField("ยอดใหม่", balanceInput),
       formField("โน้ต (สาเหตุที่ปรับยอด)", noteInput),
       el("div", { class: "modal-actions" }, saveBtn)
@@ -7177,7 +7188,15 @@ function buildDataTable(columns, dataRows, opts) {
     const body = el(
       "div",
       {},
-      el("p", { text: `${acct.bank_name} - ${acct.account_name} ยอดคงเหลือ ${money(acct.balance || 0)} บาท` }),
+      el(
+        "p",
+        {},
+        el("span", {
+          text: `${acct.bank_name} - ${acct.account_name}`,
+          style: bankBrandColor(acct.bank_name) ? { color: bankBrandColor(acct.bank_name), fontWeight: "600" } : {},
+        }),
+        ` ยอดคงเหลือ ${money(acct.balance || 0)} บาท`
+      ),
       el("div", { class: "table-container" }, table)
     );
     openModal("รายการเคลื่อนไหวบัญชี", body);
@@ -7213,6 +7232,11 @@ function buildDataTable(columns, dataRows, opts) {
           return [fmtDate(e.date), e.category, e.description, money(e.amount), acct ? `${acct.bank_name} - ${acct.account_name}` : "-"];
         }),
         {
+          cellStyle: (row, ci, colName) => {
+            if (colName !== "จ่ายจากบัญชี") return null;
+            const c = bankBrandColor(row[ci]);
+            return c ? { color: c, fontWeight: "600" } : null;
+          },
           actions: (idx) => [
             {
               label: "แก้ไข",
@@ -7260,7 +7284,11 @@ function buildDataTable(columns, dataRows, opts) {
     const cashAcct = DB.getCashAccount();
     const existingAccountId = existing ? existing.account_id : null;
     const accountSelect = selectInput(
-      accounts.map((a) => ({ value: String(a.id), label: `${a.bank_name} - ${a.account_name}` })),
+      accounts.map((a) => ({
+        value: String(a.id),
+        label: `${a.bank_name} - ${a.account_name}`,
+        color: a.is_cash ? null : bankBrandColor(a.bank_name),
+      })),
       existingAccountId ? String(existingAccountId) : (cashAcct ? String(cashAcct.id) : "")
     );
     const saveBtn = el(
