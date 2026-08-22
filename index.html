@@ -6159,20 +6159,30 @@ function buildDataTable(columns, dataRows, opts) {
 
   // =================================================================== รายการรอสินค้า
   let backorderSearch = "";
-  let backorderShowDone = true;
+  let backorderStatusFilter = "";
 
   function renderBackorders() {
     const sec = sections.backorders;
     clear(sec);
     const searchInput = el("input", { type: "text", placeholder: "ค้นหา (ชื่อลูกค้า/ชื่อผ้า)", value: backorderSearch,
       onInput: (e) => { backorderSearch = e.target.value; renderBackorderTable(); } });
-    const showDoneChk = el("input", { type: "checkbox", checked: backorderShowDone,
-      onChange: (e) => { backorderShowDone = e.target.checked; renderBackorderTable(); } });
+    const statusFilterSelect = selectInput(
+      [
+        { value: "", label: "สถานะ: ทั้งหมด" },
+        { value: "สินค้าหมด", label: "เฉพาะสินค้าหมด" },
+        { value: "เสร็จแล้ว", label: "เฉพาะเสร็จแล้ว" },
+      ],
+      backorderStatusFilter
+    );
+    statusFilterSelect.addEventListener("change", () => {
+      backorderStatusFilter = statusFilterSelect.value;
+      renderBackorderTable();
+    });
     const toolbar = el(
       "div",
       { class: "toolbar" },
       searchInput,
-      el("label", { class: "chk-label" }, showDoneChk, " แสดงที่เสร็จแล้วด้วย"),
+      statusFilterSelect,
       el("button", { class: "btn btn-primary", onClick: () => openBackorderModal() }, "+ เพิ่มรายการ")
     );
     const tableContainer = el("div", { class: "table-container" });
@@ -6186,7 +6196,8 @@ function buildDataTable(columns, dataRows, opts) {
     if (!container) return;
     clear(container);
     let rows = DB.getBackorders();
-    if (!backorderShowDone) rows = rows.filter((b) => !b.done);
+    if (backorderStatusFilter === "เสร็จแล้ว") rows = rows.filter((b) => b.done);
+    else if (backorderStatusFilter === "สินค้าหมด") rows = rows.filter((b) => !b.done && b.status === "สินค้าหมด");
     const withCustomer = rows.map((b) => ({ b, c: b.customer_id ? DB.getCustomer(b.customer_id) : null }));
     const q = backorderSearch.trim().toLowerCase();
     let filtered = withCustomer;
@@ -6258,7 +6269,7 @@ function buildDataTable(columns, dataRows, opts) {
     const qtyInput = numberInput(existing ? existing.qty : 1);
     const unitInput = textInput(existing ? existing.unit : "หลา");
     const statusSelect = selectInput(
-      [{ value: "สินค้าหมด", label: "สินค้าหมด" }, { value: "รอย้อม", label: "รอย้อม" }, { value: "อื่นๆ", label: "อื่นๆ" }],
+      [{ value: "สินค้าหมด", label: "สินค้าหมด" }, { value: "อื่นๆ", label: "อื่นๆ" }],
       existing ? existing.status : "สินค้าหมด");
     const noteInput = textInput(existing ? existing.note : "");
     const form = el("div", { class: "form-panel" },
