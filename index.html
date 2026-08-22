@@ -2170,6 +2170,21 @@ if (typeof module !== "undefined") {
     return selectInput(options, selectedAccountId ? String(selectedAccountId) : "");
   }
 
+  // บัญชีที่ลูกค้ารายนี้เลือกไว้ล่าสุด (จำไว้ต่อลูกค้า จนกว่าจะเปลี่ยน)
+  function getCustomerPreferredAccountId(cust) {
+    return cust && cust.preferred_account_id ? String(cust.preferred_account_id) : "";
+  }
+  function rememberCustomerAccount(cust, accountId) {
+    if (cust && accountId) DB.updateCustomer(cust.id, { preferred_account_id: accountId });
+  }
+  // ป้ายชื่อบัญชีสำหรับใส่ในเอกสาร (ไม่แสดงถ้าเป็นเงินสดหรือไม่ได้เลือก)
+  function payAccountLabelFromSelect(sel) {
+    if (!sel || !sel.value) return "";
+    const acc = DB.getBankAccounts().find((a) => String(a.id) === String(sel.value));
+    if (!acc || acc.is_cash) return "";
+    return `${acc.bank_name} - ${acc.account_name}${acc.account_no ? " เลขที่ " + acc.account_no : ""}`;
+  }
+
   // แถวเลือกบัญชี + จำนวนเงิน แบบหลายแถว รองรับกรณีลูกค้าโอนแยกเข้าหลายบัญชีสำหรับยอดเดียวกัน (หรือร้านจ่ายแยกหลายบัญชี)
   function buildAccountSplitRows(defaultAmount) {
     const container = el("div", { class: "account-split-rows" });
@@ -3706,15 +3721,16 @@ function buildDataTable(columns, dataRows, opts) {
     renderPosSalesHistory();
   }
 
-  function buildReceiptDoc(sale, cust, shop, cartItems, docType, lang) {
+  function buildReceiptDoc(sale, cust, shop, cartItems, docType, lang, payAccountLabel) {
     // docType: "delivery" (ใบส่งสินค้า) | "cash" (บิลเงินสด) | "normal" (ใบเสร็จปกติ)
     // lang: "th" (ค่าเริ่มต้น) | "en" (สำหรับลูกค้าต่างชาติ)
+    // payAccountLabel: บัญชีที่แนะนำให้ลูกค้าโอนเงิน (ไม่ผูกกับสถานะการชำระเงินจริงของบิลนี้)
     const isEn = lang === "en";
     const L = isEn
       ? {
           deliveryNote: "Delivery Note",
           cashBill: "Cash Bill",
-          taxInvoiceReceipt: "Abbreviated Tax Invoice / Receipt",
+          taxInvoiceReceipt: "Receipt / Delivery Note",
           receipt: "Receipt",
           generalCustomer: "Walk-in Customer",
           taxId: "Tax ID",
@@ -3743,11 +3759,12 @@ function buildDataTable(columns, dataRows, opts) {
           note: "Note",
           totalDueAll: "Total outstanding balance",
           currency: "THB",
+          payAccount: "Payment Account",
         }
       : {
           deliveryNote: "ใบส่งสินค้า",
           cashBill: "บิลเงินสด",
-          taxInvoiceReceipt: "ใบกำกับภาษีอย่างย่อ / ใบเสร็จรับเงิน",
+          taxInvoiceReceipt: "ใบเสร็จรับเงิน/ใบส่งของ",
           receipt: "ใบเสร็จรับเงิน",
           generalCustomer: "ลูกค้าทั่วไป",
           taxId: "เลขผู้เสียภาษี",
@@ -3776,6 +3793,7 @@ function buildDataTable(columns, dataRows, opts) {
           note: "หมายเหตุ",
           totalDueAll: "ยอดค้างชำระสะสมทั้งหมด",
           currency: "บาท",
+          payAccount: "บัญชีสำหรับโอนเงิน",
         };
     const showVat = VAT_ENABLED || !!(sale && sale.is_vat);
     const isDeliveryDoc = docType === "delivery";
@@ -3787,7 +3805,7 @@ function buildDataTable(columns, dataRows, opts) {
       ? L.taxInvoiceReceipt
       : L.receipt;
     const custName = cust ? cust.name : L.generalCustomer;
-    // สำหรับใบส่งสินค้าที่เป็นบิล VAT: แยกค่าจัดส่งออกจากยอดสุทธิ เพราะลูกค้าต้องโอนเงินค่าสินค่ากับค่าส่งแยก������น
+    // สำหรับใบส่งสินค้าที่เป็นบิล VAT: แยกค่าจัดส่งออกจากยอดสุทธิ เพราะลูกค้าต้องโอนเงินค่าสินค้ากับค่าส่งแยกกัน
     const excludeShippingFromTotal = isDeliveryDoc && showVat;
     const displayTotal = excludeShippingFromTotal ? sale.total - (sale.shipping_fee || 0) : sale.total;
 
@@ -3799,6 +3817,7 @@ function buildDataTable(columns, dataRows, opts) {
     lines.push(`${L.date}: ${fmtDate(sale.date)}`);
     lines.push(`${L.customer}: ${custName}`);
     if (sale.shipping_method) lines.push(`${L.shippingMethod}: ${sale.shipping_method}`);
+    if (payAccountLabel) lines.push(`${L.payAccount}: ${payAccountLabel}`);
     lines.push("-".repeat(40));
     cartItems.forEach((it) => {
       const sub = it.qty * it.unit_price;
@@ -3915,6 +3934,9 @@ function buildDataTable(columns, dataRows, opts) {
     const shippingMethodRow = sale.shipping_method
       ? `<tr><td style="padding:2px 0;color:#444;">${L.shippingMethod}</td><td style="padding:2px 0;text-align:right;">${esc(sale.shipping_method)}</td></tr>`
       : "";
+    const payAccountRow = payAccountLabel
+      ? `<tr><td style="padding:2px 0;color:#444;">${L.payAccount}</td><td style="padding:2px 0;text-align:right;">${esc(payAccountLabel)}</td></tr>`
+      : "";
 
     const html = `
       <div style="max-width:380px;margin:0;font-family:Tahoma,'Segoe UI',sans-serif;color:#111;">
@@ -3927,6 +3949,7 @@ function buildDataTable(columns, dataRows, opts) {
           <tr><td style="padding:3px 0;color:#444;">${L.date}</td><td style="padding:3px 0;text-align:right;">${esc(fmtDate(sale.date))}</td></tr>
           <tr><td style="padding:3px 0;color:#444;">${L.customer}</td><td style="padding:3px 0;text-align:right;font-weight:bold;font-size:14px;">${esc(custName)}</td></tr>
           ${shippingMethodRow}
+          ${payAccountRow}
         </table>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
           <thead>
@@ -3959,7 +3982,7 @@ function buildDataTable(columns, dataRows, opts) {
     return { docTitle, text, textForCopy, html };
   }
 
-  // ใบเสร็จที่ออกเฉพาะค่าจัดส่งอย่างเดียว แยกจากบิลขายเดิม (กรณีลูกค้าโอนค่าส่งแยกต่างหากจากค้าสินค้า)
+  // ใบเสร็จที่ออกเฉพาะค่าจัดส่งอย่างเดียว แยกจากบิลขายเดิม (กรณีลูกค้าโอนค่าส่งแยกต่างหากจากค่าสินค้า)
   function buildShippingReceiptDoc(sale, cust, shop, shipAccountLabel) {
     const custName = cust ? cust.name : sale.customer_name || "ลูกค้าทั่วไป";
     const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -4015,7 +4038,7 @@ function buildDataTable(columns, dataRows, opts) {
   function openShippingReceiptModal(sale, custId) {
     const cust = custId ? DB.getCustomer(custId) : null;
     const shop = DB.getShopInfo();
-    const accountSelect = buildBankAccountSelect("");
+    const accountSelect = buildBankAccountSelect(getCustomerPreferredAccountId(cust));
     function selLabel(sel) {
       const opt = sel.options[sel.selectedIndex];
       return opt ? opt.textContent : "";
@@ -4027,7 +4050,10 @@ function buildDataTable(columns, dataRows, opts) {
       current = buildShippingReceiptDoc(sale, cust, shop, selLabel(accountSelect));
       previewBox.innerHTML = current.html;
     }
-    accountSelect.addEventListener("change", refresh);
+    accountSelect.addEventListener("change", () => {
+      rememberCustomerAccount(cust, accountSelect.value);
+      refresh();
+    });
 
     const downloadBtn = el(
       "button",
@@ -4042,7 +4068,7 @@ function buildDataTable(columns, dataRows, opts) {
         onClick: () => {
           copyTextToClipboard(current.textForCopy)
             .then(() => {
-              const original = "คัดลอกข้อความใบเสร็จ";
+              const original = "คัดลอกข้อความใบเสร็จค่าส่ง";
               copyBtn.textContent = "คัดลอกแล้ว ✓";
               setTimeout(() => {
                 copyBtn.textContent = original;
@@ -4073,7 +4099,8 @@ function buildDataTable(columns, dataRows, opts) {
     const isCredit = sale.payment_method === "เงินเชื่อ";
     let docType = isCredit ? "delivery" : "normal";
     let lang = "th";
-    let current = buildReceiptDoc(sale, cust, shop, cartItems, docType, lang);
+    const accountSelect = buildBankAccountSelect(getCustomerPreferredAccountId(cust));
+    let current = buildReceiptDoc(sale, cust, shop, cartItems, docType, lang, payAccountLabelFromSelect(accountSelect));
 
     const previewBox = el("div", { class: "receipt-preview" });
     previewBox.innerHTML = current.html;
@@ -4106,11 +4133,15 @@ function buildDataTable(columns, dataRows, opts) {
     const closeBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
 
     function refresh() {
-      current = buildReceiptDoc(sale, cust, shop, cartItems, docType, lang);
+      current = buildReceiptDoc(sale, cust, shop, cartItems, docType, lang, payAccountLabelFromSelect(accountSelect));
       previewBox.innerHTML = current.html;
       printBtn.textContent = `พิมพ์${current.docTitle}`;
       modalTitleEl.textContent = current.docTitle;
     }
+    accountSelect.addEventListener("change", () => {
+      rememberCustomerAccount(cust, accountSelect.value);
+      refresh();
+    });
 
     const docTypeToggle = null;
     const langSelect = selectInput(
@@ -4130,6 +4161,7 @@ function buildDataTable(columns, dataRows, opts) {
       el("span", { text: "ภาษาใบเสร็จ:" }),
       langSelect
     );
+    const accountRow = formField("บัญชีสำหรับโอนเงิน (ถ้ามี)", accountSelect);
     const shippingBtn =
       sale.shipping_fee > 0
         ? el("button", { class: "btn", onClick: () => openShippingReceiptModal(sale, custId) }, "ออกใบเสร็จค่าส่งแยก")
@@ -4140,6 +4172,7 @@ function buildDataTable(columns, dataRows, opts) {
       {},
       docTypeToggle,
       langRow,
+      accountRow,
       previewBox,
       el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, shippingBtn, closeBtn)
     );
@@ -4301,9 +4334,10 @@ function buildDataTable(columns, dataRows, opts) {
     noteInput.setAttribute("placeholder", "หมายเหตุ (จะพิมพ์ท้ายใบวางบิล)");
 
     // มีบิลแว็ดที่แยกค่าส่งไหม: ถ้ามี ค่าผ้าจะโอนเข้าบัญชีคงที่ของร้าน ส่วนค่าส่งให้เลือกบัญชีเอง
-    // ถ้าไม่มี (ใบวางบิลที่ไม่แว็ด/ไม่มีค่าส่งแยก) ยอดทั้งหมดให้เลือกบัญชีเอง
+    // ถ้าไม่มี�("ใบวางบิลที่ไม่แว็ด/ไม่มีค่อยใช้บัญชีแยก) ยอดทั้งหมดให้เลือกบัญชีเอง
     const hasShipping = sales.some((s) => !!s.is_vat && (s.shipping_fee || 0) > 0);
-    // ค่าเริ่มต้นของบัญชีรับค่าส่งในบิลแว็ด: บัญชีกสิกรไทย - ศิริเจริญ โดยนายสิริปานพชร (ถ้ามีในระบบ)
+    // ค่าเริ่มต้นของบัญชีรับค่าส่งในบิล,แวไ บัญชีที่ๅลงแลง็ด ติดตามชื่อบัญชีกสิกรไวย - ฒิทิเจริญ โดยนายสิริปานพชร (ถ้ามีในระ!บบ)
+    const preferredAcctId = getCustomerPreferredAccountId(cust);
     const defaultShipAcct = hasShipping
       ? DB.getBankAccounts().find((a) => {
           if (a.is_cash) return false;
@@ -4313,8 +4347,10 @@ function buildDataTable(columns, dataRows, opts) {
           return name.includes("ศิริเจริญ") || name.includes("สิริปานพชร");
         })
       : null;
-    const shipAccountSelect = hasShipping ? buildBankAccountSelect(defaultShipAcct ? defaultShipAcct.id : "") : null;
-    const wholeAccountSelect = !hasShipping ? buildBankAccountSelect("") : null;
+    const shipAccountSelect = hasShipping
+      ? buildBankAccountSelect(preferredAcctId || (defaultShipAcct ? defaultShipAcct.id : ""))
+      : null;
+    const wholeAccountSelect = !hasShipping ? buildBankAccountSelect(preferredAcctId) : null;
     function selLabel(sel) {
       if (!sel) return "";
       const opt = sel.options[sel.selectedIndex];
@@ -4331,8 +4367,16 @@ function buildDataTable(columns, dataRows, opts) {
     }
     dueDateInput.addEventListener("change", refresh);
     noteInput.addEventListener("input", refresh);
-    if (shipAccountSelect) shipAccountSelect.addEventListener("change", refresh);
-    if (wholeAccountSelect) wholeAccountSelect.addEventListener("change", refresh);
+    if (shipAccountSelect)
+      shipAccountSelect.addEventListener("change", () => {
+        rememberCustomerAccount(cust, shipAccountSelect.value);
+        refresh();
+      });
+    if (wholeAccountSelect)
+      wholeAccountSelect.addEventListener("change", () => {
+        rememberCustomerAccount(cust, wholeAccountSelect.value);
+        refresh();
+      });
 
     const downloadBtn = el(
       "button",
@@ -4369,7 +4413,7 @@ function buildDataTable(columns, dataRows, opts) {
         "div",
         { class: "form-grid" },
         formField("กำหนดชำระ", dueDateInput),
-        formField("หมายเหตุ", noteInput),
+        formField("หมายเหตฮ", noteInput),
         shipAccountSelect ? formField("บัญชีรับเงินค่าจัดส่ง", shipAccountSelect) : null,
         wholeAccountSelect ? formField("บัญชีรับเงิน", wholeAccountSelect) : null
       ),
@@ -6841,7 +6885,7 @@ function buildDataTable(columns, dataRows, opts) {
     openModal(existing ? "แก้ไขใบเสนอราคา" : "สร้างใบเสนอราคา", form, { wide: true });
   }
 
-  function buildQuotationDoc(q, shop, cust) {
+  function buildQuotationDoc(q, shop, cust, payAccountLabel) {
     const custName = q.customer_name || "ลูกค้าทั่วไป";
     const { subtotal, vat, shippingFee, total } = quotationTotal(q);
     const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -6850,11 +6894,12 @@ function buildDataTable(columns, dataRows, opts) {
 
     const lines = [];
     lines.push("ใบเสนอราคา");
-    lines.push(`เลที่: ${q.quote_no}`);
+    lines.push(`เลขที่: ${q.quote_no}`);
     lines.push(`วันที่: ${fmtDate(q.date)}`);
     lines.push(`ลูกค้า: ${custName}`);
     if (q.customer_address) lines.push(`ที่อยู่: ${q.customer_address}`);
     if (validUntilDisplay) lines.push(`ใช้ได้ถึง: ${validUntilDisplay}`);
+    if (payAccountLabel) lines.push(`บัญชีสำหรับโอนเงิน: ${payAccountLabel}`);
     lines.push("-".repeat(40));
     (q.items || []).forEach((it) => {
       const sub = (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
@@ -6919,6 +6964,9 @@ function buildDataTable(columns, dataRows, opts) {
     const validUntilRow = validUntilDisplay
       ? `<tr><td style="padding:3px 0;color:#444;">ใช้ได้ถึง</td><td style="padding:3px 0;text-align:right;">${esc(validUntilDisplay)}</td></tr>`
       : "";
+    const payAccountRow = payAccountLabel
+      ? `<tr><td style="padding:3px 0;color:#444;">บัญชีสำหรับโอนเงิน</td><td style="padding:3px 0;text-align:right;">${esc(payAccountLabel)}</td></tr>`
+      : "";
     const noteHtml = noteTrimmed
       ? `<div style="font-size:12px;color:#111;margin-top:16px;padding-top:8px;border-top:1px dashed #999;">หมายเหตุ: ${esc(noteTrimmed)}</div>`
       : "";
@@ -6933,6 +6981,7 @@ function buildDataTable(columns, dataRows, opts) {
           <tr><td style="padding:3px 0;color:#444;">ลูกค้า</td><td style="padding:3px 0;text-align:right;font-weight:bold;font-size:14px;">${esc(custName)}</td></tr>
           ${custAddressRow}
           ${validUntilRow}
+          ${payAccountRow}
         </table>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
           <thead>
@@ -6963,9 +7012,19 @@ function buildDataTable(columns, dataRows, opts) {
 
   function openQuotationDocModal(q) {
     const shop = DB.getShopInfo();
-    const current = buildQuotationDoc(q, shop);
+    const cust = q.customer_id ? DB.getCustomer(q.customer_id) : null;
+    const accountSelect = buildBankAccountSelect(getCustomerPreferredAccountId(cust));
+    let current = buildQuotationDoc(q, shop, cust, payAccountLabelFromSelect(accountSelect));
     const previewBox = el("div", { class: "receipt-preview" });
     previewBox.innerHTML = current.html;
+    function refresh() {
+      current = buildQuotationDoc(q, shop, cust, payAccountLabelFromSelect(accountSelect));
+      previewBox.innerHTML = current.html;
+    }
+    accountSelect.addEventListener("change", () => {
+      rememberCustomerAccount(cust, accountSelect.value);
+      refresh();
+    });
     const downloadBtn = el(
       "button",
       { class: "btn", onClick: () => downloadTextFile(`${q.quote_no.replace("/", "-")}.txt`, current.text) },
@@ -6993,7 +7052,13 @@ function buildDataTable(columns, dataRows, opts) {
       "คัดลอกข้อความใบเสนอราคา"
     );
     const closeBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
-    const body = el("div", {}, previewBox, el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn));
+    const body = el(
+      "div",
+      {},
+      formField("บัญชีสำหรับโอนเงิน (ถ้ามี)", accountSelect),
+      previewBox,
+      el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn)
+    );
     openModal("ใบเสนอราคา", body, { wide: true });
   }
 
