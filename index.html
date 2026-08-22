@@ -2214,7 +2214,7 @@ if (typeof module !== "undefined") {
   }
 
   // แถวเลือกบัญชี + จำนวนเงิน แบบหลายแถว รองรับกรณีลูกค้าโอนแยกเข้าหลายบัญชีสำหรับยอดเดียวกัน (หรือร้านจ่ายแยกหลายบัญชี)
-  function buildAccountSplitRows(defaultAmount) {
+  function buildAccountSplitRows(defaultAmount, defaultAccountId) {
     const container = el("div", { class: "account-split-rows" });
     const rows = [];
     function addRow(presetAccountId, presetAmount) {
@@ -2245,7 +2245,7 @@ if (typeof module !== "undefined") {
       rows.push(rowEl);
       container.appendChild(rowEl);
     }
-    addRow(null, defaultAmount);
+    addRow(defaultAccountId || null, defaultAmount);
     const addBtn = el("button", { class: "btn btn-sm", onClick: () => addRow() }, "+ เพิ่มบัญชี");
     function getSplits() {
       return rows
@@ -3224,6 +3224,9 @@ function buildDataTable(columns, dataRows, opts) {
     const sale = DB.getSale(saleId);
     if (!sale) return;
     const remain = sale.total - sale.paid;
+    // ใช้บัญชีที่ลูกค้าเคยเลือก/ที่แนะนำไว้ในใบเสร็จเป็นค่าเริ่มต้น จะได้ไม่ต้องเลื่อนหาบัญชีซ้ำตอนบันทึกว่าโอนเข้าบัญชีไหน
+    const cust = sale.customer_id ? DB.getCustomer(sale.customer_id) : null;
+    const preferredAccountId = getCustomerPreferredAccountId(cust);
     const methodSelect = selectInput(
       [
         { value: "เงินสด", label: "เงินสด" },
@@ -3231,7 +3234,7 @@ function buildDataTable(columns, dataRows, opts) {
       ],
       "เงินสด"
     );
-    const accountSplit = buildAccountSplitRows(remain);
+    const accountSplit = buildAccountSplitRows(remain, preferredAccountId);
     const accountSplitRow = formField("บัญชีที่รับโอน (แบ่งหลายบัญชีได้)", el("div", {}, accountSplit.container, accountSplit.addBtn));
     function updateBankRowsVisibility() {
       const isTransfer = methodSelect.value === "โอนเงิน";
@@ -3265,6 +3268,8 @@ function buildDataTable(columns, dataRows, opts) {
               global.alert(`ยอดรวมที่แบ่งเข้าบัญชี (${money(splitTotal)}) ไม่เท่ากับยอดค้างชำระ (${money(remain)}) กรุณาตรวจสอบ`);
               return;
             }
+            // จำบัญชีที่เลือกไว้เป็นค่าเริ่มต้นของลูกค้ารายนี้ในครั้งถัดไป (เฉพาะกรณีโอนเข้าบัญชีเดียว ไม่แบ่งหลายบัญชี)
+            if (accountSplits.length === 1) rememberCustomerAccount(cust, String(accountSplits[0].account_id));
           }
           DB.markSalePaid(saleId, method, accountSplits);
           closeModal();
