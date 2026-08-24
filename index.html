@@ -1357,7 +1357,7 @@ function createDB(storageKey) {
   function getReturns() {
     return [...store.returns].sort((a, b) => (a.date < b.date ? 1 : -1));
   }
-  function addProductReturn(saleId, returnItems, method, accountId, note) {
+  function addProductReturn(saleId, returnItems, method, accountId, note, exchangeItems, extraAccountId) {
     const sale = store.sales.find((x) => x.id === saleId);
     if (!sale) return null;
     const validItems = [];
@@ -1382,7 +1382,7 @@ function createDB(storageKey) {
     const discountPortion = Math.round(sale.discount * ratio * 100) / 100;
     const vatPortion = Math.round(sale.vat_amount * ratio * 100) / 100;
     const amount = Math.round((subtotal - discountPortion + vatPortion) * 100) / 100;
-    const ret = { id: genId("return"), date: nowStr(), sale_id: saleId, sale_no: sale.sale_no, customer_id: sale.customer_id, items: validItems, subtotal, discount_portion: discountPortion, vat_portion: vatPortion, amount, method, account_id: method === "คืนเงินสด" ? accountId || null : null, note: note || "" };
+    const ret = { id: genId("return"), date: nowStr(), sale_id: saleId, sale_no: sale.sale_no, customer_id: sale.customer_id, items: validItems, subtotal, discount_portion: discountPortion, vat_portion: vatPortion, amount, method, account_id: method === "คืนเงินสด" ? accountId || null : null, note: note || "", exchange_items: [], exchange_diff: 0, extra_payment_amount: 0, extra_account_id: null };
     store.returns.push(ret);
     for (const it of validItems) {
       const f = getFabric(it.fabric_id);
@@ -1400,9 +1400,49 @@ function createDB(storageKey) {
       if (accountId) recordAccountMovement(accountId, -amount, "return", ret.id, `คืนเงินสดให้ลูกค้า (บิล ${sale.sale_no})`);
     } else if (method === "เปลี่ยนของ") {
       sale.paid = Math.max(0, Math.round((sale.paid - amount) * 100) / 100);
+      // ถ้าลูกค้าเลือกผ้าใหม่ไปพร้อมกัน: ตัดสต็อคผ้าใหม่ทันที แล้วเทียบมูลค่ากับของที่คืน
+      // ผ้าใหม่ถูกกว่า -> ส่วนต่างเก็บเป็นเครดิตแลกเปลี่ยนไว้ใช้ครั้งหน้า
+      // ผ้าใหม่แพงกว่า -> รับชำระส่วนต่างทันทีเข้าบัญชีที่เลือก
+      let exchangeSubtotal = 0;
+      const validExchangeItems = [];
+      for (const ei of exchangeItems || []) {
+        const eqty = Number(ei.qty) || 0;
+        if (eqty <= 0) continue;
+        const ef = getFabric(ei.fabric_id);
+        if (!ef) continue;
+        const takeQty = Math.min(eqty, ef.stock_qty); // กันสต็อคติดลบ
+        if (takeQty <= 0) continue;
+        const eprice = Number(ei.unit_price) || 0;
+        const esub = Math.round(takeQty * eprice * 100) / 100;
+        exchangeSubtotal = Math.round((exchangeSubtotal + esub) * 100) / 100;
+        ef.stock_qty = Math.round((ef.stock_qty - takeQty) * 100) / 100;
+        validExchangeItems.push({ fabric_id: ei.fabric_id, code: ef.code, name: ef.name, qty: takeQty, unit: ef.unit, unit_price: eprice, subtotal: esub });
+        store.stockMovements.push({
+          id: store.stockMovements.length + 1,
+          fabric_id: ei.fabric_id,
+          date: nowStr(),
+          move_type: "จ่ายผ้าแลกเปลี่ยนให้ลูกค้า",
+          qty: -takeQty,
+          ref_type: "return",
+          ref_id: ret.id,
+          note: `แลกเปลี่ยนจากบิล ${sale.sale_no}`,
+        });
+      }
+      ret.exchange_items = validExchangeItems;
+      const diff = Math.round((amount - exchangeSubtotal) * 100) / 100;
+      ret.exchange_diff = diff;
       if (sale.customer_id) {
         const c = getCustomer(sale.customer_id);
-        if (c) c.exchange_credit = Math.round(((c.exchange_credit || 0) + amount) * 100) / 100;
+        if (c) {
+          if (diff > 0) {
+            c.exchange_credit = Math.round(((c.exchange_credit || 0) + diff) * 100) / 100;
+          } else if (diff < 0) {
+            const extra = Math.round(-diff * 100) / 100;
+            ret.extra_payment_amount = extra;
+            ret.extra_account_id = extraAccountId || null;
+            if (extraAccountId) recordAccountMovement(extraAccountId, extra, "return", ret.id, `รับชำระส่วนต่างแลกเปลี่ยนผ้า (บิล ${sale.sale_no})`);
+          }
+        }
       }
     }
     updateSaleStatusAfterReturn(sale);
@@ -3497,17 +3537,119 @@ function buildDataTable(columns, dataRows, opts) {
       [
         { value: "หักลดหนี้", label: "หักลดหนี้ (ลดยอดค้างชำระของบิลนี้)" },
         { value: "คืนเงินสด", label: "คืนเงินสด/โอน (จ่ายเงินคืนออกจากบัญชี)" },
-        { value: "เปลี่ยนของ", label: "เปลี่ยนของ (เก็บเป็นเครดิตไว้ใช้ครั้งหน้า)" },
+        { value: "เปลี่ยนของ", label: "เปลี่ยนของ (เลือกผ้าใหม่ให้ลูกค้าทันที หรือเก็บเครดิตไว้ใช้ครั้งหน้า)" },
       ],
       remain > 0 ? "หักลดหนี้" : "คืนเงินสด"
     );
     const accountSelect = buildBankAccountSelect(getCustomerPreferredAccountId(cust));
     const accountRow = formField("จ่ายเงินคืนจากบัญชี", accountSelect);
-    function updateAccountVisibility() {
-      accountRow.style.display = methodSelect.value === "คืนเงินสด" ? "" : "none";
+
+    // ---- ผ้าที่จะให้ลูกค้าแทน (เฉพาะกรณีเลือก "เปลี่ยนของ") ----
+    let exchangeCart = []; // { fabric_id, code, name, unit, unit_price, qty }
+    const exchangeListEl = el("div", {});
+    const { opts: exchangeFabricOptions } = fabricSelectOptions();
+    const exchangeFabricSelect = searchSelectInput(exchangeFabricOptions, "", "พิมพ์รหัส/ชื่อผ้าที่จะให้ลูกค้าแทน");
+    const exchangeQtyInput = numberInput(1);
+    function renderExchangeList() {
+      clear(exchangeListEl);
+      if (exchangeCart.length === 0) {
+        exchangeListEl.appendChild(el("p", { text: "ยังไม่ได้เลือกผ้าที่จะให้ลูกค้าแทน" }));
+        return;
+      }
+      exchangeListEl.appendChild(
+        el(
+          "table",
+          { class: "data-table" },
+          el(
+            "thead",
+            {},
+            el(
+              "tr",
+              {},
+              el("th", { text: "รหัส - ชื่อผ้า" }),
+              el("th", { text: "จำนวน" }),
+              el("th", { text: "ราคา/หน่วย" }),
+              el("th", { text: "รวม" }),
+              el("th", { text: "" })
+            )
+          ),
+          el(
+            "tbody",
+            {},
+            ...exchangeCart.map((it, idx) =>
+              el(
+                "tr",
+                {},
+                el("td", { text: `${it.code} - ${it.name}` }),
+                el("td", { text: `${round3(it.qty)} ${it.unit}` }),
+                el("td", { text: money(it.unit_price) }),
+                el("td", { text: money(round2(it.qty * it.unit_price)) }),
+                el(
+                  "td",
+                  {},
+                  el(
+                    "button",
+                    {
+                      class: "btn btn-sm",
+                      onClick: () => {
+                        exchangeCart.splice(idx, 1);
+                        renderExchangeList();
+                        updatePreview();
+                      },
+                    },
+                    "ลบ"
+                  )
+                )
+              )
+            )
+          )
+        )
+      );
     }
-    methodSelect.addEventListener("change", updateAccountVisibility);
-    updateAccountVisibility();
+    renderExchangeList();
+    const exchangeAddBtn = el(
+      "button",
+      {
+        class: "btn btn-sm",
+        onClick: () => {
+          const v = exchangeFabricSelect.getMatchedValue();
+          if (!v) {
+            global.alert("กรุณาเลือกผ้าที่จะให้ลูกค้าแทนจากรายการ");
+            return;
+          }
+          const f = DB.getFabric(Number(v));
+          if (!f) return;
+          const qty = Math.max(0, Number(exchangeQtyInput.value) || 0);
+          if (qty <= 0) {
+            global.alert("กรุณาระบุจำนวน");
+            return;
+          }
+          if (qty > f.stock_qty) {
+            global.alert(`สต็อคผ้า ${f.code} เหลือ ${round3(f.stock_qty)} ${f.unit} ไม่พอ`);
+            return;
+          }
+          exchangeCart.push({ fabric_id: f.id, code: f.code, name: f.name, unit: f.unit, unit_price: f.sell_price || 0, qty });
+          exchangeFabricSelect.setLabel("");
+          exchangeQtyInput.value = 1;
+          renderExchangeList();
+          updatePreview();
+        },
+      },
+      "+ เพิ่ม"
+    );
+    const exchangeSection = el(
+      "div",
+      {},
+      el("h4", { text: "ผ้าที่จะให้ลูกค้าแทน" }),
+      exchangeListEl,
+      el("div", { class: "form-row" }, exchangeFabricSelect, exchangeQtyInput, exchangeAddBtn)
+    );
+    const extraAccountSelect = buildBankAccountSelect(getCustomerPreferredAccountId(cust));
+    const extraAccountRow = formField("รับชำระส่วนต่างเข้าบัญชี", extraAccountSelect);
+
+    function computeExchangeSubtotal() {
+      return round2(exchangeCart.reduce((s, it) => s + it.qty * it.unit_price, 0));
+    }
 
     const previewLbl = el("p", { text: "มูลค่าที่จะคืน: 0.00 บาท" });
     function computeReturnAmount() {
@@ -3525,8 +3667,27 @@ function buildDataTable(columns, dataRows, opts) {
     }
     function updatePreview() {
       const { amount } = computeReturnAmount();
-      previewLbl.textContent = `มูลค่าที่จะคืน: ${money(amount)} บาท`;
+      let text = `มูลค่าที่จะคืน: ${money(amount)} บาท`;
+      if (methodSelect.value === "เปลี่ยนของ") {
+        const exSub = computeExchangeSubtotal();
+        const diff = round2(amount - exSub);
+        text += ` | มูลค่าผ้าใหม่ที่ให้แทน: ${money(exSub)} บาท`;
+        if (diff > 0) text += ` | ลูกค้าได้เครดิตแลกเปลี่ยน ${money(diff)} บาท`;
+        else if (diff < 0) text += ` | ลูกค้าต้องจ่ายเพิ่ม ${money(-diff)} บาท`;
+        else text += ` | ไม่มีส่วนต่าง`;
+        extraAccountRow.style.display = diff < 0 ? "" : "none";
+      } else {
+        extraAccountRow.style.display = "none";
+      }
+      previewLbl.textContent = text;
     }
+    function updateMethodVisibility() {
+      accountRow.style.display = methodSelect.value === "คืนเงินสด" ? "" : "none";
+      exchangeSection.style.display = methodSelect.value === "เปลี่ยนของ" ? "" : "none";
+      updatePreview();
+    }
+    methodSelect.addEventListener("change", updateMethodVisibility);
+    updateMethodVisibility();
 
     const noteInput = textInput("");
 
@@ -3543,7 +3704,17 @@ function buildDataTable(columns, dataRows, opts) {
               {},
               ...pastReturns.map((r) =>
                 el("li", {
-                  text: `${fmtDate(r.date)} - ${r.items.map((it) => `${it.code || (DB.getFabric(it.fabric_id) ? DB.getFabric(it.fabric_id).code : "")} x${round3(it.qty)}`).join(", ")} - มูลค่า ${money(r.amount)} บาท (${r.method})`,
+                  text: `${fmtDate(r.date)} - ${r.items.map((it) => `${it.code || (DB.getFabric(it.fabric_id) ? DB.getFabric(it.fabric_id).code : "")} x${round3(it.qty)}`).join(", ")} - มูลค่า ${money(r.amount)} บาท (${r.method}${
+                    r.method === "เปลี่ยนของ" && r.exchange_items && r.exchange_items.length > 0
+                      ? " -> ให้แทน: " +
+                        r.exchange_items.map((it) => `${it.code} x${round3(it.qty)}`).join(", ") +
+                        (r.exchange_diff > 0
+                          ? ` เครดิต ${money(r.exchange_diff)}`
+                          : r.exchange_diff < 0
+                            ? ` รับเพิ่ม ${money(-r.exchange_diff)}`
+                            : "")
+                      : ""
+                  })`,
                 })
               )
             )
@@ -3568,7 +3739,22 @@ function buildDataTable(columns, dataRows, opts) {
             global.alert("กรุณาเลือกบัญชีที่จะจ่ายเงินคืน");
             return;
           }
-          const ret = DB.addProductReturn(saleId, items, method, accountId, noteInput.value.trim());
+          let exchangeItemsPayload = [];
+          let extraAccountId = null;
+          if (method === "เปลี่ยนของ") {
+            exchangeItemsPayload = exchangeCart.map((it) => ({ fabric_id: it.fabric_id, qty: it.qty, unit_price: it.unit_price }));
+            const { amount } = computeReturnAmount();
+            const exSub = computeExchangeSubtotal();
+            const diff = round2(amount - exSub);
+            if (diff < 0) {
+              extraAccountId = Number(extraAccountSelect.value) || null;
+              if (!extraAccountId) {
+                global.alert("ลูกค้าต้องจ่ายเพิ่ม กรุณาเลือกบัญชีที่จะรับชำระส่วนต่าง");
+                return;
+              }
+            }
+          }
+          const ret = DB.addProductReturn(saleId, items, method, accountId, noteInput.value.trim(), exchangeItemsPayload, extraAccountId);
           if (!ret) {
             global.alert("ไม่สามารถบันทึกการคืนสินค้าได้ กรุณาตรวจสอบจำนวนอีกครั้ง");
             return;
@@ -3576,7 +3762,12 @@ function buildDataTable(columns, dataRows, opts) {
           closeModal();
           refresh();
           renderCustomerTable && renderCustomerTable();
-          global.alert(`บันทึกรับคืนสินค้าเรียบร้อย มูลค่า ${money(ret.amount)} บาท`);
+          let msg = `บันทึกรับคืนสินค้าเรียบร้อย มูลค่า ${money(ret.amount)} บาท`;
+          if (ret.method === "เปลี่ยนของ" && ret.exchange_items && ret.exchange_items.length > 0) {
+            if (ret.exchange_diff > 0) msg += ` (ลูกค้าได้เครดิตแลกเปลี่ยนเพิ่ม ${money(ret.exchange_diff)} บาท)`;
+            else if (ret.exchange_diff < 0) msg += ` (รับชำระส่วนต่างเพิ่ม ${money(ret.extra_payment_amount)} บาท)`;
+          }
+          global.alert(msg);
         },
       },
       "บันทึกรับคืนสินค้า"
@@ -3585,7 +3776,9 @@ function buildDataTable(columns, dataRows, opts) {
     bodyChildren.push(
       formField("วิธีจัดการเงิน", methodSelect),
       accountRow,
+      exchangeSection,
       previewLbl,
+      extraAccountRow,
       formField("หมายเหตุ", noteInput)
     );
     if (historyBlock) bodyChildren.push(historyBlock);
@@ -3596,7 +3789,7 @@ function buildDataTable(columns, dataRows, opts) {
       el("p", { text: `บิลเลขที่ ${sale.sale_no}${cust ? " - " + cust.name : ""}` }),
       ...bodyChildren
     );
-    exposeTestRefs("productReturn", { methodSelect, accountSelect, saveBtn, qtyInputs });
+    exposeTestRefs("productReturn", { methodSelect, accountSelect, saveBtn, qtyInputs, exchangeCart, exchangeFabricSelect, exchangeQtyInput, exchangeAddBtn, extraAccountSelect });
     openModal("รับคืนสินค้า", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
   }
 
