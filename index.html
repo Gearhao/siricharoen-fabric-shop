@@ -1373,7 +1373,8 @@ function createDB(storageKey) {
       if (qty <= 0) continue;
       const lineSubtotal = Math.round(qty * saleItem.unit_price * 100) / 100;
       subtotal += lineSubtotal;
-      validItems.push({ fabric_id: ri.fabric_id, code: saleItem.code, name: saleItem.name, qty, unit: saleItem.unit, unit_price: saleItem.unit_price, subtotal: lineSubtotal });
+      const f = getFabric(ri.fabric_id);
+      validItems.push({ fabric_id: ri.fabric_id, code: saleItem.code || (f ? f.code : "") || "", name: saleItem.name || (f ? f.name : "") || "", qty, unit: saleItem.unit, unit_price: saleItem.unit_price, subtotal: lineSubtotal });
     }
     if (validItems.length === 0) return null;
     subtotal = Math.round(subtotal * 100) / 100;
@@ -3441,7 +3442,10 @@ function buildDataTable(columns, dataRows, opts) {
       .map((it) => {
         const returned = DB.getReturnedQtyForItem(saleId, it.fabric_id);
         const maxReturnable = Math.round((it.qty - returned) * 100) / 100;
-        return { item: it, returned, maxReturnable };
+        const fabric = DB.getFabric(it.fabric_id);
+        const code = it.code || (fabric ? fabric.code : "") || "";
+        const name = it.name || (fabric ? fabric.name : "") || "";
+        return { item: it, returned, maxReturnable, code, name };
       })
       .filter((r) => r.maxReturnable > 0);
 
@@ -3477,7 +3481,7 @@ function buildDataTable(columns, dataRows, opts) {
             return el(
               "tr",
               {},
-              el("td", { text: `${r.item.code} - ${r.item.name}` }),
+              el("td", { text: `${r.code} - ${r.name}` }),
               el("td", { text: `${round3(r.item.qty)} ${r.item.unit}` }),
               el("td", { text: `${round3(r.returned)} ${r.item.unit}` }),
               el("td", { text: `${round3(r.maxReturnable)} ${r.item.unit}` }),
@@ -3539,7 +3543,7 @@ function buildDataTable(columns, dataRows, opts) {
               {},
               ...pastReturns.map((r) =>
                 el("li", {
-                  text: `${fmtDate(r.date)} - ${r.items.map((it) => `${it.code} x${round3(it.qty)}`).join(", ")} - มูลค่า ${money(r.amount)} บาท (${r.method})`,
+                  text: `${fmtDate(r.date)} - ${r.items.map((it) => `${it.code || (DB.getFabric(it.fabric_id) ? DB.getFabric(it.fabric_id).code : "")} x${round3(it.qty)}`).join(", ")} - มูลค่า ${money(r.amount)} บาท (${r.method})`,
                 })
               )
             )
