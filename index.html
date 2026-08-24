@@ -3136,8 +3136,8 @@ function buildDataTable(columns, dataRows, opts) {
         el("th", { text: "เลขที่บิล" }),
         el("th", { text: "วันที่" }),
         el("th", { text: "ลูกค้า" }),
-        el("th", { text: "ภาษีมูลค่าเพิ่ม" }),
         el("th", { text: "ยอดรวม" }),
+        el("th", { text: "ภาษีมูลค่าเพิ่ม" }),
         el("th", { text: "สถานะ" }),
         el("th", { text: "วิธีจัดส่ง" }),
         el("th", { text: "จัดการ" })
@@ -3211,8 +3211,8 @@ function buildDataTable(columns, dataRows, opts) {
               ? c.name
               : "ลูกค้าทั่วไป",
         }),
-        el("td", { text: s.vat_amount ? money(s.vat_amount) : "-" }),
         totalCell,
+        el("td", { text: s.vat_amount ? money(s.vat_amount) : "-" }),
         statusCell,
         el("td", { text: s.shipping_method || "-" }),
         actionsCell
