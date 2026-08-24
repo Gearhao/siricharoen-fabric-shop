@@ -3550,6 +3550,15 @@ function buildDataTable(columns, dataRows, opts) {
     const { opts: exchangeFabricOptions } = fabricSelectOptions();
     const exchangeFabricSelect = searchSelectInput(exchangeFabricOptions, "", "พิมพ์รหัส/ชื่อผ้าที่จะให้ลูกค้าแทน");
     const exchangeQtyInput = numberInput(1);
+    exchangeQtyInput.setAttribute("placeholder", "จำนวน");
+    const exchangePriceInput = numberInput(0);
+    exchangePriceInput.setAttribute("placeholder", "ราคา/หน่วย");
+    exchangeFabricSelect.inputEl.addEventListener("change", () => {
+      const v = exchangeFabricSelect.getMatchedValue();
+      if (!v) return;
+      const f = DB.getFabric(Number(v));
+      if (f) exchangePriceInput.value = f.sell_price || 0;
+    });
     function renderExchangeList() {
       clear(exchangeListEl);
       if (exchangeCart.length === 0) {
@@ -3628,9 +3637,11 @@ function buildDataTable(columns, dataRows, opts) {
             global.alert(`สต็อคผ้า ${f.code} เหลือ ${round3(f.stock_qty)} ${f.unit} ไม่พอ`);
             return;
           }
-          exchangeCart.push({ fabric_id: f.id, code: f.code, name: f.name, unit: f.unit, unit_price: f.sell_price || 0, qty });
+          const price = Math.max(0, Number(exchangePriceInput.value) || 0);
+          exchangeCart.push({ fabric_id: f.id, code: f.code, name: f.name, unit: f.unit, unit_price: price, qty });
           exchangeFabricSelect.setLabel("");
           exchangeQtyInput.value = 1;
+          exchangePriceInput.value = 0;
           renderExchangeList();
           updatePreview();
         },
@@ -3647,6 +3658,7 @@ function buildDataTable(columns, dataRows, opts) {
         { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" } },
         el("div", { style: { flex: "1 1 auto", minWidth: "0" } }, exchangeFabricSelect),
         el("div", { style: { flex: "0 0 90px" } }, exchangeQtyInput),
+        el("div", { style: { flex: "0 0 100px" } }, exchangePriceInput),
         exchangeAddBtn
       )
     );
@@ -3795,7 +3807,7 @@ function buildDataTable(columns, dataRows, opts) {
       el("p", { text: `บิลเลขที่ ${sale.sale_no}${cust ? " - " + cust.name : ""}` }),
       ...bodyChildren
     );
-    exposeTestRefs("productReturn", { methodSelect, accountSelect, saveBtn, qtyInputs, exchangeCart, exchangeFabricSelect, exchangeQtyInput, exchangeAddBtn, extraAccountSelect });
+    exposeTestRefs("productReturn", { methodSelect, accountSelect, saveBtn, qtyInputs, exchangeCart, exchangeFabricSelect, exchangeQtyInput, exchangePriceInput, exchangeAddBtn, extraAccountSelect });
     openModal("รับคืนสินค้า", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
   }
 
