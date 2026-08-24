@@ -3273,20 +3273,23 @@ function buildDataTable(columns, dataRows, opts) {
         class: "btn btn-primary",
         onClick: () => {
           const method = methodSelect.value;
-          let accountSplits = [];
+          let accountSplits = null;
           if (method === "โอนเงิน") {
             accountSplits = accountSplit.getSplits();
-            if (accountSplits.length === 0) {
-              global.alert("กรุณาเลือกบัญชีที่รับโอน");
-              return;
+            // ถ้ายอดค้างชำระเป็น 0 อยู่แล้ว (เช่น แก้ไขบิลจนยอดพอดีกับที่จ่ายไปแล้ว แต่สถานะยังไม่ขึ้น "ชำระแล้ว")
+            // ไม่ต้องบังคับให้เลือกบัญชี/กรอกจำนวนเงิน เพราะไม่มีเงินที่ต้องโอนจริงแล้ว แค่ต้องการอัปเดตสถานะให้ตรง
+            if (remain > 0) {
+              if (accountSplits.length === 0) {
+                global.alert("กรุณาเลือกบัญชีที่รับโอน และระบุจำนวนเงิน");
+                return;
+              }
+              const splitTotal = accountSplit.getTotal();
+              if (splitTotal !== remain) {
+                global.alert(`ยอดรวมที่แบ่งเข้าบัญชี (${money(splitTotal)}) ไม่เท่ากับยอดค้างชำระ (${money(remain)}) กรุณาตรวจสอบ`);
+                return;
+              }
+              if (accountSplits.length === 1) rememberCustomerAccount(cust, String(accountSplits[0].account_id));
             }
-            const splitTotal = accountSplit.getTotal();
-            if (splitTotal !== remain) {
-              global.alert(`ยอดรวมที่แบ่งเข้าบัญชี (${money(splitTotal)}) ไม่เท่ากับยอดค้างชำระ (${money(remain)}) กรุณาตรวจสอบ`);
-              return;
-            }
-            // จำบัญชีที่เลือกไว้เป็นค่าเริ่มต้นของลูกค้ารายนี้ในครั้งถัดไป (เฉพาะกรณีโอนเข้าบัญชีเดียว ไม่แบ่งหลายบัญชี)
-            if (accountSplits.length === 1) rememberCustomerAccount(cust, String(accountSplits[0].account_id));
           }
           DB.markSalePaid(saleId, method, accountSplits);
           closeModal();
