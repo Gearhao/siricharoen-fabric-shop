@@ -3642,7 +3642,13 @@ function buildDataTable(columns, dataRows, opts) {
       {},
       el("h4", { text: "ผ้าที่จะให้ลูกค้าแทน" }),
       exchangeListEl,
-      el("div", { class: "form-row" }, exchangeFabricSelect, exchangeQtyInput, exchangeAddBtn)
+      el(
+        "div",
+        { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" } },
+        el("div", { style: { flex: "1 1 auto", minWidth: "0" } }, exchangeFabricSelect),
+        el("div", { style: { flex: "0 0 90px" } }, exchangeQtyInput),
+        exchangeAddBtn
+      )
     );
     const extraAccountSelect = buildBankAccountSelect(getCustomerPreferredAccountId(cust));
     const extraAccountRow = formField("รับชำระส่วนต่างเข้าบัญชี", extraAccountSelect);
