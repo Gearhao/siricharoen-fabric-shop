@@ -3972,7 +3972,9 @@ function buildDataTable(columns, dataRows, opts) {
         const due = DB.getCustomerTotalDue(c);
         // ถ้ายอดติดลบ แปลว่าร้านติดเครดิตลูกค้าอยู่ (ลูกค้าจ่ายเกิน/มีเครดิตค้างคืน) ให้โชว์เป็น "เครดิต -X" แทน "ค้างชำระ -X" จะได้ไม่งง
         const dueLabel = due < 0 ? `เครดิต ${money(due)}` : `ค้างชำระ ${money(due)}`;
-        return { value: String(c.id), label: `${c.code} - ${c.name} (${dueLabel})` };
+        // เครดิตแลกเปลี่ยนสินค้า (จากการรับคืนผ้าแบบเปลี่ยนของ) เป็นคนละยอดกับค้างชำระ แต่โชว์ให้เห็นตรงนี้ด้วยเลยจะได้ไม่ต้องเดา
+        const exchangePart = c.exchange_credit > 0 ? `, เครดิตแลกเปลี่ยน ${money(c.exchange_credit)}` : "";
+        return { value: String(c.id), label: `${c.code} - ${c.name} (${dueLabel}${exchangePart})` };
       })
     );
     const wrap = searchSelectInput(options, "0", "พิมพ์ชื่อ/รหัสลูกค้าเพื่อค้นหา...");
