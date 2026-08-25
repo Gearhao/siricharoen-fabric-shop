@@ -2664,7 +2664,7 @@ function buildDataTable(columns, dataRows, opts) {
   let posHistorySearch = "";
   let posHistoryDate = "";
   let posHistoryDateTo = "";
-  let posHistoryShowAll = false;
+  let posHistoryShowAll = true;
   let customerHistorySearch = "";
   let billingStatementSelectedIds = new Set();
   const refs = {};
@@ -3970,11 +3970,15 @@ function buildDataTable(columns, dataRows, opts) {
     const options = [{ value: "0", label: "ลูกค้าทั่วไป (เงินสด)" }].concat(
       customers.map((c) => {
         const due = DB.getCustomerTotalDue(c);
+        const parts = [];
         // ถ้ายอดติดลบ แปลว่าร้านติดเครดิตลูกค้าอยู่ (ลูกค้าจ่ายเกิน/มีเครดิตค้างคืน) ให้โชว์เป็น "เครดิต -X" แทน "ค้างชำระ -X" จะได้ไม่งง
-        const dueLabel = due < 0 ? `เครดิต ${money(due)}` : `ค้างชำระ ${money(due)}`;
-        // เครดิตแลกเปลี่ยนสินค้า (จากการรับคืนผ้าแบบเปลี่ยนของ) เป็นคนละยอดกับค้างชำระ แต่โชว์ให้เห็นตรงนี้ด้วยเลยจะได้ไม่ต้องเดา
-        const exchangePart = c.exchange_credit > 0 ? `, เครดิตแลกเปลี่ยน ${money(c.exchange_credit)}` : "";
-        return { value: String(c.id), label: `${c.code} - ${c.name} (${dueLabel}${exchangePart})` };
+        // ถ้าไม่มีค้างชำระเลย (due = 0) ไม่ต้องโชว์อะไรเลย
+        if (due < 0) parts.push(`เครดิต ${money(due)}`);
+        else if (due > 0) parts.push(`ค้างชำระ ${money(due)}`);
+        // เครดิตแลกเปลี่ยนสินค้า (จากการรับคืนผ้าแบบเปลี่ยนของ) เป็นคนละยอดกับค้างชำระ โชว์เฉพาะตอนมียอดเท่านั้น
+        if (c.exchange_credit > 0) parts.push(`เครดิตแลกเปลี่ยน ${money(c.exchange_credit)}`);
+        const suffix = parts.length > 0 ? ` (${parts.join(", ")})` : "";
+        return { value: String(c.id), label: `${c.code} - ${c.name}${suffix}` };
       })
     );
     const wrap = searchSelectInput(options, "0", "พิมพ์ชื่อ/รหัสลูกค้าเพื่อค้นหา...");
@@ -4321,7 +4325,15 @@ function buildDataTable(columns, dataRows, opts) {
       ? DB.updateSale(editingSaleId, items, custId || null, discount, vat, paymentMethod, paid, refs.posNoteInput.value.trim(), undefined, accountSplits, shippingFee, shippingMethod, refs.posDueDateInput.value, isVat)
       : DB.createSale(items, custId || null, discount, vat, paymentMethod, paid, refs.posNoteInput.value.trim(), undefined, accountSplits, shippingFee, shippingMethod, refs.posDueDateInput.value, isVat);
 
-    showReceiptModal(sale, custId, validItems.slice());
+    if (!sale) {
+      global.alert("ไม่สามารถบันทึกบิลได้ กรุณาตรวจสอบข้อมูลอีกครั้ง");
+      return;
+    }
+
+    // เก็บค่าที่ต้องใช้ทำใบเสร็จไว้ก่อน แล้วรีเซ็ตฟอร์ม/สถานะแก้ไขให้เรียบร้อยทันที
+    // ก่อนเปิดโมดัลใบเสร็จ กันปัญหาปุ่ม "ยกเลิกการแก้ไข" ค้างอยู่ ถ้าโมดัลใบเสร็จมีปัญหาระหว่างเปิด
+    const receiptCustId = custId;
+    const receiptItems = validItems.slice();
 
     if (pendingExchangeCredit && pendingExchangeCredit.customerId === custId) {
       DB.useExchangeCredit(custId, pendingExchangeCredit.amount);
@@ -4355,6 +4367,8 @@ function buildDataTable(columns, dataRows, opts) {
     updatePosTotals();
     updateEditBannerUI();
     renderPosSalesHistory();
+
+    showReceiptModal(sale, receiptCustId, receiptItems);
   }
 
   function buildReceiptDoc(sale, cust, shop, cartItems, docType, lang, payAccountLabel) {
