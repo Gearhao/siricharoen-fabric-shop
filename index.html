@@ -2966,6 +2966,7 @@ function buildDataTable(columns, dataRows, opts) {
 
     // เครดิตแลกเปลี่ยนสินค้า (จากการรับคืนผ้าครั้งก่อนแบบ "เปลี่ยนของ") - แจ้งเตือนและกดใช้เป็นส่วนลดในบิลนี้ได้
     const exchangeCreditInfo = el("span", { style: { display: "none", fontSize: "13px", color: "var(--text-muted)" } });
+    refs.exchangeCreditInfo = exchangeCreditInfo;
     const useExchangeCreditBtn = el(
       "button",
       {
@@ -2984,6 +2985,7 @@ function buildDataTable(columns, dataRows, opts) {
       },
       "ใช้เครดิตนี้เป็นส่วนลด"
     );
+    refs.useExchangeCreditBtn = useExchangeCreditBtn;
     function updateExchangeCreditInfo() {
       const custId = customerSelect.getCustomerId();
       const c = custId ? DB.getCustomer(custId) : null;
@@ -4361,8 +4363,8 @@ function buildDataTable(columns, dataRows, opts) {
       oldSelect.parentNode.replaceChild(newCustomerSelect, oldSelect);
     }
     refs.posCustomerSelect = newCustomerSelect;
-    exchangeCreditInfo.style.display = "none";
-    useExchangeCreditBtn.style.display = "none";
+    if (refs.exchangeCreditInfo) refs.exchangeCreditInfo.style.display = "none";
+    if (refs.useExchangeCreditBtn) refs.useExchangeCreditBtn.style.display = "none";
 
     updatePosTotals();
     updateEditBannerUI();
