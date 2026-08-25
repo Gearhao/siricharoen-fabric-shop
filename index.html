@@ -3481,6 +3481,40 @@ function buildDataTable(columns, dataRows, opts) {
     openModal("บันทึกการชำระเงิน", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
   }
 
+  // สร้างและเปิดตัวอย่างใบเสร็จสำหรับผ้าที่ให้ลูกค้าแทนตอนเปลี่ยนของ (ใช้ได้ทั้งตอนบันทึกใหม่ และย้อนดูประวัติภายหลัง)
+  function printExchangeReceipt(ret) {
+    if (!ret.exchange_items || ret.exchange_items.length === 0) {
+      global.alert("รายการคืนนี้ไม่มีผ้าที่เปลี่ยนให้ลูกค้า");
+      return;
+    }
+    const cartItems = ret.exchange_items.map((it) => ({
+      code: it.code || "",
+      name: it.name || "",
+      qty: it.qty,
+      unit_price: it.unit_price,
+      unit: it.unit,
+      note: "",
+    }));
+    const exchangeSubtotal = round2(ret.exchange_items.reduce((s, it) => s + it.qty * it.unit_price, 0));
+    const pseudoSale = {
+      id: `return-${ret.id}`,
+      sale_no: `${ret.sale_no}-EX${ret.id}`,
+      date: ret.date,
+      customer_id: ret.customer_id,
+      subtotal: exchangeSubtotal,
+      discount: 0,
+      vat_amount: 0,
+      is_vat: false,
+      shipping_fee: 0,
+      shipping_method: "",
+      total: exchangeSubtotal,
+      paid: exchangeSubtotal,
+      payment_method: "เงินสด",
+      note: `ใบเสร็จผ้าที่เปลี่ยนแทน (จากการคืนสินค้าบิล ${ret.sale_no})`,
+    };
+    showReceiptModal(pseudoSale, ret.customer_id, cartItems);
+  }
+
   function openProductReturnModal(saleId, refreshFn) {
     const refresh = refreshFn || renderPosSalesHistory;
     const sale = DB.getSale(saleId);
@@ -3732,21 +3766,32 @@ function buildDataTable(columns, dataRows, opts) {
             el(
               "ul",
               {},
-              ...pastReturns.map((r) =>
-                el("li", {
-                  text: `${fmtDate(r.date)} - ${r.items.map((it) => `${it.code || (DB.getFabric(it.fabric_id) ? DB.getFabric(it.fabric_id).code : "")} x${round3(it.qty)}`).join(", ")} - มูลค่า ${money(r.amount)} บาท (${r.method}${
-                    r.method === "เปลี่ยนของ" && r.exchange_items && r.exchange_items.length > 0
-                      ? " -> ให้แทน: " +
-                        r.exchange_items.map((it) => `${it.code} x${round3(it.qty)}`).join(", ") +
-                        (r.exchange_diff > 0
-                          ? ` เครดิต ${money(r.exchange_diff)}`
-                          : r.exchange_diff < 0
-                            ? ` รับเพิ่ม ${money(-r.exchange_diff)}`
-                            : "")
-                      : ""
-                  })`,
-                })
-              )
+              ...pastReturns.map((r) => {
+                const hasExchange = r.method === "เปลี่ยนของ" && r.exchange_items && r.exchange_items.length > 0;
+                const label = `${fmtDate(r.date)} - ${r.items.map((it) => `${it.code || (DB.getFabric(it.fabric_id) ? DB.getFabric(it.fabric_id).code : "")} x${round3(it.qty)}`).join(", ")} - มูลค่า ${money(r.amount)} บาท (${r.method}${
+                  hasExchange
+                    ? " -> ให้แทน: " +
+                      r.exchange_items.map((it) => `${it.code} x${round3(it.qty)}`).join(", ") +
+                      (r.exchange_diff > 0
+                        ? ` เครดิต ${money(r.exchange_diff)}`
+                        : r.exchange_diff < 0
+                          ? ` รับเพิ่ม ${money(-r.exchange_diff)}`
+                          : "")
+                    : ""
+                })`;
+                return el(
+                  "li",
+                  {},
+                  label,
+                  hasExchange
+                    ? el(
+                        "button",
+                        { class: "btn btn-sm", style: { marginLeft: "8px" }, onClick: () => printExchangeReceipt(r) },
+                        "พิมพ์บิลผ้าที่เปลี่ยน"
+                      )
+                    : null
+                );
+              })
             )
           )
         : null;
@@ -3798,6 +3843,9 @@ function buildDataTable(columns, dataRows, opts) {
             else if (ret.exchange_diff < 0) msg += ` (รับชำระส่วนต่างเพิ่ม ${money(ret.extra_payment_amount)} บาท)`;
           }
           global.alert(msg);
+          if (ret.method === "เปลี่ยนของ" && ret.exchange_items && ret.exchange_items.length > 0) {
+            printExchangeReceipt(ret);
+          }
         },
       },
       "บันทึกรับคืนสินค้า"
