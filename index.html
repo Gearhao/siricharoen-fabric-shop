@@ -1441,7 +1441,12 @@ function createDB(storageKey) {
         });
       }
       ret.exchange_items = validExchangeItems;
-      const diff = Math.round((amount - exchangeSubtotal) * 100) / 100;
+      // เทียบมูลค่าแบบรวมภาษีทั้งสองฝั่งให้สอดคล้องกัน (amount ของฝั่งคืนรวม VAT ตามสัดส่วนบิลแล้ว
+      // ฝั่งผ้าใหม่ก็ต้องคิด VAT ตามสัดส่วนเดียวกันด้วย ไม่งั้นส่วนต่างจะเพี้ยนไปเท่ากับ VAT ของฝั่งผ้าใหม่)
+      const exchangeRatio = sale.subtotal > 0 ? exchangeSubtotal / sale.subtotal : 0;
+      const exchangeVatPortion = Math.round(sale.vat_amount * exchangeRatio * 100) / 100;
+      const exchangeAmount = Math.round((exchangeSubtotal + exchangeVatPortion) * 100) / 100;
+      const diff = Math.round((amount - exchangeAmount) * 100) / 100;
       ret.exchange_diff = diff;
       if (sale.customer_id) {
         const c = getCustomer(sale.customer_id);
