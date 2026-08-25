@@ -3968,7 +3968,12 @@ function buildDataTable(columns, dataRows, opts) {
   function buildCustomerSelectOptions() {
     const customers = DB.getCustomers();
     const options = [{ value: "0", label: "ลูกค้าทั่วไป (เงินสด)" }].concat(
-      customers.map((c) => ({ value: String(c.id), label: `${c.code} - ${c.name} (ค้างชำระ ${money(DB.getCustomerTotalDue(c))})` }))
+      customers.map((c) => {
+        const due = DB.getCustomerTotalDue(c);
+        // ถ้ายอดติดลบ แปลว่าร้านติดเครดิตลูกค้าอยู่ (ลูกค้าจ่ายเกิน/มีเครดิตค้างคืน) ให้โชว์เป็น "เครดิต -X" แทน "ค้างชำระ -X" จะได้ไม่งง
+        const dueLabel = due < 0 ? `เครดิต ${money(due)}` : `ค้างชำระ ${money(due)}`;
+        return { value: String(c.id), label: `${c.code} - ${c.name} (${dueLabel})` };
+      })
     );
     const wrap = searchSelectInput(options, "0", "พิมพ์ชื่อ/รหัสลูกค้าเพื่อค้นหา...");
     wrap._customerId = 0;
