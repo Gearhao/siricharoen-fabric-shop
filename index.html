@@ -2010,6 +2010,27 @@ function createDB(storageKey) {
   function getCustomerTotalDue(customer) {
     return (customer.credit_balance || 0) + getCustomerCashPendingTotal(customer.id);
   }
+  // แยกยอดค้างชำระสะสมของลูกค้าออกเป็น "ค่าผ้า" กับ "ค่าส่ง" (เฉพาะบิลแว็ดที่มีค่าจัดส่งแยกบัญชี)
+  // ใช้แสดงผลในใบเสร็จเท่านั้น ไม่กระทบยอดค้างชำระจริง (credit_balance ที่เหลือ ถือเป็นส่วนของค่าผ้าทั้งหมด)
+  function getCustomerDueBreakdown(customer) {
+    let fabric = customer.credit_balance || 0;
+    let shipping = 0;
+    const pending = store.sales.filter(
+      (s) => s.customer_id === customer.id && s.payment_method === "เงินสดแต่ยังไม่จ่าย" && (s.paid || 0) < s.total
+    );
+    for (const s of pending) {
+      const remain = s.total - (s.paid || 0);
+      const isVatShip = !!s.is_vat && (s.shipping_fee || 0) > 0;
+      if (isVatShip) {
+        const shipPart = Math.min(remain, s.shipping_fee);
+        shipping += shipPart;
+        fabric += remain - shipPart;
+      } else {
+        fabric += remain;
+      }
+    }
+    return { fabric, shipping };
+  }
   function arAging() {
     return store.customers
       .map((c) => Object.assign({}, c, { total_due: getCustomerTotalDue(c) }))
@@ -2192,7 +2213,7 @@ function createDB(storageKey) {
     addQuotation, updateQuotation, deleteQuotation, getQuotations, getQuotation, setQuotationStatus, markQuotationConverted,
     getBankAccounts, getBankAccount, getCashAccount, createBankAccount, updateBankAccount, deleteBankAccount, adjustBankAccountBalance, transferBetweenAccounts, getAccountMovements,
     salesSummary, cogsSummary, expensesSummary, shippingSummary, bestSellers, lowStockList,
-    arAging, apAging, getCustomerCashPendingTotal, getCustomerTotalDue,
+    arAging, apAging, getCustomerCashPendingTotal, getCustomerTotalDue, getCustomerDueBreakdown,
     exportBackup, exportBackupCsv, exportBackupPages, importBackup, resetAll,
     pullFromCloud, pushToCloud, setCloudSyncListener, getCloudStatus,
   };
@@ -4412,6 +4433,8 @@ function buildDataTable(columns, dataRows, opts) {
           receivedPaymentBy: "Received Payment by",
           note: "Note",
           totalDueAll: "Total outstanding balance",
+          dueFabricPart: "  - Fabric portion",
+          dueShippingPart: "  - Shipping portion",
           currency: "THB",
           payAccount: "Payment Account",
           transferTo: "Transfer to account",
@@ -4449,6 +4472,8 @@ function buildDataTable(columns, dataRows, opts) {
           receivedPaymentBy: "ผู้รับเงิน",
           note: "หมายเหตุ",
           totalDueAll: "ยอดค้างชำระสะสมทั้งหมด",
+          dueFabricPart: "  - ค่าผ้า",
+          dueShippingPart: "  - ค่าส่ง",
           currency: "บาท",
           payAccount: "บัญชีสำหรับโอนเงิน",
           transferTo: "โอนเข้าบัญชี",
@@ -4535,6 +4560,13 @@ function buildDataTable(columns, dataRows, opts) {
         linesNoSign.push("");
         linesNoSign.push("-".repeat(40));
         linesNoSign.push(`${L.totalDueAll}: ${money(totalDue)} ${L.currency}`);
+        if (showVat) {
+          const dueBreakdown = DB.getCustomerDueBreakdown(cust);
+          if (dueBreakdown.shipping > 0) {
+            linesNoSign.push(`${L.dueFabricPart}: ${money(dueBreakdown.fabric)} ${L.currency}`);
+            linesNoSign.push(`${L.dueShippingPart}: ${money(dueBreakdown.shipping)} ${L.currency}`);
+          }
+        }
       }
     }
     // บัญชีสำหรับโอนเงิน: ใส่ไว้ล่างสุดของข้อความเสมอ เพื่อให้ลูกค้าเห็นชัดตอนอ่านที่แชท/ไลน์
