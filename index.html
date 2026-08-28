@@ -3052,7 +3052,7 @@ function buildDataTable(columns, dataRows, opts) {
 
     const paymentSelect = selectInput(
       [
-        { value: "เงินเชื่อ", label: "เงินเชื่อ" },
+        { value: "เงินเชื่อ", label: "เครดิต" },
         { value: "เงินสด", label: "เงินสด" },
         { value: "โอนเงิน", label: "โอนเงิน" },
           { value: "เงินสดแต่ยังไม่จ่าย", label: "เงินสดแต่ยังไม่จ่าย" },
@@ -3278,7 +3278,7 @@ function buildDataTable(columns, dataRows, opts) {
       `เลขที่บิล: ${s.sale_no}`,
       `วันที่: ${fmtDate(s.date)}`,
       `ลูกค้า: ${c ? c.name : "ลูกค้าทั่วไป"}`,
-      `ชำระโดย: ${s.payment_method}`,
+      `ชำระโดย: ${s.payment_method === "เงินเชื่อ" ? "เครดิต" : s.payment_method}`,
       `สถานะ: ${s.status}`,
     ];
     if (s.due_date) infoLines.push(`วันที่ครบกำหนดชำระเงิน: ${fmtDate(s.due_date)}`);
@@ -4298,7 +4298,7 @@ function buildDataTable(columns, dataRows, opts) {
 
     if (paymentMethod === "เงินเชื่อ") {
       if (!custId) {
-        global.alert("การขายแบบเงินเชื่อต้องเลือกลูกค้า");
+        global.alert("การขายแบบเครดิตต้องเลือกลูกค้า");
         return;
       }
       const customer = DB.getCustomer(custId);
@@ -6426,7 +6426,7 @@ function buildDataTable(columns, dataRows, opts) {
     supplierSelect.getSupplierId = () => supplierSelect._supplierId;
     const paymentSelect = selectInput(
       [
-        { value: "เงินเชื่อ", label: "เงินเชื่อ" },
+        { value: "เงินเชื่อ", label: "เครดิต" },
         { value: "เงินสด", label: "เงินสด" },
         { value: "โอนเงิน", label: "โอนเงิน" },
       ],
