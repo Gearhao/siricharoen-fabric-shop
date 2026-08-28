@@ -195,6 +195,14 @@ html, body {
 .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
 .btn-primary:hover { background: var(--primary-dark); }
 .btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+.btn-success { background: var(--success); color: #fff; border-color: var(--success); }
+.btn-success:hover { background: #24714a; }
+.btn-info { background: #2a7f9e; color: #fff; border-color: #2a7f9e; }
+.btn-info:hover { background: #1f6379; }
+.btn-accent { background: #6c4fa1; color: #fff; border-color: #6c4fa1; }
+.btn-accent:hover { background: #563d82; }
+.btn-warning { background: #c9822b; color: #fff; border-color: #c9822b; }
+.btn-warning:hover { background: #a86a1f; }
 .btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,0.5); }
 .btn-ghost:hover { background: rgba(255,255,255,0.15); }
 .btn-sm { padding: 4px 8px; font-size: 12px; margin-right: 4px; }
@@ -4822,14 +4830,14 @@ function buildDataTable(columns, dataRows, opts) {
     previewBox.innerHTML = current.html;
     const downloadBtn = el(
       "button",
-      { class: "btn", onClick: () => downloadTextFile(`${sale.sale_no}.txt`, current.text) },
+      { class: "btn btn-info", onClick: () => downloadTextFile(`${sale.sale_no}.txt`, current.text) },
       "บันทึกเป็นไฟล์ .txt"
     );
-    const printBtn = el("button", { class: "btn", onClick: () => printReceiptHtml(current.html) }, `พิมพ์${current.docTitle}`);
+    const printBtn = el("button", { class: "btn btn-accent", onClick: () => printReceiptHtml(current.html) }, `พิมพ์${current.docTitle}`);
     const copyBtn = el(
       "button",
       {
-        class: "btn",
+        class: "btn btn-success",
         onClick: () => {
           copyTextToClipboard(current.textForCopy)
             .then(() => {
@@ -4880,7 +4888,7 @@ function buildDataTable(columns, dataRows, opts) {
     const accountRow = formField("บัญชีสำหรับโอนเงิน (ถ้ามี)", accountSelect);
     const shippingBtn =
       sale.shipping_fee > 0
-        ? el("button", { class: "btn", onClick: () => openShippingReceiptModal(sale, custId) }, "ออกใบเสร็จค่าส่งแยก")
+        ? el("button", { class: "btn btn-warning", onClick: () => openShippingReceiptModal(sale, custId) }, "ออกใบเสร็จค่าส่งแยก")
         : null;
 
     const body = el(
