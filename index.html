@@ -7459,7 +7459,7 @@ function buildDataTable(columns, dataRows, opts) {
     const customerSelect = buildCustomerSelectOptions();
     if (existing && existing.customer_id) customerSelect.setCustomerId(existing.customer_id);
     const validUntilInput = el("input", { type: "date", value: existing && existing.valid_until ? existing.valid_until : "" });
-    const isVatChk = el("input", { type: "checkbox", checked: existing ? !!existing.is_vat : VAT_ENABLED });
+    const isVatChk = el("input", { type: "checkbox", checked: existing ? !!existing.is_vat : false });
     const shippingFeeInput = numberInput(existing ? existing.shipping_fee || 0 : 0);
     const noteInput = textInput(existing ? existing.note : "");
     noteInput.setAttribute("placeholder", "เงื่อนไข/บัญชีโอนเงิน/หมายเหตุ (จะพิมพ์ท้ายใบเสนอราคา)");
