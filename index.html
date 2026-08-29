@@ -313,14 +313,15 @@ html, body {
   width: 100%;
 }
 .pos-item-table th:nth-child(1), .pos-item-table td:nth-child(1) { width: 5%; }
-.pos-item-table th:nth-child(2), .pos-item-table td:nth-child(2) { width: 29%; }
-.pos-item-table th:nth-child(3), .pos-item-table td:nth-child(3) { width: 8%; }
-.pos-item-table th:nth-child(4), .pos-item-table td:nth-child(4) { width: 13%; }
-.pos-item-table th:nth-child(5), .pos-item-table td:nth-child(5) { width: 9%; }
-.pos-item-table th:nth-child(6), .pos-item-table td:nth-child(6) { width: 11%; }
-.pos-item-table th:nth-child(7), .pos-item-table td:nth-child(7) { width: 11%; }
-.pos-item-table th:nth-child(8), .pos-item-table td:nth-child(8) { width: 7%; }
-.pos-item-table th:nth-child(9), .pos-item-table td:nth-child(9) { width: 7%; }
+.pos-item-table th:nth-child(2), .pos-item-table td:nth-child(2) { width: 25%; }
+.pos-item-table th:nth-child(3), .pos-item-table td:nth-child(3) { width: 14%; }
+.pos-item-table th:nth-child(4), .pos-item-table td:nth-child(4) { width: 7%; }
+.pos-item-table th:nth-child(5), .pos-item-table td:nth-child(5) { width: 11%; }
+.pos-item-table th:nth-child(6), .pos-item-table td:nth-child(6) { width: 8%; }
+.pos-item-table th:nth-child(7), .pos-item-table td:nth-child(7) { width: 9%; }
+.pos-item-table th:nth-child(8), .pos-item-table td:nth-child(8) { width: 9%; }
+.pos-item-table th:nth-child(9), .pos-item-table td:nth-child(9) { width: 6%; }
+.pos-item-table th:nth-child(10), .pos-item-table td:nth-child(10) { width: 6%; }
 .pos-item-table td { padding: 6px 4px; white-space: normal; word-break: break-word; }
 .pos-item-table input, .pos-item-table select { width: 100%; min-width: 0; box-sizing: border-box; }
 .pos-item-table .btn-sm { width: 100%; padding-left: 4px; padding-right: 4px; }
@@ -1155,6 +1156,9 @@ function createDB(storageKey) {
       stock_qty: it.stock_qty !== undefined && it.stock_qty !== null ? it.stock_qty : it.qty,
       subtotal: it.qty * it.unit_price,
       note: it.note || "",
+      // ม้วนที่เลือกไว้ตอนขาย (ไม่บังคับ) เก็บไว้แค่แสดงบนบิล/ลดจำนวนคงเหลือของม้วนนั้น ไม่ใช่แหล่งความจริงของสต็อกรวม (stock_qty ของผ้ายังตัดแบบเดิมทุกอย่าง)
+      roll_id: it.roll_id || null,
+      roll_code: it.roll_code || "",
     }));
   }
   function applySaleEffects(sale) {
@@ -1162,6 +1166,10 @@ function createDB(storageKey) {
       if (it.is_misc) continue;
       const f = getFabric(it.fabric_id);
       if (f) f.stock_qty -= it.stock_qty;
+      if (it.roll_id) {
+        const r = store.rolls.find((x) => x.id === it.roll_id);
+        if (r) r.qty = Math.round((r.qty - it.stock_qty) * 100) / 100;
+      }
       store.stockMovements.push({
         id: store.stockMovements.length + 1,
         fabric_id: it.fabric_id,
@@ -1186,6 +1194,10 @@ function createDB(storageKey) {
       if (it.is_misc) continue;
       const f = getFabric(it.fabric_id);
       if (f) f.stock_qty += it.stock_qty;
+      if (it.roll_id) {
+        const r = store.rolls.find((x) => x.id === it.roll_id);
+        if (r) r.qty = Math.round((r.qty + it.stock_qty) * 100) / 100;
+      }
       store.stockMovements.push({
         id: store.stockMovements.length + 1,
         fabric_id: it.fabric_id,
@@ -4228,6 +4240,8 @@ function buildDataTable(columns, dataRows, opts) {
         stock_qty: f ? f.stock_qty : null,
         is_misc: false,
         note: it.note || "",
+        roll_id: it.roll_id || null,
+        roll_code: it.roll_code || "",
       };
     });
     if (cart.length === 0) addPosRow();
@@ -4269,7 +4283,7 @@ function buildDataTable(columns, dataRows, opts) {
         return { code: "", name: `${it.name || ""} (ฝากซื้อ)`, qty: it.qty, unit_price: it.unit_price, unit: it.unit, note: it.note || "" };
       }
       const f = DB.getFabric(it.fabric_id);
-      return { code: f ? f.code : "", name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)", qty: it.qty, unit_price: it.unit_price, unit: it.unit, note: it.note || "" };
+      return { code: f ? f.code : "", name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)", qty: it.qty, unit_price: it.unit_price, unit: it.unit, note: it.note || "", roll_code: it.roll_code || "" };
     });
     showReceiptModal(sale, sale.customer_id, cartItems);
   }
@@ -4330,7 +4344,7 @@ function buildDataTable(columns, dataRows, opts) {
   }
 
   function addPosRow() {
-    cart.push({ fabric_id: "", code: "", name: "", unit: "หลา", baseUnit: "", qty: 1, unit_price: 0, cost_price: 0, stock_qty: null, is_misc: false, note: "" });
+    cart.push({ fabric_id: "", code: "", name: "", unit: "หลา", baseUnit: "", qty: 1, unit_price: 0, cost_price: 0, stock_qty: null, is_misc: false, note: "", roll_id: null, roll_code: "" });
     renderPosItemsTable();
     updatePosTotals();
   }
@@ -4353,8 +4367,11 @@ function buildDataTable(columns, dataRows, opts) {
       cart[idx].baseUnit = f.unit;
       cart[idx].stock_qty = f.stock_qty;
       if (!cart[idx].unit_price) cart[idx].unit_price = round2(f.sell_price * unitFactor(saleUnit, f.unit));
+      // เปลี่ยนผ้าแล้ว ม้วนที่เคยเลือกไว้ (ถ้ามี) ใช้ไม่ได้แล้ว ต้องเลือกใหม่
+      cart[idx].roll_id = null;
+      cart[idx].roll_code = "";
     } else {
-      cart[idx] = { fabric_id: "", code: "", name: "", unit: cart[idx].unit || "หลา", baseUnit: "", qty: cart[idx].qty, unit_price: 0, stock_qty: null, note: cart[idx].note || "" };
+      cart[idx] = { fabric_id: "", code: "", name: "", unit: cart[idx].unit || "หลา", baseUnit: "", qty: cart[idx].qty, unit_price: 0, stock_qty: null, note: cart[idx].note || "", roll_id: null, roll_code: "" };
     }
     renderPosItemsTable();
     updatePosTotals();
@@ -4398,6 +4415,7 @@ function buildDataTable(columns, dataRows, opts) {
         {},
         el("th", { text: "#" }),
         el("th", { text: "สินค้า (รหัส - ชื่อ)" }),
+        el("th", { text: "ม้วน (ถ้ามี)" }),
         el("th", { text: "จำนวน" }),
         el("th", { text: "หน่วย" }),
         el("th", { text: "ราคา/หน่วย" }),
@@ -4410,7 +4428,7 @@ function buildDataTable(columns, dataRows, opts) {
     const tbody = el("tbody", {});
 
     if (cart.length === 0) {
-      tbody.appendChild(el("tr", {}, el("td", { colspan: 9, class: "empty", text: 'ยังไม่มีรายการ กด "+ เพิ่มรายการ"' })));
+      tbody.appendChild(el("tr", {}, el("td", { colspan: 10, class: "empty", text: 'ยังไม่มีรายการ กด "+ เพิ่มรายการ"' })));
     }
 
     cart.forEach((row, idx) => {
@@ -4445,6 +4463,27 @@ function buildDataTable(columns, dataRows, opts) {
         const unitSelect = selectInput(unitOptions, row.unit || "หลา");
         unitSelect.addEventListener("change", (e) => posRowSetUnit(idx, e.target.value));
         unitCell = el("td", {}, unitSelect);
+      }
+
+      // เลือกม้วนที่จะตัดขาย (ไม่บังคับ) - ใช้แค่แสดงบนบิลให้พนักงานตัดผ้าถูกม้วน ไม่กระทบการตัดสต็อกรวมของผ้า
+      let rollCell;
+      if (!row.is_misc && row.fabric_id) {
+        const rollOptions = [{ value: "", label: "— ไม่ระบุม้วน —" }].concat(
+          DB.getRolls(row.fabric_id, { onlyActive: true }).map((r) => ({
+            value: String(r.id),
+            label: `${DB.formatRollCode(r)} (เหลือ ${round3(r.qty)}${row.baseUnit ? " " + row.baseUnit : ""})`,
+          }))
+        );
+        const rollSelect = selectInput(rollOptions, row.roll_id ? String(row.roll_id) : "");
+        rollSelect.addEventListener("change", (e) => {
+          const rid = Number(e.target.value) || null;
+          cart[idx].roll_id = rid;
+          const r = rid ? DB.getRoll(rid) : null;
+          cart[idx].roll_code = r ? DB.formatRollCode(r) : "";
+        });
+        rollCell = el("td", {}, rollSelect);
+      } else {
+        rollCell = el("td", { text: "-" });
       }
 
       const noteInput = textInput(row.note || "");
@@ -4508,6 +4547,7 @@ function buildDataTable(columns, dataRows, opts) {
         { class: "pos-item-row" },
         el("td", { text: String(idx + 1) }),
         productCell,
+        rollCell,
         el("td", {}, qtyInput),
         unitCell,
         el("td", {}, priceInput),
@@ -4518,7 +4558,7 @@ function buildDataTable(columns, dataRows, opts) {
       );
       tbody.appendChild(tr);
 
-      const noteTr = el("tr", { class: "pos-item-note-row" }, el("td", { colspan: 9 }, noteInput));
+      const noteTr = el("tr", { class: "pos-item-note-row" }, el("td", { colspan: 10 }, noteInput));
       tbody.appendChild(noteTr);
     });
 
@@ -4627,6 +4667,8 @@ function buildDataTable(columns, dataRows, opts) {
         unit: it.unit,
         stock_qty: it.qty * factor,
         note: (it.note || "").trim(),
+        roll_id: it.roll_id || null,
+        roll_code: it.roll_code || "",
       };
     });
     const isVat = !!(refs.posVatChk && refs.posVatChk.checked);
@@ -4794,6 +4836,7 @@ function buildDataTable(columns, dataRows, opts) {
       lines.push(
         `${label.slice(0, 20).padEnd(20)}${qtyUnit.padStart(10)} x ${money(it.unit_price).padStart(9)} = ${money(sub).padStart(11)}`
       );
+      if (it.roll_code) lines.push(`    [ม้วน: ${it.roll_code}]`);
       if (it.note) lines.push(`    (${it.note})`);
     });
     lines.push("-".repeat(40));
@@ -4873,9 +4916,10 @@ function buildDataTable(columns, dataRows, opts) {
         const sub = it.qty * it.unit_price;
         const qtyUnit = `${it.qty}${it.unit ? " " + it.unit : ""}`;
         const label = it.code || it.name || "";
+        const rollHtml = it.roll_code ? `<div style="font-size:10.5px;color:#666;margin-top:2px;">ม้วน: ${esc(it.roll_code)}</div>` : "";
         const noteHtml = it.note ? `<div style="font-size:10.5px;color:#666;margin-top:2px;">${esc(it.note)}</div>` : "";
         const rowBorder = i === cartItems.length - 1 ? "" : "border-bottom:1px dotted #999;";
-        return `<tr><td style="padding:7px 4px;${rowBorder}">${esc(label)}${noteHtml}</td><td style="padding:7px 4px;text-align:right;${rowBorder}">${esc(
+        return `<tr><td style="padding:7px 4px;${rowBorder}">${esc(label)}${rollHtml}${noteHtml}</td><td style="padding:7px 4px;text-align:right;${rowBorder}">${esc(
           qtyUnit
         )}</td><td style="padding:7px 4px;text-align:right;${rowBorder}">${money(it.unit_price)}</td><td style="padding:7px 4px;text-align:right;${rowBorder}">${money(sub)}</td></tr>`;
       })
