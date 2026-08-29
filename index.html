@@ -5519,7 +5519,7 @@ function buildDataTable(columns, dataRows, opts) {
       el("button", { class: "btn", onClick: () => openQrTagsModal() }, "จัดการ/ผูกแท็ก QR"),
       el(
         "button",
-        { class: "btn btn-ghost", onClick: () => deleteFabricsByCodePrefix() },
+        { class: "btn", onClick: () => deleteFabricsByCodePrefix() },
         "ลบผ้าตามรหัสขึ้นต้น..."
       )
     );
