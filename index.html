@@ -590,12 +590,14 @@ function createDB(storageKey) {
           if (!store.customerOrders) store.customerOrders = [];
           if (!store.expenseCategories) store.expenseCategories = [];
           if (!store.quotations) store.quotations = [];
+          if (!store.billingNotes) store.billingNotes = [];
           if (!store.nextId) store.nextId = {};
           if (!store.nextId.backorder) store.nextId.backorder = store.backorders.length + 1;
           if (!store.nextId.bankAccount) store.nextId.bankAccount = store.bankAccounts.length + 1;
           if (!store.nextId.customerOrder) store.nextId.customerOrder = store.customerOrders.length + 1;
           if (!store.nextId.expenseCategory) store.nextId.expenseCategory = store.expenseCategories.length + 1;
           if (!store.nextId.quotation) store.nextId.quotation = store.quotations.length + 1;
+          if (!store.nextId.billingNote) store.nextId.billingNote = store.billingNotes.length + 1;
           migrateCodes(store);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
           cloudStatus = "synced";
@@ -617,7 +619,7 @@ function createDB(storageKey) {
 
   function emptyStore() {
     return {
-      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1, bankAccount: 1, customerOrder: 1, expenseCategory: 1, quotation: 1, return: 1 },
+      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1, bankAccount: 1, customerOrder: 1, expenseCategory: 1, quotation: 1, return: 1, billingNote: 1 },
       shopInfo: { name: "ร้านผ้าศิริเจริญ", address: "", phone: "", tax_id: "" },
       suppliers: [],
       customers: [],
@@ -635,6 +637,7 @@ function createDB(storageKey) {
       customerOrders: [],
       quotations: [],
       returns: [],
+      billingNotes: [],
     };
   }
 
@@ -652,12 +655,14 @@ function createDB(storageKey) {
         if (!data.customerOrders) data.customerOrders = [];
         if (!data.expenseCategories) data.expenseCategories = [];
         if (!data.quotations) data.quotations = [];
+        if (!data.billingNotes) data.billingNotes = [];
         if (!data.nextId) data.nextId = {};
         if (!data.nextId.backorder) data.nextId.backorder = data.backorders.length + 1;
         if (!data.nextId.bankAccount) data.nextId.bankAccount = data.bankAccounts.length + 1;
         if (!data.nextId.customerOrder) data.nextId.customerOrder = data.customerOrders.length + 1;
         if (!data.nextId.expenseCategory) data.nextId.expenseCategory = data.expenseCategories.length + 1;
         if (!data.nextId.quotation) data.nextId.quotation = data.quotations.length + 1;
+        if (!data.nextId.billingNote) data.nextId.billingNote = data.billingNotes.length + 1;
         migrateCodes(data);
         return data;
       }
@@ -1960,6 +1965,47 @@ function createDB(storageKey) {
     return q;
   }
 
+  function addBillingNote(data) {
+    const seq = genId("billingNote");
+    const d = todayStr().replace(/-/g, "");
+    const t = new Date();
+    const timeSeq = String(t.getHours() * 60 + t.getMinutes()).padStart(4, "0");
+    const item = {
+      id: seq,
+      doc_no: "BV" + d + timeSeq,
+      created_date: nowStr(),
+      customer_id: (data && data.customer_id) || null,
+      sale_ids: (data && Array.isArray(data.sale_ids)) ? data.sale_ids : [],
+      due_date: (data && data.due_date) || "",
+      note: (data && data.note) || "",
+      ship_account_id: (data && data.ship_account_id) || "",
+      whole_account_id: (data && data.whole_account_id) || "",
+    };
+    store.billingNotes.push(item);
+    save();
+    return item;
+  }
+  function updateBillingNote(id, data) {
+    const b = store.billingNotes.find((x) => x.id === id);
+    if (!b) return null;
+    Object.assign(b, data);
+    save();
+    return b;
+  }
+  function deleteBillingNote(id) {
+    const idx = store.billingNotes.findIndex((x) => x.id === id);
+    if (idx === -1) return false;
+    store.billingNotes.splice(idx, 1);
+    save();
+    return true;
+  }
+  function getBillingNotesForCustomer(customerId) {
+    return [...(store.billingNotes || [])].filter((x) => x.customer_id === customerId).sort((a, b) => b.id - a.id);
+  }
+  function getBillingNote(id) {
+    return store.billingNotes.find((x) => x.id === id) || null;
+  }
+
 
   // -------------------------------------------------------------- reports
   function salesSummary(start, end) {
@@ -2224,6 +2270,7 @@ function createDB(storageKey) {
     addBackorder, updateBackorder, deleteBackorder, markBackorderDone, markBackorderUndone, getBackorders, getBackorder,
     addCustomerOrder, updateCustomerOrder, deleteCustomerOrder, markCustomerOrderDone, markCustomerOrderUndone, getCustomerOrders, getCustomerOrder,
     addQuotation, updateQuotation, deleteQuotation, getQuotations, getQuotation, setQuotationStatus, markQuotationConverted,
+    addBillingNote, updateBillingNote, deleteBillingNote, getBillingNotesForCustomer, getBillingNote,
     getBankAccounts, getBankAccount, getCashAccount, createBankAccount, updateBankAccount, deleteBankAccount, adjustBankAccountBalance, transferBetweenAccounts, getAccountMovements,
     salesSummary, cogsSummary, expensesSummary, shippingSummary, bestSellers, lowStockList,
     arAging, apAging, getCustomerCashPendingTotal, getCustomerTotalDue, getCustomerDueBreakdown,
@@ -4904,17 +4951,9 @@ function buildDataTable(columns, dataRows, opts) {
     openModal(current.docTitle, body, { wide: true });
   }
 
-  function genBillingNo() {
-    const d = DB.todayStr().replace(/-/g, "");
-    const t = new Date();
-    const seq = String(t.getHours() * 60 + t.getMinutes()).padStart(4, "0");
-    return "BV" + d + seq;
-  }
-
   const BILLING_FABRIC_ACCOUNT_TEXT = "หจก. นิวศิริเจริญ ธ.กสิกรไทย (KBank) เลขที่ 0458527326";
 
-  function buildBillingStatementDoc(cust, shop, sales, dueDateStr, note, shipAccountLabel, wholeAccountLabel) {
-    const docNo = genBillingNo();
+  function buildBillingStatementDoc(cust, shop, sales, dueDateStr, note, shipAccountLabel, wholeAccountLabel, docNo) {
     const custName = cust ? cust.name : "ลูกค้าทั่วไป";
     const custAddress = cust && cust.address ? cust.address : "";
     // บิลที่เป็นแว็ดและมีค่าจัดส่ง: แยกค่าส่งออกจากยอดของบิลนั้น แล้วไปสรุปรวมเป็นบรรทัดแยกด้านล่าง
@@ -5049,12 +5088,13 @@ function buildDataTable(columns, dataRows, opts) {
     return { docTitle: "ใบวางบิล", docNo, text, textForCopy, html };
   }
 
-  function openBillingStatementModal(cust, sales) {
+  function openBillingStatementModal(cust, sales, existing) {
     const shop = DB.getShopInfo();
     const defaultDue = new Date();
     defaultDue.setDate(defaultDue.getDate() + 14);
-    const dueDateInput = el("input", { type: "date", value: defaultDue.toISOString().slice(0, 10) });
-    const noteInput = textInput("");
+    const initialDue = existing && existing.due_date ? existing.due_date : defaultDue.toISOString().slice(0, 10);
+    const dueDateInput = el("input", { type: "date", value: initialDue });
+    const noteInput = textInput(existing ? existing.note || "" : "");
     noteInput.setAttribute("placeholder", "หมายเหตุ (จะพิมพ์ท้ายใบวางบิล)");
 
     // มีบิลแว็ดที่แยกค่าส่งไหม: ถ้ามี ค่าผ้าจะโอนเข้าบัญชีคงที่ของร้าน ส่วนค่าส่งให้เลือกบัญชีเอง
@@ -5071,23 +5111,45 @@ function buildDataTable(columns, dataRows, opts) {
           return name.includes("ศิริเจริญ") || name.includes("สิริปานพชร");
         })
       : null;
-    const shipAccountSelect = hasShipping
-      ? buildBankAccountSelect(preferredAcctId || (defaultShipAcct ? defaultShipAcct.id : ""))
-      : null;
-    const wholeAccountSelect = !hasShipping ? buildBankAccountSelect(preferredAcctId) : null;
+    const initialShipAcctId =
+      existing && existing.ship_account_id ? existing.ship_account_id : preferredAcctId || (defaultShipAcct ? defaultShipAcct.id : "");
+    const initialWholeAcctId = existing && existing.whole_account_id ? existing.whole_account_id : preferredAcctId;
+    const shipAccountSelect = hasShipping ? buildBankAccountSelect(initialShipAcctId) : null;
+    const wholeAccountSelect = !hasShipping ? buildBankAccountSelect(initialWholeAcctId) : null;
     function selLabel(sel) {
       if (!sel) return "";
       const opt = sel.options[sel.selectedIndex];
       return opt ? opt.textContent : "";
     }
 
-    let current = buildBillingStatementDoc(cust, shop, sales, dueDateInput.value, noteInput.value, selLabel(shipAccountSelect), selLabel(wholeAccountSelect));
+    const record =
+      existing ||
+      DB.addBillingNote({
+        customer_id: cust ? cust.id : null,
+        sale_ids: sales.map((s) => s.id),
+        due_date: dueDateInput.value,
+        note: noteInput.value,
+        ship_account_id: shipAccountSelect ? shipAccountSelect.value : "",
+        whole_account_id: wholeAccountSelect ? wholeAccountSelect.value : "",
+      });
+
+    let current = buildBillingStatementDoc(cust, shop, sales, dueDateInput.value, noteInput.value, selLabel(shipAccountSelect), selLabel(wholeAccountSelect), record.doc_no);
     const previewBox = el("div", { class: "receipt-preview" });
     previewBox.innerHTML = current.html;
 
+    function persistRecord() {
+      DB.updateBillingNote(record.id, {
+        due_date: dueDateInput.value,
+        note: noteInput.value,
+        ship_account_id: shipAccountSelect ? shipAccountSelect.value : "",
+        whole_account_id: wholeAccountSelect ? wholeAccountSelect.value : "",
+      });
+    }
+
     function refresh() {
-      current = buildBillingStatementDoc(cust, shop, sales, dueDateInput.value, noteInput.value, selLabel(shipAccountSelect), selLabel(wholeAccountSelect));
+      current = buildBillingStatementDoc(cust, shop, sales, dueDateInput.value, noteInput.value, selLabel(shipAccountSelect), selLabel(wholeAccountSelect), record.doc_no);
       previewBox.innerHTML = current.html;
+      persistRecord();
     }
     dueDateInput.addEventListener("change", refresh);
     noteInput.addEventListener("input", refresh);
@@ -5804,6 +5866,33 @@ function buildDataTable(columns, dataRows, opts) {
     );
     updateBillingBtn();
 
+    const billingNotes = DB.getBillingNotesForCustomer(cid);
+    const billingHistoryTable = buildDataTable(
+      ["เลขที่", "วันที่สร้าง", "กำหนดชำระ", "จำนวนบิล", "ยอดรวม"],
+      billingNotes.map((n) => {
+        const foundSales = (n.sale_ids || []).map((id) => DB.getSale(id)).filter(Boolean);
+        const total = foundSales.reduce((sum, s) => sum + (s.total || 0), 0);
+        return [n.doc_no, fmtDate(n.created_date), n.due_date ? fmtDate(n.due_date) : "-", String(foundSales.length), money(total) + " บาท"];
+      }),
+      {
+        actions: (idx) => {
+          const n = billingNotes[idx];
+          const foundSales = (n.sale_ids || []).map((id) => DB.getSale(id)).filter(Boolean);
+          return [
+            { label: "ดู/พิมพ์", onClick: () => openBillingStatementModal(cust, foundSales, n) },
+            {
+              label: "ลบ",
+              onClick: () => {
+                if (!global.confirm(`ยืนยันลบใบวางบิล ${n.doc_no}?`)) return;
+                DB.deleteBillingNote(n.id);
+                renderCustomerHistoryModalBody(cid);
+              },
+            },
+          ];
+        },
+      }
+    );
+
     const purchasedItems = [];
     sales.forEach((s) => {
       (s.items || []).forEach((it) => {
@@ -5844,6 +5933,8 @@ function buildDataTable(columns, dataRows, opts) {
       el("h4", { text: "รายการบิลทั้งหมด (คลิกเลขที่บิลเพื่อดูรายละเอียด)", style: { marginTop: "0" } }),
       billsTable,
       el("div", { class: "modal-actions", style: { justifyContent: "flex-start", margin: "4px 0 16px" } }, billingBtn),
+      el("h4", { text: "ประวัติใบวางบิล", style: { marginTop: "0" } }),
+      billingHistoryTable,
       el("h4", { text: "ค้นหาผ้าที่เคยซื้อ" }),
       searchInput,
       itemsContainer
