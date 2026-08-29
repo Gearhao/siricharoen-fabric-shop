@@ -591,6 +591,7 @@ function createDB(storageKey) {
           if (!store.expenseCategories) store.expenseCategories = [];
           if (!store.quotations) store.quotations = [];
           if (!store.billingNotes) store.billingNotes = [];
+          if (!store.qrTags) store.qrTags = [];
           if (!store.nextId) store.nextId = {};
           if (!store.nextId.backorder) store.nextId.backorder = store.backorders.length + 1;
           if (!store.nextId.bankAccount) store.nextId.bankAccount = store.bankAccounts.length + 1;
@@ -598,6 +599,7 @@ function createDB(storageKey) {
           if (!store.nextId.expenseCategory) store.nextId.expenseCategory = store.expenseCategories.length + 1;
           if (!store.nextId.quotation) store.nextId.quotation = store.quotations.length + 1;
           if (!store.nextId.billingNote) store.nextId.billingNote = store.billingNotes.length + 1;
+          if (!store.nextId.qrTag) store.nextId.qrTag = store.qrTags.length + 1;
           migrateCodes(store);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
           cloudStatus = "synced";
@@ -619,7 +621,7 @@ function createDB(storageKey) {
 
   function emptyStore() {
     return {
-      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1, bankAccount: 1, customerOrder: 1, expenseCategory: 1, quotation: 1, return: 1, billingNote: 1 },
+      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1, bankAccount: 1, customerOrder: 1, expenseCategory: 1, quotation: 1, return: 1, billingNote: 1, qrTag: 1 },
       shopInfo: { name: "ร้านผ้าศิริเจริญ", address: "", phone: "", tax_id: "" },
       suppliers: [],
       customers: [],
@@ -638,6 +640,7 @@ function createDB(storageKey) {
       quotations: [],
       returns: [],
       billingNotes: [],
+      qrTags: [],
     };
   }
 
@@ -656,6 +659,7 @@ function createDB(storageKey) {
         if (!data.expenseCategories) data.expenseCategories = [];
         if (!data.quotations) data.quotations = [];
         if (!data.billingNotes) data.billingNotes = [];
+        if (!data.qrTags) data.qrTags = [];
         if (!data.nextId) data.nextId = {};
         if (!data.nextId.backorder) data.nextId.backorder = data.backorders.length + 1;
         if (!data.nextId.bankAccount) data.nextId.bankAccount = data.bankAccounts.length + 1;
@@ -663,6 +667,7 @@ function createDB(storageKey) {
         if (!data.nextId.expenseCategory) data.nextId.expenseCategory = data.expenseCategories.length + 1;
         if (!data.nextId.quotation) data.nextId.quotation = data.quotations.length + 1;
         if (!data.nextId.billingNote) data.nextId.billingNote = data.billingNotes.length + 1;
+        if (!data.nextId.qrTag) data.nextId.qrTag = data.qrTags.length + 1;
         migrateCodes(data);
         return data;
       }
@@ -2006,6 +2011,56 @@ function createDB(storageKey) {
     return store.billingNotes.find((x) => x.id === id) || null;
   }
 
+  // -------------------------------------------------------------- แท็ก QR (พิมพ์เปล่าล่วงหน้า แล้วค่อยผูกกับรหัสผ้าทีหลัง)
+  function createBlankQrTags(count) {
+    const n = Math.max(1, Math.min(500, Number(count) || 0));
+    const items = [];
+    for (let i = 0; i < n; i++) {
+      const seq = genIdSimple("qrTag");
+      const item = {
+        id: seq,
+        code: "T" + pad(seq, 6),
+        created_date: nowStr(),
+        bound_code: "",
+        bound_date: "",
+      };
+      store.qrTags.push(item);
+      items.push(item);
+    }
+    save();
+    return items;
+  }
+  function getQrTags(opts) {
+    opts = opts || {};
+    let rows = [...(store.qrTags || [])];
+    if (opts.onlyUnbound) rows = rows.filter((x) => !x.bound_code);
+    if (opts.onlyBound) rows = rows.filter((x) => !!x.bound_code);
+    if (opts.search) {
+      const q = String(opts.search).toLowerCase();
+      rows = rows.filter((x) => x.code.toLowerCase().includes(q) || (x.bound_code || "").toLowerCase().includes(q));
+    }
+    return rows.sort((a, b) => b.id - a.id);
+  }
+  function getQrTag(code) {
+    return (store.qrTags || []).find((x) => x.code === code) || null;
+  }
+  function bindQrTag(code, fabricCode) {
+    const tag = getQrTag(code);
+    if (!tag) return null;
+    tag.bound_code = fabricCode || "";
+    tag.bound_date = fabricCode ? nowStr() : "";
+    save();
+    return tag;
+  }
+  function unbindQrTag(code) {
+    const tag = getQrTag(code);
+    if (!tag) return null;
+    tag.bound_code = "";
+    tag.bound_date = "";
+    save();
+    return tag;
+  }
+
 
   // -------------------------------------------------------------- reports
   function salesSummary(start, end) {
@@ -2271,6 +2326,7 @@ function createDB(storageKey) {
     addCustomerOrder, updateCustomerOrder, deleteCustomerOrder, markCustomerOrderDone, markCustomerOrderUndone, getCustomerOrders, getCustomerOrder,
     addQuotation, updateQuotation, deleteQuotation, getQuotations, getQuotation, setQuotationStatus, markQuotationConverted,
     addBillingNote, updateBillingNote, deleteBillingNote, getBillingNotesForCustomer, getBillingNote,
+    createBlankQrTags, getQrTags, getQrTag, bindQrTag, unbindQrTag,
     getBankAccounts, getBankAccount, getCashAccount, createBankAccount, updateBankAccount, deleteBankAccount, adjustBankAccountBalance, transferBetweenAccounts, getAccountMovements,
     salesSummary, cogsSummary, expensesSummary, shippingSummary, bestSellers, lowStockList,
     arAging, apAging, getCustomerCashPendingTotal, getCustomerTotalDue, getCustomerDueBreakdown,
@@ -2710,6 +2766,41 @@ function buildDataTable(columns, dataRows, opts) {
     w.document.close();
     w.focus();
     w.print();
+  }
+
+  // เปิดหน้าต่างพิมพ์แท็ก QR เปล่า (ยังไม่ผูกรหัสผ้า) เป็นตารางดวงต่อดวง
+  // ใช้ QRious (โหลดจาก CDN ในหน้าต่างที่เปิดใหม่) เพื่อวาด QR จริงลงแต่ละดวงก่อนสั่งพิมพ์
+  function printBlankQrTagsHtml(tags) {
+    const escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const cards = tags
+      .map((t, i) => `<div class="tag"><canvas id="c${i}"></canvas><div class="code">${escHtml(t.code)}</div></div>`)
+      .join("");
+    const codesJson = JSON.stringify(tags.map((t) => t.code));
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>พิมพ์แท็ก QR</title>
+<style>
+  body{font-family:sans-serif;margin:0;padding:10px;}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  .tag{border:1px dashed #999;padding:6px;text-align:center;}
+  .tag canvas{width:100%;height:auto;}
+  .code{font-size:11px;margin-top:4px;font-family:monospace;letter-spacing:0.5px;}
+  @media print{.tag{break-inside:avoid;}}
+</style></head>
+<body>
+<div class="grid">${cards}</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"><\/script>
+<script>
+  var codes = ${codesJson};
+  codes.forEach(function (code, i) {
+    new QRious({ element: document.getElementById("c" + i), value: code, size: 220 });
+  });
+  window.focus();
+  window.print();
+<\/script>
+</body></html>`;
+    const w = global.window.open("", "_blank", "width=820,height=900");
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
   }
 
   function copyTextToClipboard(text) {
@@ -5245,6 +5336,8 @@ function buildDataTable(columns, dataRows, opts) {
       searchInput,
       el("label", { class: "chk-label" }, lowChk, " แสดงเฉพาะสินค้าใกล้หมด"),
       el("button", { class: "btn btn-primary", onClick: () => openFabricModal(null) }, "+ เพิ่มผ้าใหม่"),
+      el("button", { class: "btn btn-ghost", onClick: () => openPrintBlankTagsModal() }, "พิมพ์แท็ก QR เปล่า"),
+      el("button", { class: "btn btn-ghost", onClick: () => openQrTagsModal() }, "จัดการ/ผูกแท็ก QR"),
       el(
         "button",
         { class: "btn btn-ghost", onClick: () => deleteFabricsByCodePrefix() },
@@ -5295,6 +5388,136 @@ function buildDataTable(columns, dataRows, opts) {
       }
     );
     container.appendChild(table);
+  }
+
+  // พิมพ์แท็ก QR เปล่าล่วงหน้าเป็นล็อต (ยังไม่ผูกรหัสผ้า) เอาไปแปะม้วนผ้าจริงก่อน แล้วค่อยมาผูกทีหลังผ่าน "จัดการ/ผูกแท็ก QR"
+  function openPrintBlankTagsModal() {
+    const countInput = numberInput(20);
+    const form = el(
+      "div",
+      { class: "form-grid" },
+      formField("จำนวนแท็กที่จะพิมพ์", countInput),
+      el("p", { style: { fontSize: "13px", color: "var(--text-muted)" } },
+        "แท็กที่พิมพ์จะยังไม่ผูกกับรหัสผ้าใดๆ นำไปแปะม้วนผ้าก่อน แล้วค่อยมาผูกทีหลังที่เมนู \"จัดการ/ผูกแท็ก QR\""
+      )
+    );
+    const printBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          const n = Math.round(Number(countInput.value)) || 0;
+          if (n <= 0) {
+            global.alert("กรุณาระบุจำนวนแท็กที่จะพิมพ์");
+            return;
+          }
+          const tags = DB.createBlankQrTags(n);
+          printBlankQrTagsHtml(tags);
+          closeModal();
+        },
+      },
+      "สร้างและพิมพ์แท็ก"
+    );
+    openModal("พิมพ์แท็ก QR เปล่า", el("div", {}, form, el("div", { class: "modal-actions" }, printBtn)));
+  }
+
+  // รายการแท็ก QR ทั้งหมด + ผูก/ยกเลิกผูกกับรหัสผ้า
+  function openQrTagsModal() {
+    let filterMode = "unbound";
+    let search = "";
+    const searchInput = textInput("");
+    searchInput.setAttribute("placeholder", "ค้นหารหัสแท็ก/รหัสผ้าที่ผูกไว้...");
+    searchInput.addEventListener("input", (e) => {
+      search = e.target.value;
+      renderList();
+    });
+    const filterSelect = selectInput(
+      [
+        { value: "unbound", label: "ยังไม่ผูก" },
+        { value: "bound", label: "ผูกแล้ว" },
+        { value: "all", label: "ทั้งหมด" },
+      ],
+      "unbound"
+    );
+    filterSelect.addEventListener("change", (e) => {
+      filterMode = e.target.value;
+      renderList();
+    });
+    const toolbar = el("div", { class: "toolbar" }, searchInput, filterSelect);
+    const listContainer = el("div", { class: "table-container" });
+    const container = el("div", {}, toolbar, listContainer);
+
+    function renderList() {
+      clear(listContainer);
+      const opts = { search };
+      if (filterMode === "unbound") opts.onlyUnbound = true;
+      if (filterMode === "bound") opts.onlyBound = true;
+      const tags = DB.getQrTags(opts);
+      const rows = tags.map((t) => [t.code, t.bound_code ? "ผูกแล้ว" : "ยังไม่ผูก", t.bound_code || "-", t.bound_date || "-"]);
+      const table = buildDataTable(
+        ["รหัสแท็ก", "สถานะ", "ผูกกับรหัสผ้า", "วันที่ผูก"],
+        rows,
+        {
+          actions: (idx) => {
+            const t = tags[idx];
+            if (!t.bound_code) {
+              return [{ label: "ผูกกับรหัสผ้า", onClick: () => openBindOneTagModal(t) }];
+            }
+            return [
+              {
+                label: "ยกเลิกผูก",
+                onClick: () => {
+                  if (global.confirm(`ยกเลิกการผูกแท็ก ${t.code} ออกจากรหัส ${t.bound_code}?`)) {
+                    DB.unbindQrTag(t.code);
+                    renderList();
+                  }
+                },
+              },
+            ];
+          },
+        }
+      );
+      listContainer.appendChild(table);
+    }
+    renderList();
+    openModal("จัดการ/ผูกแท็ก QR", container, { wide: true });
+  }
+
+  // ผูกแท็ก QR ดวงหนึ่งเข้ากับรหัสผ้าที่เลือก
+  function openBindOneTagModal(tag) {
+    const fabrics = DB.getFabrics();
+    const fabricOptions = fabrics.map((f) => ({
+      value: f.code,
+      label: `${f.code} - ${f.name}${f.color ? " " + f.color : ""}`,
+    }));
+    const fabricSelect = searchSelectInput(fabricOptions, "", "พิมพ์รหัส/ชื่อผ้าเพื่อค้นหา...");
+    const form = el(
+      "div",
+      { class: "form-grid" },
+      el("p", {}, `แท็ก: ${tag.code}`),
+      formField("รหัสผ้าที่จะผูก", fabricSelect)
+    );
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          const v = fabricSelect.getMatchedValue();
+          if (!v) {
+            global.alert("กรุณาเลือกรหัสผ้าจากรายการที่ปรากฏ");
+            return;
+          }
+          DB.bindQrTag(tag.code, v);
+          openQrTagsModal();
+        },
+      },
+      "ผูก"
+    );
+    const cancelBtn = el("button", { class: "btn btn-ghost", onClick: () => openQrTagsModal() }, "ยกเลิก");
+    openModal(
+      `ผูกแท็ก QR ${tag.code}`,
+      el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn, cancelBtn))
+    );
   }
 
   function openFabricModal(fid) {
