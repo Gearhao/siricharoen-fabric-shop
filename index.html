@@ -7661,7 +7661,6 @@ function buildDataTable(columns, dataRows, opts) {
     lines.push(`ลูกค้า: ${custName}`);
     if (q.customer_address) lines.push(`ที่อยู่: ${q.customer_address}`);
     if (validUntilDisplay) lines.push(`ใช้ได้ถึง: ${validUntilDisplay}`);
-    if (payAccountLabel) lines.push(`บัญชีสำหรับโอนเงิน: ${payAccountLabel}`);
     lines.push("-".repeat(40));
     (q.items || []).forEach((it) => {
       const sub = (Number(it.qty) || 0) * (Number(it.unit_price) || 0);
@@ -7692,6 +7691,12 @@ function buildDataTable(columns, dataRows, opts) {
       linesNoSign.push("");
       linesNoSign.push("-".repeat(40));
       linesNoSign.push(`หมายเหตุ: ${noteTrimmed}`);
+    }
+    if (payAccountLabel) {
+      lines.push("");
+      lines.push(`บัญชีสำหรับโอนเงิน: ${payAccountLabel}`);
+      linesNoSign.push("");
+      linesNoSign.push(`บัญชีสำหรับโอนเงิน: ${payAccountLabel}`);
     }
     const text = lines.join("\n");
     const textForCopy = linesNoSign.join("\n");
@@ -7726,11 +7731,11 @@ function buildDataTable(columns, dataRows, opts) {
     const validUntilRow = validUntilDisplay
       ? `<tr><td style="padding:3px 0;color:#444;">ใช้ได้ถึง</td><td style="padding:3px 0;text-align:right;">${esc(validUntilDisplay)}</td></tr>`
       : "";
-    const payAccountRow = payAccountLabel
-      ? `<tr><td style="padding:3px 0;color:#444;">บัญชีสำหรับโอนเงิน</td><td style="padding:3px 0;text-align:right;">${esc(payAccountLabel)}</td></tr>`
-      : "";
     const noteHtml = noteTrimmed
       ? `<div style="font-size:12px;color:#111;margin-top:16px;padding-top:8px;border-top:1px dashed #999;">หมายเหตุ: ${esc(noteTrimmed)}</div>`
+      : "";
+    const payAccountHtml = payAccountLabel
+      ? `<div style="font-size:12px;color:#111;margin-top:14px;padding-top:8px;border-top:1px dashed #999;">บัญชีสำหรับโอนเงิน: ${esc(payAccountLabel)}</div>`
       : "";
     const html = `
       <div style="max-width:380px;margin:0;font-family:Tahoma,'Segoe UI',sans-serif;color:#111;">
@@ -7743,7 +7748,6 @@ function buildDataTable(columns, dataRows, opts) {
           <tr><td style="padding:3px 0;color:#444;">ลูกค้า</td><td style="padding:3px 0;text-align:right;font-weight:bold;font-size:14px;">${esc(custName)}</td></tr>
           ${custAddressRow}
           ${validUntilRow}
-          ${payAccountRow}
         </table>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
           <thead>
@@ -7767,6 +7771,7 @@ function buildDataTable(columns, dataRows, opts) {
           <div style="width:45%;border-top:1px solid #000;padding-top:4px;">ผู้อนุมัติ</div>
         </div>
         ${noteHtml}
+        ${payAccountHtml}
       </div>`;
 
     return { docTitle: "ใบเสนอราคา", text, textForCopy, html };
