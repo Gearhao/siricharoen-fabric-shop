@@ -2718,7 +2718,10 @@ if (typeof module !== "undefined") {
 
 function buildDataTable(columns, dataRows, opts) {
     opts = opts || {};
-    const headers = opts.actions ? columns.concat(["จัดการ"]) : columns;
+    const headers = [];
+    if (opts.checkbox) headers.push("");
+    headers.push(...columns);
+    if (opts.actions) headers.push("จัดการ");
     const thead = el(
       "thead",
       {},
@@ -2733,6 +2736,14 @@ function buildDataTable(columns, dataRows, opts) {
     const tbody = el("tbody", {});
     dataRows.forEach((row, idx) => {
       const tr = el("tr", {});
+      if (opts.checkbox) {
+        const chk = el("input", {
+          type: "checkbox",
+          checked: opts.checkbox.isChecked(idx),
+          onChange: (e) => opts.checkbox.onToggle(idx, e.target.checked),
+        });
+        tr.appendChild(el("td", {}, chk));
+      }
       row.forEach((c, ci) => {
         const cellStyle = opts.cellStyle ? opts.cellStyle(row, ci, columns[ci]) : null;
         tr.appendChild(el("td", { text: String(c), style: cellStyle || {} }));
@@ -5488,10 +5499,20 @@ function buildDataTable(columns, dataRows, opts) {
   // ================================================================ คลังผ้า
   let stockSearch = "";
   let stockLowOnly = false;
+  let fabricSelectedIds = new Set();
+
+  function updateDeleteSelectedFabricsBtn() {
+    const btn = refs.deleteSelectedFabricsBtn;
+    if (!btn) return;
+    const n = fabricSelectedIds.size;
+    btn.disabled = n === 0;
+    btn.textContent = n > 0 ? `ลบรายการที่เลือก (${n})` : "ลบรายการที่เลือก";
+  }
 
   function renderStock() {
     const sec = sections.stock;
     clear(sec);
+    fabricSelectedIds = new Set();
     const searchInput = el("input", {
       type: "text",
       placeholder: "ค้นหา (รหัส/ชื่อ/สี/ประเภท)",
@@ -5509,6 +5530,24 @@ function buildDataTable(columns, dataRows, opts) {
         renderStockTable();
       },
     });
+    // ลบผ้าทีละหลายรายการ: ติ๊กเลือกจากตารางด้านล่างแล้วกดปุ่มนี้ (แทนแบบพิมพ์รหัสขึ้นต้นแบบเดิม)
+    const deleteSelectedBtn = el(
+      "button",
+      {
+        class: "btn btn-danger",
+        disabled: true,
+        onClick: () => {
+          const ids = Array.from(fabricSelectedIds);
+          if (!ids.length) return;
+          if (!global.confirm(`ต้องการปิดการใช้งานผ้าที่เลือกไว้ ${ids.length} รายการหรือไม่?`)) return;
+          ids.forEach((id) => DB.deleteFabric(id));
+          fabricSelectedIds.clear();
+          renderStockTable();
+        },
+      },
+      "ลบรายการที่เลือก"
+    );
+    refs.deleteSelectedFabricsBtn = deleteSelectedBtn;
     const toolbar = el(
       "div",
       { class: "toolbar" },
@@ -5517,11 +5556,7 @@ function buildDataTable(columns, dataRows, opts) {
       el("button", { class: "btn btn-primary", onClick: () => openFabricModal(null) }, "+ เพิ่มผ้าใหม่"),
       el("button", { class: "btn", onClick: () => openPrintBlankTagsModal() }, "พิมพ์แท็ก QR เปล่า"),
       el("button", { class: "btn", onClick: () => openQrTagsModal() }, "จัดการ/ผูกแท็ก QR"),
-      el(
-        "button",
-        { class: "btn", onClick: () => deleteFabricsByCodePrefix() },
-        "ลบผ้าตามรหัสขึ้นต้น..."
-      )
+      deleteSelectedBtn
     );
     const tableContainer = el("div", { class: "table-container" });
     refs.stockTableContainer = tableContainer;
@@ -5545,6 +5580,15 @@ function buildDataTable(columns, dataRows, opts) {
       ["รหัส", "ชื่อผ้า", "ประเภท", "สี", "หน่วย", "ราคาทุน", "ราคาขาย", "คงเหลือ", "จุดสั่งซื้อ", "ซัพพลายเออร์"],
       rows,
       {
+        checkbox: {
+          isChecked: (idx) => fabricSelectedIds.has(fabrics[idx].id),
+          onToggle: (idx, checked) => {
+            const id = fabrics[idx].id;
+            if (checked) fabricSelectedIds.add(id);
+            else fabricSelectedIds.delete(id);
+            updateDeleteSelectedFabricsBtn();
+          },
+        },
         cellStyle: (row, ci, colName) =>
           colName === "คงเหลือ" && Number(row[ci]) <= 0 ? { color: "var(--danger)", fontWeight: "600" } : null,
         actions: (idx) => {
@@ -5568,6 +5612,7 @@ function buildDataTable(columns, dataRows, opts) {
       }
     );
     container.appendChild(table);
+    updateDeleteSelectedFabricsBtn();
   }
 
   // พิมพ์แท็ก QR เปล่าล่วงหน้าเป็นล็อต (ยังไม่ผูกรหัสผ้า) เอาไปแปะม้วนผ้าจริงก่อน แล้วค่อยมาผูกทีหลังผ่าน "จัดการ/ผูกแท็ก QR"
@@ -6257,27 +6302,6 @@ function buildDataTable(columns, dataRows, opts) {
     global.alert(
       `เติมรหัสซัพพลายเออร์เรียบร้อย ${updated} รายการ (ข้าม ${skippedAlready} รายการที่มีรหัสอยู่แล้ว, ข้าม ${skippedNoSupplier} รายการที่ไม่มีซัพพลายเออร์)`
     );
-  }
-
-  // ลบ (ปิดการใช้งาน) รายการผ้าทั้งหมดที่รหัสขึ้นต้นด้วยข้อความที่ระบุ เช่น "002-062-Fla"
-  function deleteFabricsByCodePrefix() {
-    const p = (global.prompt("พิมพ์รหัสผ้าที่ต้องการลบทั้งหมด (จะลบทุกรายการที่รหัสขึ้นต้นด้วยข้อความนี้) เช่น 002-062-Fla") || "").trim();
-    if (!p) return;
-    const fabrics = DB.getFabrics(null, { onlyActive: false }).filter((f) => (f.code || "").startsWith(p));
-    if (fabrics.length === 0) {
-      global.alert(`ไม่พบรหัสผ้าที่ขึ้นต้นด้วย "${p}"`);
-      return;
-    }
-    const preview = fabrics.slice(0, 10).map((f) => f.code).join(", ") + (fabrics.length > 10 ? " ..." : "");
-    if (
-      !global.confirm(
-        `พบ ${fabrics.length} รายการที่รหัสขึ้นต้นด้วย "${p}"\n${preview}\n\nต้องการลบทั้งหมดหรือไม่? (รายการจะถูกปิดการใช้งาน ไม่แสดงในคลังผ้าอีก)`
-      )
-    )
-      return;
-    fabrics.forEach((f) => DB.deleteFabric(f.id));
-    if (refs.stockTableContainer) renderStockTable();
-    global.alert(`ลบรายการที่รหัสขึ้นต้นด้วย "${p}" แล้ว ${fabrics.length} รายการ`);
   }
 
   function renderCustomerTable() {
