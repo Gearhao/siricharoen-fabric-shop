@@ -5336,8 +5336,8 @@ function buildDataTable(columns, dataRows, opts) {
       searchInput,
       el("label", { class: "chk-label" }, lowChk, " แสดงเฉพาะสินค้าใกล้หมด"),
       el("button", { class: "btn btn-primary", onClick: () => openFabricModal(null) }, "+ เพิ่มผ้าใหม่"),
-      el("button", { class: "btn btn-ghost", onClick: () => openPrintBlankTagsModal() }, "พิมพ์แท็ก QR เปล่า"),
-      el("button", { class: "btn btn-ghost", onClick: () => openQrTagsModal() }, "จัดการ/ผูกแท็ก QR"),
+      el("button", { class: "btn", onClick: () => openPrintBlankTagsModal() }, "พิมพ์แท็ก QR เปล่า"),
+      el("button", { class: "btn", onClick: () => openQrTagsModal() }, "จัดการ/ผูกแท็ก QR"),
       el(
         "button",
         { class: "btn btn-ghost", onClick: () => deleteFabricsByCodePrefix() },
@@ -5513,7 +5513,7 @@ function buildDataTable(columns, dataRows, opts) {
       },
       "ผูก"
     );
-    const cancelBtn = el("button", { class: "btn btn-ghost", onClick: () => openQrTagsModal() }, "ยกเลิก");
+    const cancelBtn = el("button", { class: "btn btn-primary", onClick: () => openQrTagsModal() }, "ยกเลิก");
     openModal(
       `ผูกแท็ก QR ${tag.code}`,
       el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn, cancelBtn))
