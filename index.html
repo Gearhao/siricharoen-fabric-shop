@@ -2727,17 +2727,22 @@ function buildDataTable(columns, dataRows, opts) {
     if (opts.checkbox) headers.push("");
     headers.push(...columns);
     if (opts.actions) headers.push("จัดการ");
-    const thead = el(
-      "thead",
-      {},
-      el(
-        "tr",
-        {},
-        ...headers.map((h, i) =>
-          el("th", { text: h, class: opts.actions && i === headers.length - 1 ? "actions-header" : "" })
-        )
-      )
-    );
+    const headerCells = headers.map((h, i) => {
+      if (opts.checkbox && i === 0) {
+        const allChecked = dataRows.length > 0 && dataRows.every((_, idx) => opts.checkbox.isChecked(idx));
+        const headerChk = el("input", {
+          type: "checkbox",
+          checked: allChecked,
+          title: "เลือกทั้งหมด",
+          onChange: (e) => {
+            if (opts.checkbox.onSelectAll) opts.checkbox.onSelectAll(e.target.checked);
+          },
+        });
+        return el("th", {}, headerChk);
+      }
+      return el("th", { text: h, class: opts.actions && i === headers.length - 1 ? "actions-header" : "" });
+    });
+    const thead = el("thead", {}, el("tr", {}, ...headerCells));
     const tbody = el("tbody", {});
     dataRows.forEach((row, idx) => {
       const tr = el("tr", {});
@@ -5659,6 +5664,11 @@ function buildDataTable(columns, dataRows, opts) {
             if (checked) fabricSelectedIds.add(id);
             else fabricSelectedIds.delete(id);
             updateFabricBulkButtons();
+          },
+          onSelectAll: (checked) => {
+            if (checked) fabrics.forEach((f) => fabricSelectedIds.add(f.id));
+            else fabrics.forEach((f) => fabricSelectedIds.delete(f.id));
+            renderStockTable();
           },
         },
         cellStyle: (row, ci, colName) =>
