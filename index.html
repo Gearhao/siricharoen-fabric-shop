@@ -4485,11 +4485,20 @@ function buildDataTable(columns, dataRows, opts) {
         unitCell = el("td", {}, unitSelect);
       }
 
-      // เลือกม้วนที่จะตัดขาย (ไม่บังคับ) - ใช้แค่แสดงบนบิลให้พนักงานตัดผ้าถูกม้วน ไม่กระทบการตัดสต็อกรวมของผ้า
+      // เลือกม้วนที่จะตัดขาย - ถ้าผ้านี้มีม้วนที่ผูก QR แล้วอย่างน้อย 1 ม้วน จะบังคับให้เลือกจากม้วนที่ผูก QR แล้วเท่านั้น
+      // (เพื่อให้ตัดผ้าตามม้วนที่มีแท็กจริง ไม่ให้ข้ามไปเลือกม้วนที่ยังไม่ได้ผูก) ถ้ายังไม่มีม้วนไหนผูก QR เลยก็ยังเลือกได้อิสระเหมือนเดิม
       let rollCell;
       if (!row.is_misc && row.fabric_id) {
-        const rollOptions = [{ value: "", label: "— ไม่ระบุม้วน —" }].concat(
-          DB.getRolls(row.fabric_id, { onlyActive: true }).map((r) => ({
+        const allRolls = DB.getRolls(row.fabric_id, { onlyActive: true });
+        const boundRolls = allRolls.filter((r) => !!r.qr_tag_code);
+        const rollsForOptions = boundRolls.length > 0 ? boundRolls : allRolls;
+        // ถ้าบังคับเลือกจากม้วนที่ผูก QR แล้ว และยังไม่ได้เลือกม้วนไหน ให้เลือกม้วนแรกให้อัตโนมัติ (กันดรอปดาวน์โชว์ไม่ตรงกับข้อมูลจริง)
+        if (boundRolls.length > 0 && !row.roll_id) {
+          row.roll_id = boundRolls[0].id;
+          row.roll_code = DB.formatRollCode(boundRolls[0]);
+        }
+        const rollOptions = (boundRolls.length > 0 ? [] : [{ value: "", label: "— ไม่ระบุม้วน —" }]).concat(
+          rollsForOptions.map((r) => ({
             value: String(r.id),
             label: `${DB.formatRollCode(r)} (เหลือ ${round3(r.qty)}${row.baseUnit ? " " + row.baseUnit : ""})`,
           }))
@@ -4622,6 +4631,16 @@ function buildDataTable(columns, dataRows, opts) {
     if (validItems.length === 0) {
       global.alert("กรุณาเลือกสินค้าและระบุจำนวนอย่างน้อย 1 รายการ");
       return;
+    }
+    // ผ้าที่มีม้วนผูก QR แล้วอย่างน้อย 1 ม้วน ต้องเลือกม้วนก่อนขาย (กันพลาดตัดผ้าไม่ตรงม้วนที่มีแท็ก)
+    for (const it of validItems) {
+      if (it.is_misc || !it.fabric_id) continue;
+      const hasBoundRoll = DB.getRolls(it.fabric_id, { onlyActive: true }).some((r) => !!r.qr_tag_code);
+      if (hasBoundRoll && !it.roll_id) {
+        const f = DB.getFabric(it.fabric_id);
+        global.alert(`"${f ? f.name : it.fabric_id}" มีม้วนที่ผูก QR แล้ว กรุณาเลือกม้วนที่จะตัดขายก่อน`);
+        return;
+      }
     }
     const { subtotal, discount, vat, shippingFee, total } = calcPosTotals();
     const custId = refs.posCustomerSelect.getCustomerId();
