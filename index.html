@@ -5732,6 +5732,7 @@ function buildDataTable(columns, dataRows, opts) {
   function openQrTagsModal() {
     let filterMode = "unbound";
     let search = "";
+    let selectedTagCodes = new Set();
     const searchInput = textInput("");
     searchInput.setAttribute("placeholder", "ค้นหารหัสแท็ก/รหัสผ้าที่ผูกไว้...");
     searchInput.addEventListener("input", (e) => {
@@ -5750,7 +5751,39 @@ function buildDataTable(columns, dataRows, opts) {
       filterMode = e.target.value;
       renderList();
     });
-    const toolbar = el("div", { class: "toolbar" }, searchInput, filterSelect);
+    // ผูกแท็กที่ยังไม่ผูกหลายดวงพร้อมกันในหน้าเดียว แทนที่จะต้องเปิด/ปิดหน้าต่างทีละดวง
+    const bulkBindBtn = el(
+      "button",
+      {
+        class: "btn",
+        disabled: true,
+        onClick: () => {
+          const codes = Array.from(selectedTagCodes);
+          if (!codes.length) return;
+          const unboundOnly = codes.filter((c) => {
+            const t = DB.getQrTag(c);
+            return t && !t.bound_code;
+          });
+          if (unboundOnly.length === 0) {
+            global.alert("แท็กที่เลือกผูกไว้แล้วทั้งหมด กรุณาเลือกแท็กที่ยังไม่ผูก");
+            return;
+          }
+          if (unboundOnly.length < codes.length) {
+            global.alert(
+              `ข้ามแท็กที่ผูกไว้แล้ว ${codes.length - unboundOnly.length} รายการ จะผูกเฉพาะ ${unboundOnly.length} รายการที่ยังไม่ผูก`
+            );
+          }
+          openBulkBindTagsModal(unboundOnly);
+        },
+      },
+      "ผูกที่เลือกพร้อมกัน"
+    );
+    function updateBulkBindBtn() {
+      const n = selectedTagCodes.size;
+      bulkBindBtn.disabled = n === 0;
+      bulkBindBtn.textContent = n > 0 ? `ผูกที่เลือกพร้อมกัน (${n})` : "ผูกที่เลือกพร้อมกัน";
+    }
+    const toolbar = el("div", { class: "toolbar" }, searchInput, filterSelect, bulkBindBtn);
     const listContainer = el("div", { class: "table-container" });
     const container = el("div", {}, toolbar, listContainer);
 
@@ -5760,11 +5793,26 @@ function buildDataTable(columns, dataRows, opts) {
       if (filterMode === "unbound") opts.onlyUnbound = true;
       if (filterMode === "bound") opts.onlyBound = true;
       const tags = DB.getQrTags(opts);
+      selectedTagCodes = new Set([...selectedTagCodes].filter((c) => tags.some((t) => t.code === c)));
       const rows = tags.map((t) => [t.code, t.bound_code ? "ผูกแล้ว" : "ยังไม่ผูก", t.bound_code || "-", t.bound_date || "-"]);
       const table = buildDataTable(
         ["รหัสแท็ก", "สถานะ", "ผูกกับรหัสผ้า", "วันที่ผูก"],
         rows,
         {
+          checkbox: {
+            isChecked: (idx) => selectedTagCodes.has(tags[idx].code),
+            onToggle: (idx, checked) => {
+              const code = tags[idx].code;
+              if (checked) selectedTagCodes.add(code);
+              else selectedTagCodes.delete(code);
+              updateBulkBindBtn();
+            },
+            onSelectAll: (checked) => {
+              if (checked) tags.forEach((t) => selectedTagCodes.add(t.code));
+              else tags.forEach((t) => selectedTagCodes.delete(t.code));
+              renderList();
+            },
+          },
           actions: (idx) => {
             const t = tags[idx];
             if (!t.bound_code) {
@@ -5785,9 +5833,62 @@ function buildDataTable(columns, dataRows, opts) {
         }
       );
       listContainer.appendChild(table);
+      updateBulkBindBtn();
     }
     renderList();
     openModal("จัดการ/ผูกแท็ก QR", container, { wide: true });
+  }
+
+  // ผูกแท็ก QR ที่ยังไม่ผูกหลายดวงพร้อมกัน แต่ละดวงเลือกรหัสผ้าที่จะผูกแยกกันได้ในหน้าเดียว ไม่ต้องเปิดทีละหน้าต่าง
+  function openBulkBindTagsModal(tagCodes) {
+    const fabrics = DB.getFabrics();
+    const fabricOptions = fabrics.map((f) => ({
+      value: f.code,
+      label: `${f.code} - ${f.name}${f.color ? " " + f.color : ""}`,
+    }));
+    const rows = tagCodes.map((code) => ({
+      tag: DB.getQrTag(code),
+      picker: searchSelectInput(fabricOptions, "", "พิมพ์รหัส/ชื่อผ้าเพื่อค้นหา..."),
+    }));
+    const rowEls = rows.map((r) =>
+      el(
+        "div",
+        { class: "form-row", style: { display: "flex", gap: "8px", alignItems: "center", marginBottom: "6px" } },
+        el("span", { style: { minWidth: "90px", fontFamily: "monospace" }, text: r.tag.code }),
+        r.picker
+      )
+    );
+    const form = el(
+      "div",
+      {},
+      el("p", {}, "เลือกรหัสผ้าที่จะผูกกับแท็กแต่ละดวง (ดวงไหนไม่เลือกจะข้ามไป ไม่ผูก)"),
+      ...rowEls
+    );
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          let boundCount = 0;
+          rows.forEach((r) => {
+            const v = r.picker.getMatchedValue();
+            if (v) {
+              DB.bindQrTag(r.tag.code, v);
+              boundCount++;
+            }
+          });
+          global.alert(`ผูกสำเร็จ ${boundCount} จาก ${rows.length} รายการ`);
+          openQrTagsModal();
+        },
+      },
+      "บันทึกทั้งหมด"
+    );
+    const cancelBtn = el("button", { class: "btn btn-primary", onClick: () => openQrTagsModal() }, "ยกเลิก");
+    openModal(
+      `ผูกแท็ก QR หลายดวงพร้อมกัน (${tagCodes.length} ดวง)`,
+      el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn, cancelBtn)),
+      { wide: true }
+    );
   }
 
   // ผูกแท็ก QR ดวงหนึ่งเข้ากับรหัสผ้าที่เลือก
@@ -5833,11 +5934,42 @@ function buildDataTable(columns, dataRows, opts) {
     const fabric = DB.getFabric(fabricId);
     if (!fabric) return;
     const listContainer = el("div", { class: "table-container" });
+    let selectedRollIds = new Set();
     const addBtn = el(
       "button",
       { class: "btn btn-primary", onClick: () => openAddRollModal(fabricId) },
       "+ เพิ่มม้วนใหม่"
     );
+    // สร้าง+ผูก+พิมพ์ QR ให้หลายม้วนพร้อมกัน กันต้องนั่งผูกทีละม้วน ม้วนไหนผูกอยู่แล้วจะพิมพ์แท็กเดิมซ้ำ
+    const bulkPrintBtn = el(
+      "button",
+      {
+        class: "btn",
+        disabled: true,
+        onClick: () => {
+          const ids = Array.from(selectedRollIds);
+          if (!ids.length) return;
+          const tags = ids.map((id) => {
+            const r = DB.getRoll(id);
+            let tag = r.qr_tag_code ? DB.getQrTag(r.qr_tag_code) : null;
+            if (!tag) {
+              tag = DB.createBlankQrTags(1)[0];
+              DB.bindQrTagToRoll(tag.code, r.id);
+            }
+            return { code: tag.code, label: DB.formatRollCode(r) };
+          });
+          printBoundQrTagsHtml(tags);
+          selectedRollIds.clear();
+          renderList();
+        },
+      },
+      "สร้าง+ผูก QR ที่เลือก"
+    );
+    function updateBulkPrintBtn() {
+      const n = selectedRollIds.size;
+      bulkPrintBtn.disabled = n === 0;
+      bulkPrintBtn.textContent = n > 0 ? `สร้าง+ผูก QR ที่เลือก (${n})` : "สร้าง+ผูก QR ที่เลือก";
+    }
     const container = el(
       "div",
       {},
@@ -5846,13 +5978,14 @@ function buildDataTable(columns, dataRows, opts) {
         { style: { fontSize: "13px", color: "var(--text-muted)" } },
         `${fabric.code} - ${fabric.name} | เลขม้วน/เลขล็อตเป็นข้อมูลเสริมสำหรับติดตามและพิมพ์ QR รายม้วน ไม่กระทบยอดคงเหลือรวม (${fabric.stock_qty} ${fabric.unit}) หรือระบบขาย`
       ),
-      el("div", { class: "toolbar" }, addBtn),
+      el("div", { class: "toolbar" }, addBtn, bulkPrintBtn),
       listContainer
     );
 
     function renderList() {
       clear(listContainer);
       const rolls = DB.getRolls(fabricId);
+      selectedRollIds = new Set([...selectedRollIds].filter((id) => rolls.some((r) => r.id === id)));
       const rows = rolls.map((r) => [
         DB.formatRollCode(r),
         r.lot_no || "-",
@@ -5860,6 +5993,20 @@ function buildDataTable(columns, dataRows, opts) {
         r.qr_tag_code ? `ผูกแล้ว (${r.qr_tag_code})` : "ยังไม่ผูก QR",
       ]);
       const table = buildDataTable(["รหัสม้วน", "เลขล็อต", "จำนวนคงเหลือ", "QR"], rows, {
+        checkbox: {
+          isChecked: (idx) => selectedRollIds.has(rolls[idx].id),
+          onToggle: (idx, checked) => {
+            const id = rolls[idx].id;
+            if (checked) selectedRollIds.add(id);
+            else selectedRollIds.delete(id);
+            updateBulkPrintBtn();
+          },
+          onSelectAll: (checked) => {
+            if (checked) rolls.forEach((r) => selectedRollIds.add(r.id));
+            else rolls.forEach((r) => selectedRollIds.delete(r.id));
+            renderList();
+          },
+        },
         actions: (idx) => {
           const r = rolls[idx];
           const acts = [{ label: "แก้ไข", onClick: () => openEditRollModal(r) }];
@@ -5890,6 +6037,7 @@ function buildDataTable(columns, dataRows, opts) {
         },
       });
       listContainer.appendChild(table);
+      updateBulkPrintBtn();
     }
     renderList();
     openModal(`ม้วนผ้า: ${fabric.code}`, container, { wide: true });
