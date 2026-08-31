@@ -2905,7 +2905,7 @@ function buildDataTable(columns, dataRows, opts) {
   body{font-family:sans-serif;margin:0;padding:10px;}
   .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
   .tag{border:1px dashed #999;padding:6px;text-align:center;}
-  .tag canvas{width:100%;height:auto;}
+  .tag canvas{width:50%;height:auto;}
   .code{font-size:11px;margin-top:4px;font-family:monospace;letter-spacing:0.5px;}
   @media print{.tag{break-inside:avoid;}}
 </style></head>
@@ -2915,7 +2915,7 @@ function buildDataTable(columns, dataRows, opts) {
 <script>
   var codes = ${codesJson};
   codes.forEach(function (code, i) {
-    new QRious({ element: document.getElementById("c" + i), value: code, size: 220 });
+    new QRious({ element: document.getElementById("c" + i), value: code, size: 140 });
   });
   window.focus();
   window.print();
@@ -2943,7 +2943,7 @@ function buildDataTable(columns, dataRows, opts) {
   body{font-family:sans-serif;margin:0;padding:10px;}
   .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
   .tag{border:1px dashed #999;padding:6px;text-align:center;}
-  .tag canvas{width:100%;height:auto;}
+  .tag canvas{width:50%;height:auto;}
   .label{font-size:13px;font-weight:600;margin-top:4px;}
   .code{font-size:10px;margin-top:2px;color:#666;font-family:monospace;letter-spacing:0.5px;}
   @media print{.tag{break-inside:avoid;}}
@@ -2954,7 +2954,7 @@ function buildDataTable(columns, dataRows, opts) {
 <script>
   var codes = ${codesJson};
   codes.forEach(function (code, i) {
-    new QRious({ element: document.getElementById("c" + i), value: code, size: 220 });
+    new QRious({ element: document.getElementById("c" + i), value: code, size: 140 });
   });
   window.focus();
   window.print();
@@ -5510,12 +5510,28 @@ function buildDataTable(columns, dataRows, opts) {
   let stockLowOnly = false;
   let fabricSelectedIds = new Set();
 
-  function updateDeleteSelectedFabricsBtn() {
-    const btn = refs.deleteSelectedFabricsBtn;
-    if (!btn) return;
+  // หาแท็ก QR ที่ผูกตรงกับรหัสผ้านี้โดยตรง (ผูกผ่าน "จัดการ/ผูกแล้ก QR")
+  function fabricDirectQrTag(f) {
+    return DB.getQrTags({ onlyBound: true }).find((t) => t.bound_code === f.code) || null;
+  }
+  // เช็คว่าผ้ารหัสนี้ผูก QR แล้วหรือยัง (ผูกตรงกับรหัสผ้า หรือผูกผ่านม้วนผ้าอันใดอันหนึ่งก็ถือว่าผูกแล้ว)
+  function fabricHasQr(f) {
+    if (fabricDirectQrTag(f)) return true;
+    return DB.getRolls(f.id, { onlyActive: true }).some((r) => !!r.qr_tag_code);
+  }
+
+  function updateFabricBulkButtons() {
     const n = fabricSelectedIds.size;
-    btn.disabled = n === 0;
-    btn.textContent = n > 0 ? `ลบรายการที่เลือก (${n})` : "ลบรายการที่เลือก";
+    const delBtn = refs.deleteSelectedFabricsBtn;
+    if (delBtn) {
+      delBtn.disabled = n === 0;
+      delBtn.textContent = n > 0 ? `ลบรายการที่เลือก (${n})` : "ลบรายการที่เลือก";
+    }
+    const printBtn = refs.printSelectedFabricsBtn;
+    if (printBtn) {
+      printBtn.disabled = n === 0;
+      printBtn.textContent = n > 0 ? `พิมพ์ QR ที่เลือก (${n})` : "พิมพ์ QR ที่เลือก";
+    }
   }
 
   function renderStock() {
@@ -5557,6 +5573,32 @@ function buildDataTable(columns, dataRows, opts) {
       "ลบรายการที่เลือก"
     );
     refs.deleteSelectedFabricsBtn = deleteSelectedBtn;
+    // พิมพ์ QR ของหลายรหัสผ้าพร้อมกัน โดยไม่ต้องเข้าไปในหน้าม้วนผ้า
+    // รหัสไหนผูก QR อยู่แล้วจะพิมพ์แท็กเดิมซ้ำ ส่วนรหัสที่ยังไม่ผูกจะสร้างแท็กใหม่แล้วผูกกับรหัสผ้านั้นให้เลย
+    const printSelectedBtn = el(
+      "button",
+      {
+        class: "btn",
+        disabled: true,
+        onClick: () => {
+          const ids = Array.from(fabricSelectedIds);
+          if (!ids.length) return;
+          const tags = ids.map((id) => {
+            const f = DB.getFabric(id);
+            let tag = fabricDirectQrTag(f);
+            if (!tag) {
+              tag = DB.createBlankQrTags(1)[0];
+              DB.bindQrTag(tag.code, f.code);
+            }
+            return { code: tag.code, label: `${f.code} ${f.name}` };
+          });
+          printBoundQrTagsHtml(tags);
+          renderStockTable();
+        },
+      },
+      "พิมพ์ QR ที่เลือก"
+    );
+    refs.printSelectedFabricsBtn = printSelectedBtn;
     const toolbar = el(
       "div",
       { class: "toolbar" },
@@ -5565,6 +5607,7 @@ function buildDataTable(columns, dataRows, opts) {
       el("button", { class: "btn btn-primary", onClick: () => openFabricModal(null) }, "+ เพิ่มผ้าใหม่"),
       el("button", { class: "btn", onClick: () => openPrintBlankTagsModal() }, "พิมพ์แท็ก QR เปล่า"),
       el("button", { class: "btn", onClick: () => openQrTagsModal() }, "จัดการ/ผูกแท็ก QR"),
+      printSelectedBtn,
       deleteSelectedBtn
     );
     const tableContainer = el("div", { class: "table-container" });
@@ -5577,16 +5620,17 @@ function buildDataTable(columns, dataRows, opts) {
     const container = refs.stockTableContainer;
     clear(container);
     const fabrics = DB.getFabrics(stockSearch, { onlyLowStock: stockLowOnly });
+    const qrBoundIds = new Set(fabrics.filter((f) => fabricHasQr(f)).map((f) => f.id));
     const rows = fabrics.map((f) => {
       const sup = f.supplier_id ? DB.getSupplier(f.supplier_id) : null;
       return [
-        f.code, f.name, f.category, f.color, f.unit,
+        f.code + (qrBoundIds.has(f.id) ? "  🏷️" : ""), f.name, f.category, f.color, f.unit,
         money(f.cost_price), money(f.sell_price), f.stock_qty, f.reorder_point,
         sup ? sup.name : "",
       ];
     });
     const table = buildDataTable(
-      ["รหัส", "ชื่อผ้า", "ประเภท", "สี", "หน่วย", "ราคาทุน", "ราคาขาย", "คงเหลือ", "จุดสั่งซื้อ", "ซัพพลายเออร์"],
+      ["รหัส", "ชื่อผ้า", "ประเภท", "สี", "หน่วย", "ราคาทุน", "ราคาขาย", "คงเหลือ", "จุดสั่งซื้อ", "ซัพෞลายเออร์"],
       rows,
       {
         checkbox: {
@@ -5595,7 +5639,7 @@ function buildDataTable(columns, dataRows, opts) {
             const id = fabrics[idx].id;
             if (checked) fabricSelectedIds.add(id);
             else fabricSelectedIds.delete(id);
-            updateDeleteSelectedFabricsBtn();
+            updateFabricBulkButtons();
           },
         },
         cellStyle: (row, ci, colName) =>
@@ -5621,7 +5665,7 @@ function buildDataTable(columns, dataRows, opts) {
       }
     );
     container.appendChild(table);
-    updateDeleteSelectedFabricsBtn();
+    updateFabricBulkButtons();
   }
 
   // พิมพ์แท็ก QR เปล่าล่วงหน้าเป็นล็อต (ยังไม่ผูกรหัสผ้า) เอาไปแปะม้วนผ้าจริงก่อน แล้วค่อยมาผูกทีหลังผ่าน "จัดการ/ผูกแท็ก QR"
