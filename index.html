@@ -1555,6 +1555,7 @@ function createDB(storageKey) {
     };
     store.purchases.push(purchase);
     applyPurchaseEffects(purchase);
+    autoCreateRollsAndQrForPurchase(purchase);
     if (paymentMethod === "เงินสด" && total > 0) {
       syncPurchaseAccountBalance(purchase, [{ account_id: getCashAccount().id, amount: total }]);
     }
@@ -1612,6 +1613,8 @@ function createDB(storageKey) {
     const purchase = store.purchases.find((x) => x.id === id);
     if (!purchase) return null;
     const wasReceived = purchase.status === "รับสินค้าแล้ว";
+    // จำรหัสผ้าเดิมไว้ก่อนแก้ไข เพื่อเช็คว่ารายการไหนเป็นของใหม่ที่เพิ่งเพิ่มเข้ามา (จะได้สร้างม้วน+ผูก QR อัตโนมัติให้เฉพาะของใหม่ ไม่สร้างซ้ำของเดิม)
+    const oldFabricIds = new Set(purchase.items.map((it) => it.fabric_id));
     if (wasReceived) revertPurchaseEffects(purchase);
 
     const subtotal = items.reduce((sum, it) => sum + it.qty * it.unit_cost, 0);
@@ -1651,6 +1654,9 @@ function createDB(storageKey) {
         purchase.payment_status = purchase.paid >= purchase.total ? "ชำระแล้ว" : purchase.paid > 0 ? "ชำระบางส่วน" : "ค้างชำระ";
       }
       applyPurchaseEffects(purchase);
+      // สร้างม้วน+ผูก QR อัตโนมัติเฉพาะรายการผ้าที่เพิ่งเพิ่มเข้ามาใหม่ในใบสั่งซื้อนี้ (ที่ยังไม่เคยมีมาก่อน) กันสร้างซ้ำตอนแก้ไข/เพิ่มจำนวนรายการเดิม
+      const newItems = purchase.items.filter((it) => !oldFabricIds.has(it.fabric_id));
+      if (newItems.length) autoCreateRollsAndQrForPurchase({ id: purchase.id, items: newItems });
     }
     save();
     return purchase;
@@ -1678,6 +1684,7 @@ function createDB(storageKey) {
     const p = store.purchases.find((x) => x.id === purchaseId);
     if (!p || p.status === "รับสินค้าแล้ว") return false;
     applyPurchaseEffects(p);
+    autoCreateRollsAndQrForPurchase(p);
     p.status = "รับสินค้าแล้ว";
     save();
     return true;
@@ -2167,6 +2174,19 @@ function createDB(storageKey) {
     roll.qr_tag_code = tag.code;
     save();
     return tag;
+  }
+  // รับของเข้า -> สร้างม้วนใหม่ให้อัตโนมัติทันที 1 ม้วนต่อ 1 รายการที่รับ (จำนวน = จำนวนที่รับทั้งหมดของรายการนั้น)
+  // พร้อมสร้าง QR ใหม่ผูกให้เสร็จในตัว ไม่ต้องมานั่งกด "แบ่งม้วน/ผูก QR" เองทีละขั้นตอนอีก
+  // ถ้าของจริงมาหลายม้วนย่อยจากซัพพลายเออร์ ใช้ QR เดิมนี้พิมพ์ซ้ำติดได้หลายม้วนเลย ไม่ต้องแยกม้วนในระบบก็ได้
+  function autoCreateRollsAndQrForPurchase(purchase) {
+    for (const it of purchase.items) {
+      const f = getFabric(it.fabric_id);
+      if (!f || !it.qty) continue;
+      const roll = addRoll(it.fabric_id, { qty: it.qty, purchase_id: purchase.id });
+      if (!roll) continue;
+      const tag = createBlankQrTags(1)[0];
+      bindQrTagToRoll(tag.code, roll.id);
+    }
   }
 
   // -------------------------------------------------------------- reports
