@@ -2674,7 +2674,12 @@ if (typeof module !== "undefined") {
         addRow(null, "");
       }
     }
-    return { container, addBtn, getSplits, getTotal, reset, setSplits };
+    // ถ้ามีแค่บัญชีเดียว (ยังไม่ได้กด "+ เพิ่มบัญชี") ให้ก็อปจำนวนเงินมาใส่อัตโนมัติ
+    // เพื่อไม่ต้องพิมพ์จำนวนเงินซ้ำสองที่ (ถ้าแบ่งหลายบัญชีแล้ว ผู้ใช้ต้องกรอกเองตามที่ต้องการ)
+    function syncAmountIfSingle(amount) {
+      if (rows.length === 1) rows[0].__amtInput.value = amount;
+    }
+    return { container, addBtn, getSplits, getTotal, reset, setSplits, syncAmountIfSingle };
   }
 
   // ช่องเลือกแบบพิมพ์ค้นหาได้ (input + datalist) ใช้แทน select เมื่ออยากให้พิมพ์กรองตัวเลือกได้
@@ -3363,7 +3368,11 @@ function buildDataTable(columns, dataRows, opts) {
     refs.posPaymentSelect = paymentSelect;
 
     const paidInput = numberInput(0);
-    paidInput.addEventListener("input", updatePosTotals);
+    paidInput.addEventListener("input", () => {
+      updatePosTotals();
+      // ถ้าเป็นโอนเงินและยังไม่ได้แบ่งหลายบัญชี ก็อปยอดมาใส่ให้เลยไม่ต้องพิมพ์ซ้ำ
+      if (paymentSelect.value === "โอนเงิน") accountSplit.syncAmountIfSingle(paidInput.value);
+    });
     refs.posPaidInput = paidInput;
 
     const noteInput = textInput("");
@@ -7564,6 +7573,10 @@ function buildDataTable(columns, dataRows, opts) {
     }
     methodSelect.addEventListener("change", updateAccountRowVisibility);
     updateAccountRowVisibility();
+    amountInput.addEventListener("input", () => {
+      // ถ้าเป็นโอนเงินและยังไม่ได้แบ่งหลายบัญชี ก็อปยอดมาใส่ให้เลยไม่ต้องพิมพ์ซ้ำ
+      if (methodSelect.value === "โอนเงิน") accountSplit.syncAmountIfSingle(amountInput.value);
+    });
     const saveBtn = el(
       "button",
       {
