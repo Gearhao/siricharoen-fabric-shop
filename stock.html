@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เช็คสต็อกผ้า - ร้านผ้าศิริเจริญ</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Tahoma, "Segoe UI", sans-serif; background:#f4f4f2; margin:0; padding:24px 16px; color:#111; }
+  .card { max-width:360px; margin:0 auto; background:#fff; border-radius:12px; padding:22px; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+  .shop { text-align:center; font-size:13px; color:#888; margin-bottom:14px; }
+  .label { font-size:12px; color:#888; margin:0 0 2px; }
+  .value { font-size:16px; margin:0 0 14px; font-weight:600; }
+  .qty { font-size:30px; font-weight:700; color:#0a6b3d; margin:0 0 4px; }
+  .qty.low { color:#c0392b; }
+  input { width:100%; padding:10px 11px; border:1px solid #ccc; border-radius:8px; font-size:14px; margin-bottom:8px; font-family:inherit; }
+  button { width:100%; padding:11px; border:none; border-radius:8px; background:#111; color:#fff; font-size:14px; cursor:pointer; font-family:inherit; }
+  button.secondary { background:#eee; color:#111; margin-top:8px; }
+  button:disabled { opacity:0.6; cursor:default; }
+  .err { color:#c0392b; font-size:12px; min-height:16px; margin:4px 0; }
+  .ok { color:#0a6b3d; font-size:12px; min-height:16px; margin:4px 0; }
+  .muted { color:#888; font-size:13px; text-align:center; margin-top:8px; }
+  .divider { border-top:1px dashed #ddd; margin:16px 0; }
+</style>
+</head>
+<body>
+<div class="shop">ร้านผ้าศิริเจริญ &middot; เช็คสต็อกผ้า</div>
+<div class="card" id="app">กำลังโหลดข้อมูล...</div>
+<script>
+const params = new URLSearchParams(location.search);
+const code = params.get("code") || "";
+const rollParam = params.get("roll") || "";
+const app = document.getElementById("app");
+
+function escapeHtml(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+  });
+}
+
+async function loadInfo() {
+  if (!code) {
+    app.innerHTML = '<div class="muted">ไม่พบรหัสผ้าใน QR นี้</div>';
+    return;
+  }
+  try {
+    const res = await fetch("/api/stock?code=" + encodeURIComponent(code) + "&roll=" + encodeURIComponent(rollParam));
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      app.innerHTML = '<div class="muted">ไม่พบข้อมูลผ้ารหัสนี้ในระบบ</div>';
+      return;
+    }
+    renderInfo(data);
+  } catch (e) {
+    app.innerHTML = '<div class="muted">เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</div>';
+  }
+}
+
+function renderInfo(data) {
+  const showingRoll = !!data.roll_no;
+  const qty = showingRoll ? data.roll_qty : data.total_qty;
+  const qtyLabel = showingRoll ? "คงเหลือ (ม้วนที่ " + data.roll_no + ")" : "คงเหลือรวม";
+  const lowClass = Number(qty) <= 0 ? "qty low" : "qty";
+  app.innerHTML =
+    '<div class="label">รหัสผ้า</div>' +
+    '<div class="value">' + escapeHtml(data.code) + "</div>" +
+    '<div class="label">ชื่อผ้า</div>' +
+    '<div class="value">' + escapeHtml(data.name) + "</div>" +
+    '<div class="label">' + qtyLabel + "</div>" +
+    '<div class="' + lowClass + '">' + qty + " " + escapeHtml(data.unit || "") + "</div>" +
+    (showingRoll
+      ? '<div class="label" style="margin-top:10px;">คงเหลือรวมทั้งรหัส</div><div class="value">' + data.total_qty + " " + escapeHtml(data.unit || "") + "</div>"
+      : "") +
+    '<div class="divider"></div>' +
+    '<button class="secondary" id="editToggle">แก้ไขข้อมูล (เจ้าของร้านเท่านั้น)</button>' +
+    '<div id="editArea"></div>';
+  document.getElementById("editToggle").addEventListener("click", function () {
+    showPinForm(data);
+  });
+}
+
+function showPinForm(data) {
+  const area = document.getElementById("editArea");
+  area.innerHTML =
+    '<input type="password" id="pinInput" placeholder="รหัสเจ้าของร้าน (PIN)" inputmode="numeric" autocomplete="off" />' +
+    '<div class="err" id="pinErr"></div>' +
+    '<button id="pinGo">ยืนยันรหัส</button>';
+  document.getElementById("pinGo").addEventListener("click", function () {
+    const pin = document.getElementById("pinInput").value.trim();
+    const err = document.getElementById("pinErr");
+    if (!pin) {
+      err.textContent = "กรุณากรอกรหัสก่อน";
+      return;
+    }
+    err.textContent = "";
+    showEditForm(data, pin);
+  });
+}
+
+function showEditForm(data, pin) {
+  const area = document.getElementById("editArea");
+  const currentQty = data.roll_no ? data.roll_qty : data.total_qty;
+  const qtyFieldLabel = data.roll_no ? "แก้ไขจำนวนคงเหลือ (ม้วนที่ " + data.roll_no + ")" : "แก้ไขจำนวนคงเหลือรวม";
+  area.innerHTML =
+    '<div class="label" style="margin-top:10px;">' + qtyFieldLabel + "</div>" +
+    '<input type="number" id="qtyInput" value="' + currentQty + '" step="0.01" />' +
+    '<div class="err" id="saveErr"></div>' +
+    '<button id="saveBtn">บันทึกการแก้ไข</button>';
+  document.getElementById("saveBtn").addEventListener("click", async function () {
+    const btn = document.getElementById("saveBtn");
+    const newQty = document.getElementById("qtyInput").value;
+    const err = document.getElementById("saveErr");
+    if (newQty === "" || isNaN(Number(newQty))) {
+      err.textContent = "กรอกจำนวนให้ถูกต้อง";
+      return;
+    }
+    err.textContent = "";
+    btn.disabled = true;
+    btn.textContent = "กำลังบันทึก...";
+    try {
+      const res = await fetch("/api/stock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code, roll: rollParam, pin: pin, new_roll_qty: newQty }),
+      });
+      const result = await res.json();
+      btn.disabled = false;
+      btn.textContent = "บันทึกการแก้ไข";
+      if (!res.ok || result.error) {
+        err.textContent = result.error === "invalid_pin" ? "รหัสเจ้าของร้านไม่ถูกต้อง" : "บันทึกไม่สำเร็จ กรุณาลองใหม่";
+        return;
+      }
+      renderInfo(result);
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = "บันทึกการแก้ไข";
+      err.textContent = "เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่";
+    }
+  });
+}
+
+loadInfo();
+</script>
+</body>
+</html>
