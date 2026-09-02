@@ -1148,8 +1148,8 @@ function createDB(storageKey) {
     if (!f) return null;
     const roll = { id: genId("roll"), fabric_id: fabricId, roll_no: nextRollNo(fabricId), qty: Number(qty) || 0, active: true };
     store.rolls.push(roll);
-    f.stock_qty += roll.qty;
-    store.stockMovements.push({ id: store.stockMovements.length + 1, fabric_id: fabricId, date: nowStr(), move_type: `รับเข้า (ม้วนที่ ${roll.roll_no})`, qty: roll.qty, ref_type: "roll", ref_id: roll.id, note: note || "" });
+    // ไม่บวกสต็อกรวมตรงนี้ เพราะฟังก์ชันนี้ใช้แค่แบ่งของที่มีอยู่แล้วออกเป็นม้วนเพื่อผูก QR (สต็อกถูกบวกไปแล้วตอนรับผ้าเข้าจริง)
+    store.stockMovements.push({ id: store.stockMovements.length + 1, fabric_id: fabricId, date: nowStr(), move_type: `แบ่งม้วน/ผูก QR (ม้วนที่ ${roll.roll_no}) - ไม่กระทบสต็อกรวม`, qty: roll.qty, ref_type: "roll", ref_id: roll.id, note: note || "" });
     save();
     return roll;
   }
@@ -5483,7 +5483,7 @@ function buildDataTable(columns, dataRows, opts) {
     const totalText = el("div", { class: "roll-total-text" });
     function updateTotal() {
       const total = rows.reduce((s, r) => s + (Number(r.qty.value) || 0), 0);
-      totalText.textContent = `รวม ${rows.length} ม้วน, ${total} ${f.unit || ""}`;
+      totalText.textContent = `รวม ${rows.length} ม้วน, ${total} ${f.unit || ""} (ไม่กระทบสต็อกรวม)`;
     }
     function makeQtyInput() {
       const inp = numberInput(0);
@@ -5557,7 +5557,7 @@ function buildDataTable(columns, dataRows, opts) {
       formField("หมายเหตุ", noteInput),
       saveBtn
     );
-    openModal(`รับผ้าเข้า (แยกม้วน) - ${f.name}`, body);
+    openModal(`แบ่งม้วน/ผูก QR - ${f.name}`, body);
   }
 
     function renderStock() {
@@ -5657,7 +5657,7 @@ function buildDataTable(columns, dataRows, opts) {
           const f = fabrics[idx];
           return [
             { label: "แก้ไข", onClick: () => openFabricModal(f.id) },
-            { label: "รับผ้าเข้า (แยกม้วน)", onClick: () => openReceiveRollsModal(f.id) },
+            { label: "แบ่งม้วน/ผูก QR", onClick: () => openReceiveRollsModal(f.id) },
             { label: "ปรับสต็อก", onClick: () => openAdjustStockModal(f.id) },
             { label: "ประวัติ", onClick: () => openMovementsModal(f.id) },
             
