@@ -4864,7 +4864,11 @@ function buildDataTable(columns, dataRows, opts) {
     let qrFooterHtml = "";
     if (!sale.is_vat && (docType === "normal" || docType === "delivery")) {
       const rollTags = cartItems
-        .map((it) => (it.roll_id ? DB.getRoll(it.roll_id) : null))
+        .map((it) => {
+          if (!it.roll_id) return null;
+          const r = DB.getRoll(it.roll_id);
+          return r && r.fabric_id === it.fabric_id ? r : null;
+        })
         .filter(Boolean)
         .map((roll) => {
           const fab = DB.getFabric(roll.fabric_id);
