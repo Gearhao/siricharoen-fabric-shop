@@ -2810,7 +2810,7 @@ function buildDataTable(columns, dataRows, opts) {
   function printReceiptHtml(html) {
     const w = global.window.open("", "_blank", "width=420,height=640");
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>@media print{.qr-footer{position:fixed;left:0;right:0;bottom:0;margin-top:0 !important;}}</style></head><body>${html}</body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>@media print{.qr-footer{position:fixed;left:0;bottom:0;margin-top:0 !important;text-align:left !important;}}</style></head><body>${html}</body></html>`);
     w.document.close();
     w.focus();
     w.print();
