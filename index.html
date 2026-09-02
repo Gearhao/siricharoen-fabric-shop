@@ -4152,7 +4152,7 @@ function buildDataTable(columns, dataRows, opts) {
         return { code: "", name: `${it.name || ""} (ฝากซื้อ)`, qty: it.qty, unit_price: it.unit_price, unit: it.unit, note: it.note || "" };
       }
       const f = DB.getFabric(it.fabric_id);
-      return { code: f ? f.code : "", name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)", qty: it.qty, unit_price: it.unit_price, unit: it.unit, note: it.note || "", roll_id: it.roll_id || null };
+      return { fabric_id: it.fabric_id || null, code: f ? f.code : "", name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)", qty: it.qty, unit_price: it.unit_price, unit: it.unit, note: it.note || "", roll_id: it.roll_id || null };
     });
     showReceiptModal(sale, sale.customer_id, cartItems);
   }
