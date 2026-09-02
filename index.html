@@ -4601,7 +4601,7 @@ function buildDataTable(columns, dataRows, opts) {
     showReceiptModal(sale, receiptCustId, receiptItems);
   }
 
-  function buildReceiptDoc(sale, cust, shop, cartItems, docType, lang, payAccountLabel) {
+  function buildReceiptDoc(sale, cust, shop, cartItems, docType, lang, payAccountLabel, showQr) {
     // docType: "delivery" (ใบส่งสินค้า) | "cash" (บิลเงินสด) | "normal" (ใบเสร็จปกติ)
     // lang: "th" (ค่าเริ่มต้น) | "en" (สำหรับลูกค้าต่างชาติ)
     // payAccountLabel: บัญชีที่แนะนำให้ลูกค้าโอนเงิน (ไม่ผูกกับสถานะการชำระเงินจริงของบิลนี้)
@@ -4863,7 +4863,7 @@ function buildDataTable(columns, dataRows, opts) {
         : "";
 
     let qrFooterHtml = "";
-    if (!sale.is_vat && (docType === "normal" || docType === "delivery")) {
+    if (showQr && !sale.is_vat && (docType === "normal" || docType === "delivery")) {
       const rollTags = cartItems
         .map((it) => {
           if (!it.roll_id) return null;
@@ -4923,6 +4923,7 @@ function buildDataTable(columns, dataRows, opts) {
           <div style="width:30%;border-top:1px solid #000;padding-top:4px;">${L.receivedPaymentBy}</div>
         </div>
         ${sale.note ? `<div style="text-align:left;font-size:12px;color:#111;margin-top:16px;padding-top:8px;border-top:1px dashed #999;">${L.note}: ${esc(sale.note)}</div>` : ""}
+      ${qrFooterHtml}
       </div>`;
 
     return { docTitle, text, textForCopy, html };
@@ -5039,8 +5040,9 @@ function buildDataTable(columns, dataRows, opts) {
     const isCredit = sale.payment_method === "เงินเชื่อ";
     let docType = isCredit ? "delivery" : "normal";
     let lang = "th";
+    let showQr = false;
     const accountSelect = buildBankAccountSelect(getCustomerPreferredAccountId(cust));
-    let current = buildReceiptDoc(sale, cust, shop, cartItems, docType, lang, payAccountLabelFromSelect(accountSelect));
+    let current = buildReceiptDoc(sale, cust, shop, cartItems, docType, lang, payAccountLabelFromSelect(accountSelect), showQr);
 
     const previewBox = el("div", { class: "receipt-preview" });
     previewBox.innerHTML = current.html;
@@ -5073,7 +5075,7 @@ function buildDataTable(columns, dataRows, opts) {
     const closeBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
 
     function refresh() {
-      current = buildReceiptDoc(sale, cust, shop, cartItems, docType, lang, payAccountLabelFromSelect(accountSelect));
+      current = buildReceiptDoc(sale, cust, shop, cartItems, docType, lang, payAccountLabelFromSelect(accountSelect), showQr);
       previewBox.innerHTML = current.html;
       printBtn.textContent = `พิมพ์${current.docTitle}`;
       modalTitleEl.textContent = current.docTitle;
@@ -5101,6 +5103,8 @@ function buildDataTable(columns, dataRows, opts) {
       el("span", { text: "ภาษาใบเสร็จ:" }),
       langSelect
     );
+    const qrCheckbox = el("input", { type: "checkbox", checked: showQr, onChange: (e) => { showQr = e.target.checked; refresh(); } });
+    const qrRow = el("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" } }, qrCheckbox, el("span", { text: "พิมพ์ QR เช็คสต็อกท้ายใบเสร็จ/ใบส่งของ" }));
     const accountRow = formField("บัญชีสำหรับโอนเงิน (ถ้ามี)", accountSelect);
     const shippingBtn =
       sale.shipping_fee > 0
@@ -5112,6 +5116,7 @@ function buildDataTable(columns, dataRows, opts) {
       {},
       docTypeToggle,
       langRow,
+      qrRow,
       accountRow,
       previewBox,
       el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, shippingBtn, closeBtn)
