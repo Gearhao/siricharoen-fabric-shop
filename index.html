@@ -1210,6 +1210,7 @@ function createDB(storageKey) {
       unit: it.unit || "",
       stock_qty: it.stock_qty !== undefined && it.stock_qty !== null ? it.stock_qty : it.qty,
       subtotal: it.qty * it.unit_price,
+      roll_id: it.roll_id || null,
       note: it.note || "",
       }));
   }
