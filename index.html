@@ -5560,6 +5560,74 @@ function buildDataTable(columns, dataRows, opts) {
     openModal(`แบ่งม้วน/ผูก QR - ${f.name}`, body);
   }
 
+  // จัดการม้วนผ้าที่มีอยู่แล้ว: ดูรายการม้วนทั้งหมดของรหัสผ้านี้ และแก้ไขจำนวนหลาคงเหลือของแต่ละม้วนได้
+  // (ใช้ DB.adjustRollQty ซึ่งจะปรับสต็อกรวมของรหัสผ้าให้ตรงกันเสมอ ไม่ทำให้สต็อกเพี้ยน)
+  function openManageRollsModal(fabricId) {
+    const f = DB.getFabric(fabricId);
+    if (!f) return;
+    const body = el("div", {});
+    function render() {
+      clear(body);
+      const rolls = DB.getRollsByFabric(fabricId);
+      const totalQty = rolls.reduce((s, r) => s + (r.active ? r.qty : 0), 0);
+      body.appendChild(
+        el("p", {
+          text: `${f.code} - ${f.name} (รวมม้วนที่ใช้งานอยู่ ${round3(totalQty)} ${f.unit || ""})`,
+          style: { fontWeight: "600", marginBottom: "10px" },
+        })
+      );
+      const table = buildDataTable(
+        ["ม้วนที่", "คงเหลือ", "สถานะ"],
+        rolls.map((r) => [r.roll_no, `${round3(r.qty)} ${f.unit || ""}`, r.active ? "ใช้งานอยู่" : "หมดแล้ว"]),
+        {
+          actions: (idx) => [
+            {
+              label: "แก้ไขจำนวน",
+              onClick: () => openEditRollQtyModal(rolls[idx]),
+            },
+          ],
+        }
+      );
+      body.appendChild(table);
+    }
+    function openEditRollQtyModal(r) {
+      const qtyInput = numberInput(r.qty);
+      const noteInput = textInput("แก้ไขจำนวนม้วน");
+      const saveBtn = el(
+        "button",
+        {
+          class: "btn btn-primary",
+          onClick: () => {
+            const newQty = Number(qtyInput.value);
+            if (isNaN(newQty) || newQty < 0) {
+              global.alert("กรุณาระบุจำนวนที่ถูกต้อง (ต้องไม่ติดลบ)");
+              return;
+            }
+            const delta = Math.round((newQty - r.qty) * 100) / 100;
+            if (delta !== 0) {
+              DB.adjustRollQty(r.id, delta, noteInput.value.trim() || "แก้ไขจำนวนม้วน");
+            }
+            renderStockTable();
+            render();
+            openModal(`จัดการม้วนผ้า - ${f.name}`, body, { wide: true });
+          },
+        },
+        "บันทึก"
+      );
+      const editBody = el(
+        "div",
+        {},
+        el("p", { text: `ม้วนที่ ${r.roll_no} (ปัจจุบัน ${round3(r.qty)} ${f.unit || ""})` }),
+        formField("จำนวนใหม่", qtyInput),
+        formField("หมายเหตุ", noteInput),
+        el("div", { class: "modal-actions" }, saveBtn)
+      );
+      openModal(`แก้ไขจำนวนม้วนที่ ${r.roll_no}`, editBody);
+    }
+    render();
+    openModal(`จัดการม้วนผ้า - ${f.name}`, body, { wide: true });
+  }
+
     function renderStock() {
     const sec = sections.stock;
     clear(sec);
@@ -5658,6 +5726,7 @@ function buildDataTable(columns, dataRows, opts) {
           return [
             { label: "แก้ไข", onClick: () => openFabricModal(f.id) },
             { label: "แบ่งม้วน/ผูก QR", onClick: () => openReceiveRollsModal(f.id) },
+            { label: "จัดการม้วนผ้า", onClick: () => openManageRollsModal(f.id) },
             { label: "ปรับสต็อก", onClick: () => openAdjustStockModal(f.id) },
             { label: "ประวัติ", onClick: () => openMovementsModal(f.id) },
             
