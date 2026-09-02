@@ -4923,7 +4923,6 @@ function buildDataTable(columns, dataRows, opts) {
           <div style="width:30%;border-top:1px solid #000;padding-top:4px;">${L.receivedPaymentBy}</div>
         </div>
         ${sale.note ? `<div style="text-align:left;font-size:12px;color:#111;margin-top:16px;padding-top:8px;border-top:1px dashed #999;">${L.note}: ${esc(sale.note)}</div>` : ""}
-      ${qrFooterHtml}
       </div>`;
 
     return { docTitle, text, textForCopy, html };
