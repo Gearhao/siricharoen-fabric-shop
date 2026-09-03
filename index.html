@@ -4224,13 +4224,6 @@ function buildDataTable(columns, dataRows, opts) {
     updatePosTotals();
   }
 
-  function autoSelectRollForRow(idx, fabricId) {
-    const rolls = DB.getActiveRollsByFabric(fabricId);
-    cart[idx].roll_id = rolls.length === 1 ? rolls[0].id : null;
-  }
-  function posRowSetRoll(idx, rollIdStr) {
-    cart[idx].roll_id = Number(rollIdStr) || null;
-  }
   function posRowSetFabric(idx, fidStr) {
     const fid = Number(fidStr) || 0;
     const f = fid ? DB.getFabric(fid) : null;
@@ -4242,7 +4235,6 @@ function buildDataTable(columns, dataRows, opts) {
       cart[idx].unit = saleUnit;
       cart[idx].baseUnit = f.unit;
       cart[idx].stock_qty = f.stock_qty;
-      autoSelectRollForRow(idx, f.id);
       if (!cart[idx].unit_price) cart[idx].unit_price = round2(f.sell_price * unitFactor(saleUnit, f.unit));
     } else {
       cart[idx] = { fabric_id: "", code: "", name: "", unit: cart[idx].unit || "หลา", baseUnit: "", qty: cart[idx].qty, unit_price: 0, stock_qty: null, note: cart[idx].note || "", roll_id: null };
@@ -4295,7 +4287,6 @@ function buildDataTable(columns, dataRows, opts) {
         el("th", { text: "ทุน/หน่วย" }),
         el("th", { text: "รวม" }),
         el("th", { text: "คงเหลือ" }),
-        el("th", { text: "ม้วน (ถ้ามี)" }),
         el("th", { text: "" })
       )
     );
@@ -4382,25 +4373,6 @@ function buildDataTable(columns, dataRows, opts) {
       const amountCell = el("td", { text: money(row.qty * row.unit_price) });
       refs["posRowAmount_" + idx] = amountCell;
 
-      let rollCell;
-      if (row.is_misc || !row.fabric_id) {
-        rollCell = el("td", { text: "-" });
-      } else {
-        const activeRolls = DB.getActiveRollsByFabric(row.fabric_id);
-        if (activeRolls.length > 1) {
-          const rollSelect = selectInput(
-            [{ value: "", label: "-- เลือกม้วน --" }].concat(activeRolls.map((r) => ({ value: String(r.id), label: `ม้วนที่ ${r.roll_no} (${r.qty})` }))),
-            row.roll_id ? String(row.roll_id) : ""
-          );
-          rollSelect.addEventListener("change", () => posRowSetRoll(idx, rollSelect.value));
-          rollCell = el("td", {}, rollSelect);
-        } else if (activeRolls.length === 1) {
-          rollCell = el("td", { text: `ม้วนที่ ${activeRolls[0].roll_no}` });
-        } else {
-          rollCell = el("td", { text: "-" });
-        }
-      }
-
       const removeBtn = el(
         "button",
         {
@@ -4425,12 +4397,11 @@ function buildDataTable(columns, dataRows, opts) {
         costCell,
         amountCell,
         el("td", { text: stockText }),
-        rollCell,
         el("td", {}, removeBtn)
       );
       tbody.appendChild(tr);
 
-      const noteTr = el("tr", { class: "pos-item-note-row" }, el("td", { colspan: 10 }, noteInput));
+      const noteTr = el("tr", { class: "pos-item-note-row" }, el("td", { colspan: 9 }, noteInput));
       tbody.appendChild(noteTr);
     });
 
@@ -4474,14 +4445,6 @@ function buildDataTable(columns, dataRows, opts) {
     if (validItems.length === 0) {
       global.alert("กรุณาเลือกสินค้าและระบุจำนวนอย่างน้อย 1 รายการ");
       return;
-    }
-    for (const it of validItems) {
-      if (it.is_misc || !it.fabric_id) continue;
-      const activeRolls = DB.getActiveRollsByFabric(it.fabric_id);
-      if (activeRolls.length > 1 && !it.roll_id) {
-        global.alert(`กรุณาเลือกม้วนที่จะตัดขายสำหรับ "${it.code} - ${it.name}" (มีมากกว่า 1 ม้วนเหลืออยู่)`);
-        return;
-      }
     }
     const { subtotal, discount, vat, shippingFee, total } = calcPosTotals();
     const custId = refs.posCustomerSelect.getCustomerId();
