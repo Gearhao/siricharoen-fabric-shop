@@ -5731,7 +5731,6 @@ function buildDataTable(columns, dataRows, opts) {
           const f = fabrics[idx];
           return [
             { label: "แก้ไข", onClick: () => openFabricModal(f.id) },
-            { label: "แบ่งม้วน/ผูก QR", onClick: () => openReceiveRollsModal(f.id) },
             { label: "จัดการม้วนผ้า", onClick: () => openManageRollsModal(f.id) },
             { label: "ปรับสต็อก", onClick: () => openAdjustStockModal(f.id) },
             { label: "ประวัติ", onClick: () => openMovementsModal(f.id) },
