@@ -2817,8 +2817,8 @@ function buildDataTable(columns, dataRows, opts) {
   }
 
   // ดาวน์โหลดใบเสร็จ/ใบส่งของเป็นไฟล์ PDF โดยตรง ไม่ต้องผ่านหน้าต่างพิมพ์ของเบราว์เซอร์
-  function downloadReceiptPdf(html, filename) {
-    if (typeof global.html2pdf === "undefined") {
+  async function downloadReceiptPdf(html, filename) {
+    if (typeof global.html2canvas === "undefined" || typeof global.jspdf === "undefined") {
       global.alert("โหลดตัวช่วยสร้าง PDF ไม่สำเร็จ (อาจเพราะเน็ตกระตุก) กรุณาโหลดหน้าเว็บใหม่แล้วลองอีกครั้ง");
       return;
     }
@@ -2834,32 +2834,26 @@ function buildDataTable(columns, dataRows, opts) {
     container.innerHTML = html;
     global.document.body.appendChild(overlay);
     global.document.body.appendChild(container);
-    global.setTimeout(() => {
+    await new Promise((resolve) => global.setTimeout(resolve, 50));
+    const cleanup = () => {
+      container.remove();
+      overlay.remove();
+    };
+    try {
+      const canvas = await global.html2canvas(container, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
       const pxToMm = (px) => (px * 25.4) / 96;
-      const widthMm = pxToMm(container.offsetWidth) + 10;
-      const heightMm = pxToMm(container.offsetHeight) + 10;
-      const cleanup = () => {
-        container.remove();
-        overlay.remove();
-      };
-      const opt = {
-        margin: 5,
-        filename: filename,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
-        jsPDF: { unit: "mm", format: [widthMm, heightMm], orientation: "portrait" },
-      };
-      global
-        .html2pdf()
-        .set(opt)
-        .from(container)
-        .save()
-        .then(cleanup)
-        .catch(() => {
-          cleanup();
-          global.alert("สร้าง PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-        });
-    }, 50);
+      const widthMm = pxToMm(canvas.width / 2) + 10;
+      const heightMm = pxToMm(canvas.height / 2) + 10;
+      const { jsPDF } = global.jspdf;
+      const doc = new jsPDF({ unit: "mm", format: [widthMm, heightMm], orientation: "portrait" });
+      doc.addImage(imgData, "JPEG", 5, 5, widthMm - 10, heightMm - 10);
+      doc.save(filename);
+    } catch (e) {
+      global.alert("สร้าง PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      cleanup();
+    }
   }
 
   function copyTextToClipboard(text) {
@@ -9369,17 +9363,29 @@ if (typeof global.window !== "undefined") {
       s.onerror = () => ensureQRiousLoaded(retriesLeft - 1);
       global.document.head.appendChild(s);
     })(3);
-    // ไลบรารีแปลงใบเสร็จเป็น PDF (html2pdf.js) โหลดล่วงหน้าตั้งแต่เปิดหน้า พร้อมสำรอง CDN เผื่อโหลดไม่สำเร็จ
-    (function ensureHtml2PdfLoaded(retriesLeft) {
-      if (typeof global.html2pdf !== "undefined" || retriesLeft <= 0) return;
+    // ไลบรารีแปลงใบเสร็จเป็น PDF: ใช้ html2canvas + jsPDF แยกกันตรงๆ (ไม่ใช้ html2pdf.js เพราะรุ่นที่มันห่อ html2canvas ไว้ข้างในเก่าและมีบั๊ก
+    // จับภาพออกมาว่างเปล่าเสมอในเบราว์เซอร์รุ่นใหม่ๆ - ทดสอบแล้วว่า html2canvas 1.4.1 เวอร์ชันเดี่ยวใช้งานได้ปกติ)
+    (function ensureHtml2CanvasLoaded(retriesLeft) {
+      if (typeof global.html2canvas !== "undefined" || retriesLeft <= 0) return;
       const cdnUrls = [
-        "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js",
-        "https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+        "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js",
       ];
       const s2 = global.document.createElement("script");
       s2.src = cdnUrls[retriesLeft % cdnUrls.length] + "?retry=" + Date.now();
-      s2.onerror = () => ensureHtml2PdfLoaded(retriesLeft - 1);
+      s2.onerror = () => ensureHtml2CanvasLoaded(retriesLeft - 1);
       global.document.head.appendChild(s2);
+    })(3);
+    (function ensureJsPdfLoaded(retriesLeft) {
+      if ((typeof global.jspdf !== "undefined" && global.jspdf.jsPDF) || retriesLeft <= 0) return;
+      const cdnUrls = [
+        "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+        "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
+      ];
+      const s3 = global.document.createElement("script");
+      s3.src = cdnUrls[retriesLeft % cdnUrls.length] + "?retry=" + Date.now();
+      s3.onerror = () => ensureJsPdfLoaded(retriesLeft - 1);
+      global.document.head.appendChild(s3);
     })(3);
     // ป้องกันเผลอเลื่อนเมาส์แล้วค่าตัวเลขในช่องกรอกเปลี่ยนไปโดยไม่ตั้งใจ: เอาโฟกัสออกจากช่องตัวเลขทันทีที่มีการเลื่อนเมาส์
     global.document.addEventListener(
