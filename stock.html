@@ -57,9 +57,10 @@ async function loadInfo() {
 }
 
 function renderInfo(data) {
-  const showingRoll = !!data.roll_no;
-  const qty = showingRoll ? data.roll_qty : data.total_qty;
-  const qtyLabel = showingRoll ? "คงเหลือ (ม้วนที่ " + data.roll_no + ")" : "คงเหลือรวม";
+  // เลิกใช้ระบบแบ่งม้วนผ้าแล้ว - สแกน QR อันไหนก็ตาม ให้โชว์แค่ยอดรวมทั้งรหัสเสมอ ไม่แยกตามม้วน
+  const showingRoll = false;
+  const qty = data.total_qty;
+  const qtyLabel = "คงเหลือรวม";
   const lowClass = Number(qty) <= 0 ? "qty low" : "qty";
   app.innerHTML =
     '<div class="label">รหัสผ้า</div>' +
