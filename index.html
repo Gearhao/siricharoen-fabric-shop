@@ -2822,17 +2822,18 @@ function buildDataTable(columns, dataRows, opts) {
       global.alert("โหลดตัวช่วยสร้าง PDF ไม่สำเร็จ (อาจเพราะเน็ตกระตุก) กรุณาโหลดหน้าเว็บใหม่แล้วลองอีกครั้ง");
       return;
     }
-    // หมายเหตุ: ห้ามวางองค์ประกอบไว้นอกจอไกลๆ (เช่น left:-9999px) เพราะ html2canvas มักจับภาพออกมาเป็นหน้าว่างเปล่า
-    // แก้โดยวางไว้ในตำแหน่งจริงบนจอ (มุมบนซ้าย) แล้วคลุมด้วยฉากทึบสีขาวไว้ด้านบนแทน ผู้ใช้จะเห็นแค่ข้อความ "กำลังสร้าง PDF..." แวบเดียว
+    // หมายเหตุสำคัญ: html2canvas จับภาพองค์ประกอบที่ตั้ง position เป็น fixed/absolute ไม่ได้ (ได้ผลลัพธ์สูง 0px ว่างเปล่าเสมอ)
+    // ต้องวางไว้ในลำดับเนื้อหาปกติ (position:static/relative) เท่านั้น แล้วคลุมด้วยฉากทึบสีขาว (fixed เต็มจอ) ไว้ด้านบนแทน
+    // เพื่อไม่ให้ผู้ใช้เห็นเนื้อหาที่แทรกไว้ท้ายหน้า ผู้ใช้จะเห็นแค่ข้อความ "กำลังสร้าง PDF..." แวบเดียว
     const overlay = global.document.createElement("div");
     overlay.style.cssText =
       "position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:Tahoma,'Segoe UI',sans-serif;color:#666;font-size:14px;";
     overlay.textContent = "กำลังสร้างไฟล์ PDF...";
     const container = global.document.createElement("div");
-    container.style.cssText = "position:fixed;top:0;left:0;z-index:999998;background:#fff;width:400px;";
+    container.style.cssText = "position:static;background:#fff;width:400px;";
     container.innerHTML = html;
-    global.document.body.appendChild(container);
     global.document.body.appendChild(overlay);
+    global.document.body.appendChild(container);
     global.setTimeout(() => {
       const pxToMm = (px) => (px * 25.4) / 96;
       const widthMm = pxToMm(container.offsetWidth) + 10;
@@ -2845,15 +2846,7 @@ function buildDataTable(columns, dataRows, opts) {
         margin: 5,
         filename: filename,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: "#ffffff",
-          scrollX: 0,
-          scrollY: 0,
-          windowWidth: container.scrollWidth,
-          windowHeight: container.scrollHeight,
-        },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
         jsPDF: { unit: "mm", format: [widthMm, heightMm], orientation: "portrait" },
       };
       global
