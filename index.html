@@ -4829,23 +4829,19 @@ function buildDataTable(columns, dataRows, opts) {
     if (showQr && !sale.is_vat && (docType === "normal" || docType === "delivery") && typeof global.QRious === "undefined") {
       qrFooterHtml = `<div class="qr-footer" style="margin-top:18px;padding-top:10px;border-top:1px dashed #999;text-align:center;background:#fff;"><div style="font-size:11px;color:#c00;">⚠ โหลด QR ไม่สำเร็จ กรุณาโหลดหน้าเว็บใหม่แล้วลองพิมพ์อีกครั้ง</div></div>`;
     } else if (showQr && !sale.is_vat && (docType === "normal" || docType === "delivery")) {
-      const rollTags = cartItems
+      const seenFabricIds = new Set();
+      const fabricTags = cartItems
+        .filter((it) => !it.is_misc && it.fabric_id && !seenFabricIds.has(it.fabric_id) && seenFabricIds.add(it.fabric_id))
         .map((it) => {
-          if (!it.roll_id) return null;
-          const r = DB.getRoll(it.roll_id);
-          return r && r.fabric_id === it.fabric_id ? r : null;
-        })
-        .filter(Boolean)
-        .map((roll) => {
-          const fab = DB.getFabric(roll.fabric_id);
+          const fab = DB.getFabric(it.fabric_id);
           if (!fab) return "";
-          const url = rollQrUrl(fab.code, roll.roll_no);
+          const url = rollQrUrl(fab.code);
           const img = qrDataUrl(url, 140);
-          return `<div style="display:inline-block;text-align:center;padding:8px;border:1px dashed #999;margin:4px;vertical-align:top;"><img src="${img}" width="70" height="70"/><div style="font-size:10px;font-weight:bold;margin-top:3px;">${esc(fab.code)}</div><div style="font-size:9px;color:#666;">ม้วนที่ ${roll.roll_no}</div></div>`;
+          return `<div style="display:inline-block;text-align:center;padding:8px;border:1px dashed #999;margin:4px;vertical-align:top;"><img src="${img}" width="70" height="70"/><div style="font-size:10px;font-weight:bold;margin-top:3px;">${esc(fab.code)}</div></div>`;
         })
         .join("");
-      if (rollTags) {
-        qrFooterHtml = `<div class="qr-footer" style="margin-top:18px;padding-top:10px;border-top:1px dashed #999;text-align:center;background:#fff;">${rollTags}</div>`;
+      if (fabricTags) {
+        qrFooterHtml = `<div class="qr-footer" style="margin-top:18px;padding-top:10px;border-top:1px dashed #999;text-align:center;background:#fff;">${fabricTags}</div>`;
       }
     }
 
@@ -5382,7 +5378,8 @@ function buildDataTable(columns, dataRows, opts) {
 
   const STOCK_CHECK_BASE_URL = "https://siricharoen-fabric-shop.pages.dev/stock.html";
   function rollQrUrl(fabricCode, rollNo) {
-    return `${STOCK_CHECK_BASE_URL}?code=${encodeURIComponent(fabricCode)}&roll=${rollNo}`;
+    const base = `${STOCK_CHECK_BASE_URL}?code=${encodeURIComponent(fabricCode)}`;
+    return rollNo ? `${base}&roll=${rollNo}` : base;
   }
   function escapeHtmlText(s) {
     return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
