@@ -4863,7 +4863,9 @@ function buildDataTable(columns, dataRows, opts) {
         : "";
 
     let qrFooterHtml = "";
-    if (showQr && !sale.is_vat && (docType === "normal" || docType === "delivery")) {
+    if (showQr && !sale.is_vat && (docType === "normal" || docType === "delivery") && typeof global.QRious === "undefined") {
+      qrFooterHtml = `<div class="qr-footer" style="margin-top:18px;padding-top:10px;border-top:1px dashed #999;text-align:center;background:#fff;"><div style="font-size:11px;color:#c00;">⚠ โหลด QR ไม่สำเร็จ กรุณาโหลดหน้าเว็บใหม่แล้วลองพิมพ์อีกครั้ง</div></div>`;
+    } else if (showQr && !sale.is_vat && (docType === "normal" || docType === "delivery")) {
       const rollTags = cartItems
         .map((it) => {
           if (!it.roll_id) return null;
@@ -4880,7 +4882,7 @@ function buildDataTable(columns, dataRows, opts) {
         })
         .join("");
       if (rollTags) {
-        qrFooterHtml = `<div class="qr-footer" style="margin-top:18px;padding-top:10px;border-top:1px dashed #999;text-align:center;background:#fff;"><div style="font-size:10px;color:#888;margin-bottom:2px;">สแกนเพื่อเช็คสต็อก (ตัดแปะที่ม้วนผ้า)</div>${rollTags}</div>`;
+        qrFooterHtml = `<div class="qr-footer" style="margin-top:18px;padding-top:10px;border-top:1px dashed #999;text-align:center;background:#fff;">${rollTags}</div>`;
       }
     }
 
@@ -5424,6 +5426,10 @@ function buildDataTable(columns, dataRows, opts) {
   }
   function printRollQrSheet(items) {
     if (!items || !items.length) return;
+    if (typeof global.QRious === "undefined") {
+      global.alert("โหลดไลบรารีสร้าง QR ไม่สำเร็จ (อาจเพราะเน็ตกระตุก) กรุณาโหลดหน้าเว็บใหม่ (รีเฟรช) แล้วลองพิมพ์อีกครั้ง");
+      return;
+    }
     const tags = items
       .map(({ fabric, roll }) => {
         const url = rollQrUrl(fabric.code, roll.roll_no);
@@ -9341,6 +9347,19 @@ function buildDataTable(columns, dataRows, opts) {
   }
 if (typeof global.window !== "undefined") {
     global.window.SiriCharoenApp = api;
+    // ไลบรารีสร้าง QR (QRious) บางทีโหลดจาก CDN ไม่สำเร็จ (เน็ตกระตุกตอนเปิดหน้า) ทำให้ QR ที่พิมพ์ออกมาเป็นกล่องโล่งๆ ไม่มีรูป
+    // ลองโหลดซ้ำอัตโนมัติตั้งแต่ตอนเปิดหน้า (สลับ CDN สำรอง) เผื่อจะทันก่อนผู้ใช้กดพิมพ์จริง
+    (function ensureQRiousLoaded(retriesLeft) {
+      if (typeof global.QRious !== "undefined" || retriesLeft <= 0) return;
+      const cdnUrls = [
+        "https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js",
+        "https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js",
+      ];
+      const s = global.document.createElement("script");
+      s.src = cdnUrls[retriesLeft % cdnUrls.length] + "?retry=" + Date.now();
+      s.onerror = () => ensureQRiousLoaded(retriesLeft - 1);
+      global.document.head.appendChild(s);
+    })(3);
     // ป้องกันเผลอเลื่อนเมาส์แล้วค่าตัวเลขในช่องกรอกเปลี่ยนไปโดยไม่ตั้งใจ: เอาโฟกัสออกจากช่องตัวเลขทันทีที่มีการเลื่อนเมาส์
     global.document.addEventListener(
       "wheel",
