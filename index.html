@@ -2816,6 +2816,44 @@ function buildDataTable(columns, dataRows, opts) {
     w.print();
   }
 
+  // ดาวน์โหลดใบเสร็จ/ใบส่งของเป็นไฟล์ PDF โดยตรง ไม่ต้องผ่านหน้าต่างพิมพ์ของเบราว์เซอร์
+  function downloadReceiptPdf(html, filename) {
+    if (typeof global.html2pdf === "undefined") {
+      global.alert("โหลดตัวช่วยสร้าง PDF ไม่สำเร็จ (อาจเพราะเน็ตกระตุก) กรุณาโหลดหน้าเว็บใหม่แล้วลองอีกครั้ง");
+      return;
+    }
+    const container = global.document.createElement("div");
+    container.style.position = "fixed";
+    container.style.left = "-9999px";
+    container.style.top = "0";
+    container.style.background = "#fff";
+    container.style.width = "400px";
+    container.innerHTML = html;
+    global.document.body.appendChild(container);
+    global.setTimeout(() => {
+      const pxToMm = (px) => (px * 25.4) / 96;
+      const widthMm = pxToMm(container.offsetWidth) + 10;
+      const heightMm = pxToMm(container.offsetHeight) + 10;
+      const opt = {
+        margin: 5,
+        filename: filename,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        jsPDF: { unit: "mm", format: [widthMm, heightMm], orientation: "portrait" },
+      };
+      global
+        .html2pdf()
+        .set(opt)
+        .from(container)
+        .save()
+        .then(() => container.remove())
+        .catch(() => {
+          container.remove();
+          global.alert("สร้าง PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+        });
+    }, 50);
+  }
+
   function copyTextToClipboard(text) {
     if (global.navigator && global.navigator.clipboard && global.navigator.clipboard.writeText) {
       return global.navigator.clipboard.writeText(text);
@@ -5013,6 +5051,11 @@ function buildDataTable(columns, dataRows, opts) {
       "บันทึกเป็นไฟล์ .txt"
     );
     const printBtn = el("button", { class: "btn btn-accent", onClick: () => printReceiptHtml(current.html) }, `พิมพ์${current.docTitle}`);
+    const pdfBtn = el(
+      "button",
+      { class: "btn btn-info", onClick: () => downloadReceiptPdf(current.html, `${sale.sale_no}.pdf`) },
+      "ดาวน์โหลด PDF"
+    );
     const copyBtn = el(
       "button",
       {
@@ -5080,7 +5123,7 @@ function buildDataTable(columns, dataRows, opts) {
       qrRow,
       accountRow,
       previewBox,
-      el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, shippingBtn, closeBtn)
+      el("div", { class: "modal-actions" }, downloadBtn, pdfBtn, copyBtn, printBtn, shippingBtn, closeBtn)
     );
     exposeTestRefs("receipt", { get text() { return current.text; }, get html() { return current.html; }, sale, setDocType: (t) => { docType = t; refresh(); } });
     openModal(current.docTitle, body, { wide: true });
@@ -9317,6 +9360,18 @@ if (typeof global.window !== "undefined") {
       s.src = cdnUrls[retriesLeft % cdnUrls.length] + "?retry=" + Date.now();
       s.onerror = () => ensureQRiousLoaded(retriesLeft - 1);
       global.document.head.appendChild(s);
+    })(3);
+    // ไลบรารีแปลงใบเสร็จเป็น PDF (html2pdf.js) โหลดล่วงหน้าตั้งแต่เปิดหน้า พร้อมสำรอง CDN เผื่อโหลดไม่สำเร็จ
+    (function ensureHtml2PdfLoaded(retriesLeft) {
+      if (typeof global.html2pdf !== "undefined" || retriesLeft <= 0) return;
+      const cdnUrls = [
+        "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js",
+        "https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js",
+      ];
+      const s2 = global.document.createElement("script");
+      s2.src = cdnUrls[retriesLeft % cdnUrls.length] + "?retry=" + Date.now();
+      s2.onerror = () => ensureHtml2PdfLoaded(retriesLeft - 1);
+      global.document.head.appendChild(s2);
     })(3);
     // ป้องกันเผลอเลื่อนเมาส์แล้วค่าตัวเลขในช่องกรอกเปลี่ยนไปโดยไม่ตั้งใจ: เอาโฟกัสออกจากช่องตัวเลขทันทีที่มีการเลื่อนเมาส์
     global.document.addEventListener(
