@@ -100,8 +100,9 @@ function showPinForm(data) {
 
 function showEditForm(data, pin) {
   const area = document.getElementById("editArea");
-  const currentQty = data.roll_no ? data.roll_qty : data.total_qty;
-  const qtyFieldLabel = data.roll_no ? "แก้ไขจำนวนคงเหลือ (ม้วนที่ " + data.roll_no + ")" : "แก้ไขจำนวนคงเหลือรวม";
+  // เลิกใช้ระบบแบ่งม้วนผ้าแล้ว - แก้ไขจากหน้านี้ให้แก้ที่ยอดรวมทั้งรหัสเสมอ ไม่แก้เฉพาะม้วน
+  const currentQty = data.total_qty;
+  const qtyFieldLabel = "แก้ไขจำนวนคงเหลือรวม";
   area.innerHTML =
     '<div class="label" style="margin-top:10px;">' + qtyFieldLabel + "</div>" +
     '<input type="number" id="qtyInput" value="' + currentQty + '" step="0.01" />' +
@@ -122,7 +123,7 @@ function showEditForm(data, pin) {
       const res = await fetch("/api/stock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code, roll: rollParam, pin: pin, new_roll_qty: newQty }),
+        body: JSON.stringify({ code: code, roll: "", pin: pin, new_roll_qty: newQty }),
       });
       const result = await res.json();
       btn.disabled = false;
