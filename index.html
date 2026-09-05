@@ -4264,6 +4264,20 @@ function buildDataTable(columns, dataRows, opts) {
     updatePosTotals();
   }
 
+  // หาราคาล่าสุดที่ลูกค้ารายนี้เคยซื้อผ้ารหัสนี้ (ถ้ามีประวัติ) เพื่อใช้เป็นราคาแนะนำ
+  function getLastPriceForCustomerFabric(customerId, fabricId) {
+    if (!customerId || !fabricId) return null;
+    const sales = DB.getCustomerSales(customerId); // เรียงจากล่าสุดไปเก่าสุดอยู่แล้ว
+    for (const s of sales) {
+      for (const it of s.items) {
+        if (!it.is_misc && it.fabric_id === fabricId) {
+          return { unit_price: it.unit_price, unit: it.unit || "หลา", date: s.date };
+        }
+      }
+    }
+    return null;
+  }
+
   function posRowSetFabric(idx, fidStr) {
     const fid = Number(fidStr) || 0;
     const f = fid ? DB.getFabric(fid) : null;
@@ -4275,7 +4289,18 @@ function buildDataTable(columns, dataRows, opts) {
       cart[idx].unit = saleUnit;
       cart[idx].baseUnit = f.unit;
       cart[idx].stock_qty = f.stock_qty;
-      if (!cart[idx].unit_price) cart[idx].unit_price = round2(f.sell_price * unitFactor(saleUnit, f.unit));
+      if (!cart[idx].unit_price) {
+        const custId = refs.posCustomerSelect ? refs.posCustomerSelect.getCustomerId() : 0;
+        const lastPrice = custId ? getLastPriceForCustomerFabric(custId, f.id) : null;
+        if (lastPrice) {
+          const pricePerBase = unitFactor(lastPrice.unit, f.unit) ? lastPrice.unit_price / unitFactor(lastPrice.unit, f.unit) : lastPrice.unit_price;
+          cart[idx].unit_price = round2(pricePerBase * unitFactor(saleUnit, f.unit));
+          cart[idx].price_hint = `ราคาที่ลูกค้ารายนี้เคยซื้อล่าสุด: ${lastPrice.unit_price.toLocaleString()} บาท/${lastPrice.unit} (${lastPrice.date})`;
+        } else {
+          cart[idx].unit_price = round2(f.sell_price * unitFactor(saleUnit, f.unit));
+          cart[idx].price_hint = "";
+        }
+      }
     } else {
       cart[idx] = { fabric_id: "", code: "", name: "", unit: cart[idx].unit || "หลา", baseUnit: "", qty: cart[idx].qty, unit_price: 0, stock_qty: null, note: cart[idx].note || "", roll_id: null };
     }
@@ -4384,8 +4409,14 @@ function buildDataTable(columns, dataRows, opts) {
       });
 
       const priceInput = numberInput(row.unit_price);
+      if (row.price_hint) {
+        priceInput.title = row.price_hint;
+        priceInput.style.borderColor = "#f0ad4e";
+        priceInput.style.background = "#fff8ec";
+      }
       priceInput.addEventListener("input", (e) => {
         cart[idx].unit_price = Number(e.target.value) || 0;
+        cart[idx].price_hint = "";
         updatePosRowAmount(idx);
         updatePosTotals();
       });
