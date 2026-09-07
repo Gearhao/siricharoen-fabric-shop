@@ -3249,6 +3249,13 @@ function buildDataTable(columns, dataRows, opts) {
     const saleDateInput = dateInputEl({ value: DB.todayStr() });
     refs.posSaleDateInput = saleDateInput;
 
+    // เวลาบิล: แก้ได้เฉพาะตอน "แก้ไขบิล" เดิม (บิลใหม่ใช้เวลาปัจจุบันเสมอ ไม่ต้องเลือก)
+    const saleTimeInput = el("input", { type: "time", step: "1" });
+    refs.posSaleTimeInput = saleTimeInput;
+    const saleTimeRow = formField("เวลาบิล", saleTimeInput);
+    saleTimeRow.style.display = "none";
+    refs.posSaleTimeRow = saleTimeRow;
+
     const paymentSelect = selectInput(
       [
         { value: "เงินเชื่อ", label: "เครดิต" },
@@ -3313,6 +3320,7 @@ function buildDataTable(columns, dataRows, opts) {
         { class: "form-panel" },
         formField("ลูกค้า", customerSelect),
         formField("วันที่บิล", saleDateInput),
+        saleTimeRow,
         exchangeCreditRow,
         formField("ส่วนลด", discountRow),
         formField("ค่าจัดส่ง (บาท)", shippingFeeInput),
@@ -4114,6 +4122,9 @@ function buildDataTable(columns, dataRows, opts) {
   function applySaleFieldsToPosForm(sale) {
     refs.posCustomerSelect.setCustomerId(sale.customer_id || 0);
     if (refs.posSaleDateInput) refs.posSaleDateInput.value = (sale.date || "").slice(0, 10) || DB.todayStr();
+    // เวลาบิลแก้ได้เฉพาะตอนแก้ไขบิลเดิม (บิลใหม่ไม่ต้องเลือก ใช้เวลาปัจจุบันเสมอ)
+    if (refs.posSaleTimeInput) refs.posSaleTimeInput.value = (sale.date || "").slice(11, 19) || "";
+    if (refs.posSaleTimeRow) refs.posSaleTimeRow.style.display = "";
     if (refs.posVatChk) refs.posVatChk.checked = !!sale.is_vat;
     refs.posDiscountInput.value = sale.discount || 0;
     if (refs.posDiscountUnitSelect) refs.posDiscountUnitSelect.value = "บาท";
@@ -4176,6 +4187,7 @@ function buildDataTable(columns, dataRows, opts) {
     cart = [];
     addPosRow();
     if (refs.posSaleDateInput) refs.posSaleDateInput.value = DB.todayStr();
+    if (refs.posSaleTimeRow) refs.posSaleTimeRow.style.display = "none";
     if (refs.posVatChk) refs.posVatChk.checked = false;
     refs.posDiscountInput.value = 0;
     if (refs.posDiscountUnitSelect) refs.posDiscountUnitSelect.value = "บาท";
@@ -4604,7 +4616,8 @@ function buildDataTable(columns, dataRows, opts) {
       const oldSale = DB.getSale(editingSaleId);
       const oldDatePart = oldSale && oldSale.date ? oldSale.date.slice(0, 10) : "";
       const oldTimePart = oldSale && oldSale.date ? oldSale.date.slice(11) : "";
-      saleDateTime = chosenDateStr === oldDatePart && oldTimePart ? oldSale.date : `${chosenDateStr} ${oldTimePart || DB.nowStr().slice(11)}`;
+      const chosenTimeStr = (refs.posSaleTimeInput && refs.posSaleTimeInput.value) || oldTimePart || DB.nowStr().slice(11);
+      saleDateTime = chosenDateStr === oldDatePart && chosenTimeStr === oldTimePart ? oldSale.date : `${chosenDateStr} ${chosenTimeStr}`;
     } else {
       saleDateTime = `${chosenDateStr} ${DB.nowStr().slice(11)}`;
     }
@@ -4631,6 +4644,7 @@ function buildDataTable(columns, dataRows, opts) {
     cart = [];
     addPosRow();
     if (refs.posSaleDateInput) refs.posSaleDateInput.value = DB.todayStr();
+    if (refs.posSaleTimeRow) refs.posSaleTimeRow.style.display = "none";
     refs.posDiscountInput.value = 0;
     if (refs.posDiscountUnitSelect) refs.posDiscountUnitSelect.value = "บาท";
     refs.posPaidInput.value = 0;
