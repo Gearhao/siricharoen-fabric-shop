@@ -4434,8 +4434,8 @@ function buildDataTable(columns, dataRows, opts) {
       const priceInput = numberInput(row.unit_price);
       if (row.price_hint) {
         priceInput.title = row.price_hint;
-        priceInput.style.borderColor = "#f0ad4e";
-        priceInput.style.background = "#fff8ec";
+        priceInput.style.borderColor = "#1b5e20";
+        priceInput.style.background = "#e8f5e9";
       }
       priceInput.addEventListener("input", (e) => {
         cart[idx].unit_price = Number(e.target.value) || 0;
