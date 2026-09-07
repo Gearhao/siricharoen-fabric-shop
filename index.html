@@ -1209,7 +1209,7 @@ function createDB(storageKey) {
       unit_price: it.unit_price,
       unit: it.unit || "",
       stock_qty: it.stock_qty !== undefined && it.stock_qty !== null ? it.stock_qty : it.qty,
-      subtotal: it.qty * it.unit_price,
+      subtotal: Math.round(it.qty * it.unit_price * 100) / 100,
       roll_id: it.roll_id || null,
       note: it.note || "",
       }));
@@ -1277,9 +1277,11 @@ function createDB(storageKey) {
     }
   }
   function createSale(items, customerId, discount, vatAmount, paymentMethod, paid, note, date, accountSplits, shippingFee, shippingMethod, dueDate, isVat) {
-    const subtotal = items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
+    // ปัดเศษเป็น 2 ตำแหน่งกันปัญหาทศนิยมเพี้ยนจาก floating point (เช่น 1.2 * 209 = 250.79999999999998)
+    paid = Math.round((Number(paid) || 0) * 100) / 100;
+    const subtotal = Math.round(items.reduce((sum, it) => sum + it.qty * it.unit_price, 0) * 100) / 100;
     const shipFee = shippingFee || 0;
-    const total = subtotal - discount + vatAmount + shipFee;
+    const total = Math.round((subtotal - discount + vatAmount + shipFee) * 100) / 100;
     const changeAmt = paymentMethod !== "เงินเชื่อ" ? Math.max(0, paid - total) : 0;
     let status = "ชำระแล้ว";
     if (paymentMethod === "เงินเชื่อ" && paid < total) {
@@ -1330,9 +1332,11 @@ function createDB(storageKey) {
     if (!sale) return null;
     revertSaleEffects(sale);
 
-    const subtotal = items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
+    // ปัดเศษเป็น 2 ตำแหน่งกันปัญหาทศนิยมเพี้ยนจาก floating point (เช่น 1.2 * 209 = 250.79999999999998)
+    paid = Math.round((Number(paid) || 0) * 100) / 100;
+    const subtotal = Math.round(items.reduce((sum, it) => sum + it.qty * it.unit_price, 0) * 100) / 100;
     const shipFee = shippingFee || 0;
-    const total = subtotal - discount + vatAmount + shipFee;
+    const total = Math.round((subtotal - discount + vatAmount + shipFee) * 100) / 100;
     const changeAmt = paymentMethod !== "เงินเชื่อ" ? Math.max(0, paid - total) : 0;
     let status = "ชำระแล้ว";
     if (paymentMethod === "เงินเชื่อ" && paid < total) {
