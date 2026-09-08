@@ -4683,6 +4683,7 @@ function buildDataTable(columns, dataRows, opts) {
           deliveryNote: "Delivery Note",
           cashBill: "Cash Bill",
           taxInvoiceReceipt: "Receipt / Delivery Note",
+          taxInvoiceReceiptCopyOnly: "Delivery Note",
           receipt: "Receipt",
           generalCustomer: "Walk-in Customer",
           taxId: "Tax ID",
@@ -4722,6 +4723,7 @@ function buildDataTable(columns, dataRows, opts) {
           deliveryNote: "ใบส่งสินค้า",
           cashBill: "บิลเงินสด",
           taxInvoiceReceipt: "ใบเสร็จรับเงิน/ใบส่งของ",
+          taxInvoiceReceiptCopyOnly: "ใบส่งของ",
           receipt: "ใบเสร็จรับเงิน",
           generalCustomer: "ลูกค้าทั่วไป",
           taxId: "เลขผู้เสียภาษี",
@@ -4766,6 +4768,8 @@ function buildDataTable(columns, dataRows, opts) {
       : showVat
       ? L.taxInvoiceReceipt
       : L.receipt;
+    // หัวข้อในข้อความที่คัดลอก/ดาวน์โหลดส่งลูกค้า: บิล VAT ตัดคำว่า "ใบเสร็จรับเงิน" ออก เหลือแค่ "ใบส่งของ" (หัวเอกสารที่พิมพ์/PDF ยังคงเดิม)
+    const copyDocTitle = showVat && !isDeliveryDoc && docType !== "cash" ? L.taxInvoiceReceiptCopyOnly : docTitle;
     const custName = cust ? cust.name : L.generalCustomer;
     // บิลที่เป็นแว็ดและมีค่าจัดส่ง: แยกค่าส่งออกจากยอดสุทธิเสมอ (ไม่ว่าจะเป็นใบส่งสินค้าหรือใบเสร็จ) เพราะลูกค้าต้องโอนเงินค่าสินค้ากับค่าส่งแยกบัญชีกัน เหมือนใบวางบิล
     const excludeShippingFromTotal = showVat && docType !== "cash" && (sale.shipping_fee || 0) > 0;
@@ -4774,7 +4778,7 @@ function buildDataTable(columns, dataRows, opts) {
     // -------- plain text version (สำหรับดาวน์โหลดไฟล์ .txt) --------
     const lines = [];
     if (showVat && !isDeliveryDoc && shop.tax_id) lines.push(`${L.taxId}: ${shop.tax_id}`);
-    lines.push(docTitle);
+    lines.push(copyDocTitle);
     lines.push(`${L.invoiceNo}: ${sale.sale_no}`);
     lines.push(`${L.date}: ${fmtDate(sale.date)}`);
     lines.push(`${L.customer}: ${custName}`);
