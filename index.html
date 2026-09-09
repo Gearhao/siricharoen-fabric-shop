@@ -306,6 +306,17 @@ html, body {
   min-width: 0; /* กันไม่ให้ตารางรายการสินค้าด้านในดันความกว้างของทั้งกล่อง/หน้าเว็บให้ล้นออกไปจนต้องเลื่อนทั้งหน้า */
 }
 .pos-right h3 { margin-top: 0; }
+/* บีบระยะห่างในฟอร์มด้านขวาให้ถี่ขึ้น ให้พอดีจอไม่ต้องเลื่อน (ปรับเฉพาะหน้าขายสินค้า ไม่กระทบฟอร์มอื่นในแอป) */
+.pos-left, .pos-right { padding: 10px 14px; }
+.pos-right .form-panel { margin-top: 6px; }
+.pos-right .form-row { margin-bottom: 4px; }
+.pos-right .form-row label { font-size: 12.5px; }
+.pos-right .form-row input, .pos-right .form-row select { padding: 5px 8px; font-size: 13px; }
+.pos-right .form-grid { gap: 2px 14px; }
+.pos-right .totals-box { margin-top: 6px; padding-top: 5px; }
+.pos-right .totals-line { padding: 1px 0; font-size: 13px; }
+.pos-right .totals-main { font-size: 16px; }
+.pos-right .btn-block { padding: 8px; font-size: 14.5px; margin-top: 4px; }
 
 /* ตารางรายการสินค้าในหน้า POS: บังคับความกว้างคอลัมน์รวมกันไม่เกิน 100% ของกล่อง ไม่ให้ต้องเลื่อนซ้าย-ขวา */
 .pos-item-table {
@@ -3339,7 +3350,7 @@ function buildDataTable(columns, dataRows, opts) {
         accountSplitRow,
         formField("หมายเหตุ", noteInput)
       ),
-      el("label", { class: "chk-label", style: { display: "block", marginTop: "10px" } }, vatChk, ` คิดภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%`),
+      el("label", { class: "chk-label", style: { display: "block", marginTop: "4px" } }, vatChk, ` คิดภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%`),
       el("div", { class: "totals-box" }, subtotalLbl, vatLbl, shippingLbl, totalLbl, changeLbl),
       checkoutBtn
     );
