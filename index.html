@@ -287,7 +287,7 @@ html, body {
 }
 .pos-grid {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  grid-template-columns: 1.15fr 1fr;
   gap: 16px;
   padding: 18px 22px;
   max-width: 1500px;
@@ -313,6 +313,9 @@ html, body {
 .pos-right .form-row label { font-size: 12.5px; }
 .pos-right .form-row input, .pos-right .form-row select { padding: 4px 8px; font-size: 13px; }
 .pos-right .form-grid { gap: 1px 14px; }
+/* กันไม่ให้ช่องคู่ (เช่น ส่วนลด+หน่วยบาท/% หรือ ชำระโดย) ดันความกว้างคอลัมน์ของ form-grid ให้เกินพื้นที่ที่มี จนต้องเลื่อนจอ */
+.pos-right .form-grid > .form-row { min-width: 0; }
+.pos-right .discount-input-row select { width: 56px; }
 .pos-right .totals-box { margin-top: 4px; padding-top: 4px; }
 .pos-right .totals-line { padding: 0px 0; font-size: 12.5px; line-height: 1.35; }
 .pos-right .totals-main { font-size: 15px; }
@@ -333,7 +336,7 @@ html, body {
 .pos-item-table th:nth-child(8), .pos-item-table td:nth-child(8) { width: 9%; }
 .pos-item-table th:nth-child(9), .pos-item-table td:nth-child(9) { width: 6%; }
 .pos-item-table th:nth-child(10), .pos-item-table td:nth-child(10) { width: 6%; }
-.pos-item-table td { padding: 6px 4px; white-space: normal; word-break: break-word; }
+.pos-item-table td { padding: 4px 3px; white-space: normal; word-break: break-word; }
 .pos-item-table input, .pos-item-table select { width: 100%; min-width: 0; box-sizing: border-box; }
 .pos-item-table .btn-sm { width: 100%; padding-left: 4px; padding-right: 4px; }
 .pos-item-row td { border-bottom: none; padding-bottom: 0; }
