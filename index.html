@@ -3322,12 +3322,13 @@ function buildDataTable(columns, dataRows, opts) {
         { class: "form-panel" },
         formField("ลูกค้า", customerSelect),
         exchangeCreditRow,
+        // เวลาบิล: ปล่อยเต็มความกว้างแถวเดียว ไม่จับคู่ 2 คอลัมน์ เพราะช่องเวลา (ชม:นาที:วินาที) กว้างกว่าช่องอื่น ถ้าบีบครึ่งคอลัมน์จะล้นขอบจอ
+        saleTimeRow,
         // จัดฟิลด์สั้นๆเป็น 2 คอลัมน์ ลดความสูงฟอร์ม ไม่ต้องเลื่อนเยอะกว่าจะเจอปุ่มชำระเงิน
         el(
           "div",
           { class: "form-grid" },
           formField("วันที่บิล", saleDateInput),
-          saleTimeRow,
           formField("ส่วนลด", discountRow),
           formField("ค่าจัดส่ง (บาท)", shippingFeeInput),
           formField("วิธีจัดส่ง", shippingMethodInput),
