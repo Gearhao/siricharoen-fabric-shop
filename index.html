@@ -2894,6 +2894,8 @@ function buildDataTable(columns, dataRows, opts) {
   let posHistoryDate = "";
   let posHistoryDateTo = "";
   let posHistoryShowAll = true;
+  // แท็บย่อยหน้าขายสินค้า: "new" = ฟอร์มออกบิลใหม่/แก้ไขบิล, "history" = ประวัติการขาย (แยกกันไม่ต้องเลื่อนผ่านฟอร์มยาวๆ)
+  let posSubTab = "new";
   let customerHistorySearch = "";
   let billingStatementSelectedIds = new Set();
   const refs = {};
@@ -3319,16 +3321,21 @@ function buildDataTable(columns, dataRows, opts) {
         "div",
         { class: "form-panel" },
         formField("ลูกค้า", customerSelect),
-        formField("วันที่บิล", saleDateInput),
-        saleTimeRow,
         exchangeCreditRow,
-        formField("ส่วนลด", discountRow),
-        formField("ค่าจัดส่ง (บาท)", shippingFeeInput),
-        formField("วิธีจัดส่ง", shippingMethodInput),
-        formField("ชำระโดย", paymentSelect),
-        formField("รับเงิน (บาท)", paidInput),
+        // จัดฟิลด์สั้นๆเป็น 2 คอลัมน์ ลดความสูงฟอร์ม ไม่ต้องเลื่อนเยอะกว่าจะเจอปุ่มชำระเงิน
+        el(
+          "div",
+          { class: "form-grid" },
+          formField("วันที่บิล", saleDateInput),
+          saleTimeRow,
+          formField("ส่วนลด", discountRow),
+          formField("ค่าจัดส่ง (บาท)", shippingFeeInput),
+          formField("วิธีจัดส่ง", shippingMethodInput),
+          formField("วันที่ครบกำหนดชำระเงิน", dueDateInput),
+          formField("ชำระโดย", paymentSelect),
+          formField("รับเงิน (บาท)", paidInput)
+        ),
         accountSplitRow,
-        formField("วันที่ครบกำหนดชำระเงิน", dueDateInput),
         formField("หมายเหตุ", noteInput)
       ),
       el("label", { class: "chk-label", style: { display: "block", marginTop: "10px" } }, vatChk, ` คิดภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%`),
@@ -3336,7 +3343,34 @@ function buildDataTable(columns, dataRows, opts) {
       checkoutBtn
     );
 
-    sec.appendChild(el("div", { class: "pos-grid" }, left, right));
+    // แท็บย่อย "ออกบิลใหม่" กับ "ประวัติการขาย" แยกกัน ไม่ต้องเลื่อนผ่านฟอร์มยาวๆไปหาประวัติด้านล่างอีก
+    const newSaleContainer = el("div", { class: "pos-grid" }, left, right);
+    refs.posNewSaleContainer = newSaleContainer;
+
+    const posSubTabsNav = el("div", { class: "subtabs" });
+    const posSubTabButtons = {};
+    [
+      ["new", "ออกบิลใหม่"],
+      ["history", "ประวัติการขาย"],
+    ].forEach(([key, label]) => {
+      const b = el(
+        "button",
+        {
+          class: "tab-btn",
+          onClick: () => {
+            posSubTab = key;
+            updatePosSubTabUI();
+          },
+        },
+        label
+      );
+      posSubTabButtons[key] = b;
+      posSubTabsNav.appendChild(b);
+    });
+    refs.posSubTabButtons = posSubTabButtons;
+
+    sec.appendChild(posSubTabsNav);
+    sec.appendChild(newSaleContainer);
 
     const historyTableContainer = el("div", { class: "table-container" });
     refs.posHistoryTableContainer = historyTableContainer;
@@ -3438,9 +3472,14 @@ function buildDataTable(columns, dataRows, opts) {
     );
     const historySummary = el("div", { class: "totals-line" });
     refs.posHistorySummary = historySummary;
-    sec.appendChild(
-      panel("ประวัติการขาย (แก้ไขบิลย้อนหลังได้)", el("div", {}, historyToolbar, historySummary, historyTableContainer))
+    const historyPanel = panel(
+      "ประวัติการขาย (แก้ไขบิลย้อนหลังได้)",
+      el("div", {}, historyToolbar, historySummary, historyTableContainer)
     );
+    refs.posHistoryContainer = historyPanel;
+    sec.appendChild(historyPanel);
+
+    updatePosSubTabUI();
 
     if (cart.length === 0) addPosRow();
     else renderPosItemsTable();
@@ -3451,6 +3490,13 @@ function buildDataTable(columns, dataRows, opts) {
     updatePosTotals();
     renderPosSalesHistory();
     updateEditBannerUI();
+  }
+
+  function updatePosSubTabUI() {
+    if (!refs.posSubTabButtons) return;
+    Object.keys(refs.posSubTabButtons).forEach((k) => refs.posSubTabButtons[k].classList.toggle("active", k === posSubTab));
+    if (refs.posNewSaleContainer) refs.posNewSaleContainer.style.display = posSubTab === "new" ? "" : "none";
+    if (refs.posHistoryContainer) refs.posHistoryContainer.style.display = posSubTab === "history" ? "" : "none";
   }
 
   function updateEditBannerUI() {
@@ -4179,6 +4225,9 @@ function buildDataTable(columns, dataRows, opts) {
     applySaleFieldsToPosForm(sale);
     updatePosTotals();
     updateEditBannerUI();
+    // สลับกลับไปแท็บ "ออกบิลใหม่" ให้เห็นฟอร์มแก้ไขทันที เผื่อกดแก้ไขมาจากแท็บ "ประวัติการขาย"
+    posSubTab = "new";
+    updatePosSubTabUI();
     sections.pos.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
