@@ -2915,6 +2915,8 @@ function buildDataTable(columns, dataRows, opts) {
   let posHistoryShowAll = true;
   // แท็บย่อยหน้าขายสินค้า: "new" = ฟอร์มออกบิลใหม่/แก้ไขบิล, "history" = ประวัติการขาย (แยกกันไม่ต้องเลื่อนผ่านฟอร์มยาวๆ)
   let posSubTab = "new";
+  // บิลที่ติ๊กเลือกไว้ในตารางประวัติการขาย (สำหรับทำรายการหลายบิลพร้อมกัน เช่น เปลี่ยนสถานะชำระเงิน/พิมพ์ PDF/ลบ)
+  let posHistorySelectedIds = new Set();
   let customerHistorySearch = "";
   let billingStatementSelectedIds = new Set();
   const refs = {};
@@ -3492,9 +3494,35 @@ function buildDataTable(columns, dataRows, opts) {
     );
     const historySummary = el("div", { class: "totals-line" });
     refs.posHistorySummary = historySummary;
+    const bulkCountLabel = el("span", { text: "" });
+    const historyBulkBar = el(
+      "div",
+      { class: "edit-banner", style: { display: "none" } },
+      bulkCountLabel,
+      el(
+        "div",
+        { style: { display: "flex", gap: "6px" } },
+        el("button", { class: "btn btn-sm", onClick: openBulkMarkPaidModal }, "เปลี่ยนสถานะชำระเงิน"),
+        el("button", { class: "btn btn-sm", onClick: bulkDownloadReceiptsPdf }, "พิมพ์/ดาวน์โหลด PDF"),
+        el("button", { class: "btn btn-sm btn-danger", onClick: bulkDeleteSalesPOS }, "ลบ"),
+        el(
+          "button",
+          {
+            class: "btn btn-sm btn-ghost",
+            onClick: () => {
+              posHistorySelectedIds.clear();
+              renderPosSalesHistory();
+            },
+          },
+          "ยกเลิกการเลือก"
+        )
+      )
+    );
+    refs.posHistoryBulkBar = historyBulkBar;
+    refs.posHistoryBulkCountLabel = bulkCountLabel;
     const historyPanel = panel(
       "ประวัติการขาย (แก้ไขบิลย้อนหลังได้)",
-      el("div", {}, historyToolbar, historySummary, historyTableContainer)
+      el("div", {}, historyToolbar, historyBulkBar, historySummary, historyTableContainer)
     );
     refs.posHistoryContainer = historyPanel;
     sec.appendChild(historyPanel);
@@ -3619,12 +3647,28 @@ function buildDataTable(columns, dataRows, opts) {
         (totalShipping ? ` (ค่าส่งรวม ${money(totalShipping)} บาท)` : "");
     }
 
+    const visibleIds = new Set(sales.map((s) => s.id));
+    Array.from(posHistorySelectedIds).forEach((id) => {
+      if (!visibleIds.has(id)) posHistorySelectedIds.delete(id);
+    });
+
+    const selectAllChk = el("input", {
+      type: "checkbox",
+      title: "เลือกทั้งหมด",
+      checked: sales.length > 0 && sales.every((s) => posHistorySelectedIds.has(s.id)),
+      onChange: (e) => {
+        if (e.target.checked) sales.forEach((s) => posHistorySelectedIds.add(s.id));
+        else sales.forEach((s) => posHistorySelectedIds.delete(s.id));
+        renderPosSalesHistory();
+      },
+    });
     const thead = el(
       "thead",
       {},
       el(
         "tr",
         {},
+        el("th", {}, selectAllChk),
         el("th", { text: "เลขที่บิล" }),
         el("th", { text: "วันที่" }),
         el("th", { text: "ลูกค้า" }),
@@ -3638,11 +3682,24 @@ function buildDataTable(columns, dataRows, opts) {
     const tbody = el("tbody", {});
 
     if (sales.length === 0) {
-      tbody.appendChild(el("tr", {}, el("td", { colspan: 8, class: "empty", text: "ไม่มีข้อมูล" })));
+      tbody.appendChild(el("tr", {}, el("td", { colspan: 9, class: "empty", text: "ไม่มีข้อมูล" })));
     }
 
     sales.forEach((s) => {
       const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
+      const selectCell = el(
+        "td",
+        {},
+        el("input", {
+          type: "checkbox",
+          checked: posHistorySelectedIds.has(s.id),
+          onChange: (e) => {
+            if (e.target.checked) posHistorySelectedIds.add(s.id);
+            else posHistorySelectedIds.delete(s.id);
+            renderPosSalesHistory();
+          },
+        })
+      );
       const actionsCell = el(
         "td",
         { class: "actions-cell" },
@@ -3694,6 +3751,7 @@ function buildDataTable(columns, dataRows, opts) {
       const tr = el(
         "tr",
         {},
+        selectCell,
         saleNoCell,
         el("td", { text: fmtDate(s.date) }),
         el("td", {
@@ -3715,6 +3773,124 @@ function buildDataTable(columns, dataRows, opts) {
 
     const table = el("table", { class: "data-table" }, thead, tbody);
     container.appendChild(table);
+
+    if (refs.posHistoryBulkBar) {
+      const n = posHistorySelectedIds.size;
+      refs.posHistoryBulkBar.style.display = n > 0 ? "flex" : "none";
+      if (refs.posHistoryBulkCountLabel) refs.posHistoryBulkCountLabel.textContent = `เลือกไว้ ${n} บิล`;
+    }
+  }
+
+  // ==================================================== ทำรายการหลายบิลพร้อมกันจากตารางประวัติการขาย (เปลี่ยนสถานะชำระเงิน/พิมพ์-ดาวน์โหลด PDF/ลบ)
+  function openBulkMarkPaidModal() {
+    const sales = Array.from(posHistorySelectedIds)
+      .map((id) => DB.getSale(id))
+      .filter(Boolean);
+    const unpaidSales = sales.filter((s) => s.status !== "ชำระแล้ว");
+    if (unpaidSales.length === 0) {
+      global.alert("บิลที่เลือกไว้ชำระครบแล้วทุกบิล");
+      return;
+    }
+    const totalRemain = unpaidSales.reduce((sum, s) => sum + (s.total - s.paid), 0);
+    const methodSelect = selectInput(
+      [
+        { value: "เงินสด", label: "เงินสด" },
+        { value: "โอนเงิน", label: "โอนเงิน" },
+      ],
+      "เงินสด"
+    );
+    const accountSelect = buildBankAccountSelect();
+    const accountRow = formField("บัญชีที่รับโอน (ใช้บัญชีเดียวกันทุกบิลที่เลือก)", accountSelect);
+    function updateVis() {
+      accountRow.style.display = methodSelect.value === "โอนเงิน" ? "" : "none";
+    }
+    methodSelect.addEventListener("change", updateVis);
+    updateVis();
+    const skipNote = sales.length > unpaidSales.length ? ` (ข้ามบิลที่ชำระแล้ว ${sales.length - unpaidSales.length} บิล)` : "";
+    const form = el(
+      "div",
+      { class: "form-panel" },
+      el("p", { text: `เปลี่ยนสถานะเป็น "ชำระแล้ว" ให้ ${unpaidSales.length} บิล ยอดค้างชำระรวม ${money(totalRemain)} บาท${skipNote}` }),
+      formField("ชำระโดย", methodSelect),
+      accountRow
+    );
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          const method = methodSelect.value;
+          if (method === "โอนเงิน" && !accountSelect.value) {
+            global.alert("กรุณาเลือกบัญชีที่รับโอน");
+            return;
+          }
+          unpaidSales.forEach((s) => {
+            const remain = s.total - s.paid;
+            const splits = method === "โอนเงิน" && remain > 0 ? [{ account_id: Number(accountSelect.value), amount: remain }] : null;
+            DB.markSalePaid(s.id, method, splits);
+          });
+          closeModal();
+          posHistorySelectedIds.clear();
+          renderPosSalesHistory();
+          global.alert(`บันทึกสถานะชำระเงินให้ ${unpaidSales.length} บิลเรียบร้อยแล้ว`);
+        },
+      },
+      "บันทึก"
+    );
+    openModal("เปลี่ยนสถานะชำระเงินหลายบิล", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
+  }
+
+  async function bulkDownloadReceiptsPdf() {
+    const sales = Array.from(posHistorySelectedIds)
+      .map((id) => DB.getSale(id))
+      .filter(Boolean);
+    if (sales.length === 0) return;
+    if (!global.confirm(`ดาวน์โหลด PDF ใบเสร็จ ${sales.length} บิล? เบราว์เซอร์อาจถามอนุญาตดาวน์โหลดหลายไฟล์`)) return;
+    const shop = DB.getShopInfo();
+    for (const s of sales) {
+      const cust = s.customer_id ? DB.getCustomer(s.customer_id) : null;
+      const cartItems = s.items.map((it) => {
+        if (it.is_misc) {
+          return { code: "", name: `${it.name || ""} (ฝากซื้อ)`, qty: it.qty, unit_price: it.unit_price, unit: it.unit, note: it.note || "" };
+        }
+        const f = DB.getFabric(it.fabric_id);
+        return {
+          code: f ? f.code : "",
+          name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)",
+          qty: it.qty,
+          unit_price: it.unit_price,
+          unit: it.unit,
+          roll_id: it.roll_id || null,
+          fabric_id: it.fabric_id || null,
+          note: it.note || "",
+        };
+      });
+      const docType = s.payment_method === "เงินเชื่อ" ? "delivery" : "normal";
+      const doc = buildReceiptDoc(s, cust, shop, cartItems, docType, "th", "", false);
+      await downloadReceiptPdf(doc.html, `${s.sale_no}.pdf`);
+    }
+    global.alert(`ดาวน์โหลด PDF ครบ ${sales.length} บิลแล้ว`);
+  }
+
+  function bulkDeleteSalesPOS() {
+    const sales = Array.from(posHistorySelectedIds)
+      .map((id) => DB.getSale(id))
+      .filter(Boolean);
+    if (sales.length === 0) return;
+    const totalAmt = sales.reduce((sum, s) => sum + s.total, 0);
+    if (
+      !global.confirm(
+        `ยืนยันลบ ${sales.length} บิล (ยอดรวม ${money(totalAmt)} บาท)? สต็อกและยอดค้างชำระ (ถ้ามี) จะถูกคืนกลับให้อัตโนมัติ`
+      )
+    )
+      return;
+    sales.forEach((s) => {
+      if (editingSaleId === s.id) cancelEditSalePOS();
+      DB.deleteSale(s.id);
+    });
+    posHistorySelectedIds.clear();
+    renderPosSalesHistory();
+    global.alert(`ลบ ${sales.length} บิลเรียบร้อยแล้ว`);
   }
 
   function deleteSalePOS(saleId) {
