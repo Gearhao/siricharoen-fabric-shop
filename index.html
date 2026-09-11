@@ -2869,7 +2869,8 @@ function buildDataTable(columns, dataRows, opts) {
       const widthMm = pxToMm(canvas.width / 2) + 10;
       const heightMm = pxToMm(canvas.height / 2) + 10;
       const { jsPDF } = global.jspdf;
-      const doc = new jsPDF({ unit: "mm", format: [widthMm, heightMm], orientation: "portrait" });
+      const orientation = widthMm > heightMm ? "landscape" : "portrait";
+      const doc = new jsPDF({ unit: "mm", format: [widthMm, heightMm], orientation });
       doc.addImage(imgData, "JPEG", 5, 5, widthMm - 10, heightMm - 10);
       doc.save(filename);
     } catch (e) {
