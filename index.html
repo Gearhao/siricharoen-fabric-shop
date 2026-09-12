@@ -394,6 +394,7 @@ html, body {
 }
 
 .subtabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.subtabs.pos-subtabs { justify-content: flex-end; }
 .subtabs .tab-btn { border: 1px solid var(--border); border-radius: 6px; background: #fff; }
 .subtabs .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
@@ -3371,7 +3372,8 @@ function buildDataTable(columns, dataRows, opts) {
     const newSaleContainer = el("div", { class: "pos-grid" }, right, left);
     refs.posNewSaleContainer = newSaleContainer;
 
-    const posSubTabsNav = el("div", { class: "subtabs" });
+    // จัดชิดขวาให้ตรงกับรายการสินค้าที่ย้ายไปฝั่งขวาแล้ว
+    const posSubTabsNav = el("div", { class: "subtabs pos-subtabs" });
     const posSubTabButtons = {};
     [
       ["new", "ออกบิลใหม่"],
