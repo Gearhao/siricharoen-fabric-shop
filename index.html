@@ -3335,6 +3335,7 @@ function buildDataTable(columns, dataRows, opts) {
 
     const checkoutBtn = el("button", { class: "btn btn-primary btn-block", onClick: checkout }, "ชำระเงิน / บันทึกบิล");
     refs.posCheckoutBtn = checkoutBtn;
+    left.appendChild(checkoutBtn);
 
     const right = el(
       "div",
@@ -3362,8 +3363,7 @@ function buildDataTable(columns, dataRows, opts) {
         formField("หมายเหตุ", noteInput)
       ),
       el("label", { class: "chk-label", style: { display: "block", marginTop: "3px" } }, vatChk, ` คิดภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%`),
-      el("div", { class: "totals-box" }, subtotalLbl, vatLbl, shippingLbl, totalLbl, changeLbl),
-      checkoutBtn
+      el("div", { class: "totals-box" }, subtotalLbl, vatLbl, shippingLbl, totalLbl, changeLbl)
     );
 
     // แท็บย่อย "ออกบิลใหม่" กับ "ประวัติการขาย" แยกกัน ไม่ต้องเลื่อนผ่านฟอร์มยาวๆไปหาประวัติด้านล่างอีก
