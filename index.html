@@ -287,7 +287,7 @@ html, body {
 }
 .pos-grid {
   display: grid;
-  grid-template-columns: 1.15fr 1fr;
+  grid-template-columns: 1fr 1.15fr;
   gap: 16px;
   padding: 18px 22px;
   max-width: 1500px;
@@ -3367,7 +3367,8 @@ function buildDataTable(columns, dataRows, opts) {
     );
 
     // แท็บย่อย "ออกบิลใหม่" กับ "ประวัติการขาย" แยกกัน ไม่ต้องเลื่อนผ่านฟอร์มยาวๆไปหาประวัติด้านล่างอีก
-    const newSaleContainer = el("div", { class: "pos-grid" }, left, right);
+        // สลับด้าน: ย้ายรายการสินค้า (pos-left) ไปแสดงทางขวา และฟอร์มลูกค้า/ชำระเงิน (pos-right) มาทางซ้ายแทน
+    const newSaleContainer = el("div", { class: "pos-grid" }, right, left);
     refs.posNewSaleContainer = newSaleContainer;
 
     const posSubTabsNav = el("div", { class: "subtabs" });
