@@ -3190,10 +3190,7 @@ function buildDataTable(columns, dataRows, opts) {
     refs.posEditBanner = editBanner;
     refs.posEditBannerLabel = editBannerLabel;
 
-    const left = el(
-      "div",
-      { class: "pos-left" },
-      // หัวข้อ "รายการสินค้า" + ช่องติ๊กภาษีมูลค่าเพิ่ม (ย้ายมาไว้ต่อท้ายหัวข้อนี้แทนฝั่งฟอร์ม) วางแถวเดียวกัน
+    // หัวข้อ "รายการสินค้า" + ช่องติ๊กภาษีมูลค่าเพิ่ม (ย้ายมาไว้ต่อท้ายหัวข้อนี้แทนฝั่งฟอร์ม) วางแถวเดียวกัน
     const itemsHeaderRow = el(
       "div",
       { style: { display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" } },
