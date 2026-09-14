@@ -3193,7 +3193,18 @@ function buildDataTable(columns, dataRows, opts) {
     const left = el(
       "div",
       { class: "pos-left" },
-      el("h3", { text: "รายการสินค้า" }),
+      // หัวข้อ "รายการสินค้า" + ช่องติ๊กภาษีมูลค่าเพิ่ม (ย้ายมาไว้ต่อท้ายหัวข้อนี้แทนฝั่งฟอร์ม) วางแถวเดียวกัน
+    const itemsHeaderRow = el(
+      "div",
+      { style: { display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" } },
+      el("h3", { style: { margin: 0 }, text: "รายการสินค้า" })
+    );
+    refs.posItemsHeaderRow = itemsHeaderRow;
+
+    const left = el(
+      "div",
+      { class: "pos-left" },
+      itemsHeaderRow,
       editBanner,
       itemsTableContainer,
       addRowBtn,
@@ -3322,6 +3333,10 @@ function buildDataTable(columns, dataRows, opts) {
 
     const vatChk = el("input", { type: "checkbox", checked: false, onChange: updatePosTotals });
     refs.posVatChk = vatChk;
+    // ย้ายช่องติ๊กภาษีมูลค่าเพิ่มมาไว้ต่อท้ายคำว่า "รายการสินค้า" ตามที่ขอ
+    itemsHeaderRow.appendChild(
+      el("label", { class: "chk-label", style: { margin: 0, fontWeight: "normal" } }, vatChk, ` คิดภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%`)
+    );
 
     const subtotalLbl = el("div", { class: "totals-line", text: "ยอดรวมก่อนภาษี: 0.00 บาท" });
     refs.posSubtotalLbl = subtotalLbl;
@@ -3363,7 +3378,6 @@ function buildDataTable(columns, dataRows, opts) {
         accountSplitRow,
         formField("หมายเหตุ", noteInput)
       ),
-      el("label", { class: "chk-label", style: { display: "block", marginTop: "3px" } }, vatChk, ` คิดภาษีมูลค่าเพิ่ม ${Math.round(VAT_RATE * 100)}%`),
       el("div", { class: "totals-box" }, subtotalLbl, vatLbl, shippingLbl, totalLbl, changeLbl)
     );
 
