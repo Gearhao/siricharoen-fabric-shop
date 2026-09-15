@@ -2509,8 +2509,8 @@ if (typeof module !== "undefined") {
     while (node.firstChild) node.removeChild(node.firstChild);
   }
 
-  function formField(labelText, inputEl) {
-    return el("div", { class: "form-row" }, el("label", { text: labelText }), inputEl);
+  function formField(labelText, inputEl, labelStyle) {
+    return el("div", { class: "form-row" }, el("label", { text: labelText, style: labelStyle || null }), inputEl);
   }
   function textInput(value) {
     return el("input", { type: "text", value: value === undefined || value === null ? "" : String(value) });
@@ -3365,7 +3365,8 @@ function buildDataTable(columns, dataRows, opts) {
           "div",
           { class: "form-grid" },
           formField("วันที่บิล", saleDateInput),
-          formField("ส่วนลด", discountRow),
+          // ทำตัวหนังสือ "ส่วนลด" เป็นสีแดง กันสับสน/กรอกผิดกับ "ค่าจัดส่ง" ที่อยู่ข้างกัน
+          formField("ส่วนลด", discountRow, { color: "var(--danger)", fontWeight: "700" }),
           formField("ค่าจัดส่ง (บาท)", shippingFeeInput),
           formField("วิธีจัดส่ง", shippingMethodInput),
           formField("วันที่ครบกำหนดชำระเงิน", dueDateInput),
