@@ -3649,10 +3649,18 @@ function buildDataTable(columns, dataRows, opts) {
     }
     const historyQ = posHistorySearch.trim().toLowerCase();
     if (historyQ) {
-      sales = sales.filter((s) => {
+      // ถ้าพิมพ์ชื่อลูกค้าตรงเป๊ะกับที่มีอยู่จริง (เช่น "คุณน้อย") ให้โชว์เฉพาะชื่อที่ตรงเป๊ะเท่านั้น
+      // กันปัญหาชื่อคล้ายกันที่ขึ้นต้นเหมือนกัน เช่น "คุณน้อย" กับ "คุณน้อย (คุณปุณ)" ที่ค้นหาแบบ includes เดิมจะโชว์มาทั้งคู่
+      const hasExactNameMatch = sales.some((s) => {
         const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
         const custName = c ? c.name : "ลูกค้าทั่วไป";
-        return (s.sale_no || "").toLowerCase().includes(historyQ) || custName.toLowerCase().includes(historyQ);
+        return custName.trim().toLowerCase() === historyQ;
+      });
+      sales = sales.filter((s) => {
+        const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
+        const custName = (c ? c.name : "ลูกค้าทั่วไป").trim().toLowerCase();
+        if ((s.sale_no || "").toLowerCase().includes(historyQ)) return true;
+        return hasExactNameMatch ? custName === historyQ : custName.includes(historyQ);
       });
     }
     if (refs.posHistorySummary) {
