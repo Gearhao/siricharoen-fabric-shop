@@ -7036,6 +7036,8 @@ function buildDataTable(columns, dataRows, opts) {
   let purchaseDateTo = "";
   let purchaseShowAll = false;
   let purchasePaymentFilter = "";
+  // ใบที่ติ๊กเลือกไว้ในตารางรับสินค้าเข้า (สำหรับบันทึกจ่ายเงินหลายใบพร้อมกัน)
+  let purchaseSelectedIds = new Set();
 
   function renderPurchases() {
     const sec = sections.purchases;
@@ -7132,9 +7134,33 @@ function buildDataTable(columns, dataRows, opts) {
     );
     const summary = el("div", { class: "totals-line" });
     refs.purchaseSummary = summary;
+    const bulkCountLabel = el("span", { text: "" });
+    const purchaseBulkBar = el(
+      "div",
+      { class: "edit-banner", style: { display: "none" } },
+      bulkCountLabel,
+      el(
+        "div",
+        { style: { display: "flex", gap: "6px" } },
+        el("button", { class: "btn btn-sm", onClick: openBulkPayPurchaseModal }, "บันทึกจ่ายเงินหลายใบ"),
+        el(
+          "button",
+          {
+            class: "btn btn-sm",
+            onClick: () => {
+              purchaseSelectedIds.clear();
+              renderPurchaseTable();
+            },
+          },
+          "ยกเลิกการเลือก"
+        )
+      )
+    );
+    refs.purchaseBulkBar = purchaseBulkBar;
+    refs.purchaseBulkCountLabel = bulkCountLabel;
     const tableContainer = el("div", { class: "table-container" });
     refs.purchaseTableContainer = tableContainer;
-    sec.appendChild(el("div", { class: "section-inner" }, toolbar, summary, tableContainer));
+    sec.appendChild(el("div", { class: "section-inner" }, toolbar, purchaseBulkBar, summary, tableContainer));
     renderPurchaseTable();
   }
 
@@ -7165,6 +7191,12 @@ function buildDataTable(columns, dataRows, opts) {
       const totalAmount = purchases.reduce((sum, p) => sum + p.total, 0);
       refs.purchaseSummary.textContent = `รวม ${purchases.length} ใบ ยอดรวม ${money(totalAmount)} บาท`;
     }
+
+    // ตัดรายการที่ติ๊กเลือกไว้แต่ไม่อยู่ในผลลัพธ์ที่กรองอยู่ตอนนี้ทิ้ง กันค้างเลือกใบที่มองไม่เห็น
+    const visiblePurchaseIds = new Set(purchases.map((p) => p.id));
+    Array.from(purchaseSelectedIds).forEach((id) => {
+      if (!visiblePurchaseIds.has(id)) purchaseSelectedIds.delete(id);
+    });
     const rows = purchases.map((p) => {
       const s = DB.getSupplier(p.supplier_id);
       return [
@@ -7184,6 +7216,20 @@ function buildDataTable(columns, dataRows, opts) {
       {
         cellStyle: (row, ci, colName) =>
           colName === "สถานะชำระเงิน" && row[ci] === "ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : null,
+        checkbox: {
+          isChecked: (idx) => purchaseSelectedIds.has(purchases[idx].id),
+          onToggle: (idx, checked) => {
+            const id = purchases[idx].id;
+            if (checked) purchaseSelectedIds.add(id);
+            else purchaseSelectedIds.delete(id);
+            renderPurchaseTable();
+          },
+          onSelectAll: (checked) => {
+            if (checked) purchases.forEach((p) => purchaseSelectedIds.add(p.id));
+            else purchases.forEach((p) => purchaseSelectedIds.delete(p.id));
+            renderPurchaseTable();
+          },
+        },
         actions: (idx) => {
           const p = purchases[idx];
           const actions = [{ label: "ดูรายการ", onClick: () => openPurchaseItemsModal(p.id) }];
@@ -7231,6 +7277,12 @@ function buildDataTable(columns, dataRows, opts) {
       }
     );
     container.appendChild(table);
+
+    if (refs.purchaseBulkBar) {
+      const n = purchaseSelectedIds.size;
+      refs.purchaseBulkBar.style.display = n > 0 ? "flex" : "none";
+      if (refs.purchaseBulkCountLabel) refs.purchaseBulkCountLabel.textContent = `เลือกไว้ ${n} ใบ`;
+    }
   }
 
   function openPurchaseModal(editPurchaseId) {
@@ -7622,6 +7674,69 @@ function buildDataTable(columns, dataRows, opts) {
       el("div", { text: `ยอดรวมสุทธิ: ${money(p.total)} บาท`, style: { fontWeight: "600" } })
     );
     openModal(`รายการสินค้าในใบสั่งซื้อ ${p.po_no}`, el("div", {}, meta, table, totalsBlock), { wide: true });
+  }
+
+  // ==================================================== บันทึกจ่ายเงินหลายใบพร้อมกันจากตารางรับสินค้าเข้า
+  function openBulkPayPurchaseModal() {
+    const purchases = Array.from(purchaseSelectedIds)
+      .map((id) => DB.getPurchase(id))
+      .filter(Boolean);
+    const unpaidPurchases = purchases.filter((p) => p.paid < p.total);
+    if (unpaidPurchases.length === 0) {
+      global.alert("ใบที่เลือกไว้ชำระครบแล้วทุกใบ");
+      return;
+    }
+    const totalRemain = unpaidPurchases.reduce((sum, p) => sum + (p.total - p.paid), 0);
+    const methodSelect = selectInput(
+      [
+        { value: "เงินสด", label: "เงินสด" },
+        { value: "โอนเงิน", label: "โอนเงิน" },
+      ],
+      "เงินสด"
+    );
+    const accountSelect = buildBankAccountSelect();
+    const accountRow = formField("จ่ายจากบัญชี (ใช้บัญชีเดียวกันทุกใบที่เลือก)", accountSelect);
+    function updateVis() {
+      accountRow.style.display = methodSelect.value === "โอนเงิน" ? "" : "none";
+    }
+    methodSelect.addEventListener("change", updateVis);
+    updateVis();
+    const skipNote =
+      purchases.length > unpaidPurchases.length ? ` (ข้ามใบที่ชำระแล้ว ${purchases.length - unpaidPurchases.length} ใบ)` : "";
+    const form = el(
+      "div",
+      { class: "form-panel" },
+      el("p", { text: `บันทึกจ่ายเงินให้ ${unpaidPurchases.length} ใบ ยอดค้างชำระรวม ${money(totalRemain)} บาท${skipNote}` }),
+      formField("จ่ายโดย", methodSelect),
+      accountRow
+    );
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          const method = methodSelect.value;
+          if (method === "โอนเงิน" && !accountSelect.value) {
+            global.alert("กรุณาเลือกบัญชีที่จ่ายเงิน");
+            return;
+          }
+          unpaidPurchases.forEach((p) => {
+            const remain = p.total - p.paid;
+            const splits = method === "โอนเงิน" && remain > 0 ? [{ account_id: Number(accountSelect.value), amount: remain }] : null;
+            DB.payPurchase(p.id, remain, method, splits);
+            if (p.payment_method === "เงินเชื่อ") {
+              DB.paySupplierCredit(p.supplier_id, remain, "เงินสด", `ชำระตาม PO ${p.po_no}`);
+            }
+          });
+          closeModal();
+          purchaseSelectedIds.clear();
+          renderPurchaseTable();
+          global.alert(`บันทึกจ่ายเงินให้ ${unpaidPurchases.length} ใบเรียบร้อยแล้ว`);
+        },
+      },
+      "บันทึก"
+    );
+    openModal("บันทึกจ่ายเงินหลายใบ", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
   }
 
   function openPurchasePayModal(pid) {
