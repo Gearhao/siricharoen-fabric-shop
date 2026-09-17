@@ -347,8 +347,17 @@ html, body {
 .pos-item-row td { border-bottom: none; padding-bottom: 0; }
 .pos-item-note-row td { background: #faf9fb; padding: 0 4px 2px; line-height: 0; }
 .pos-item-note-row input { width: 60%; box-sizing: border-box; padding: 1px 6px; font-size: 12.5px; line-height: 1.3; border: 1px solid var(--border); vertical-align: top; }
-.search-select { display: block; width: 100%; }
+.search-select { display: block; width: 100%; position: relative; }
 .search-select input { width: 100%; box-sizing: border-box; }
+.search-select-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; margin-top: 2px;
+  background: #fff; border: 1px solid var(--border); border-radius: 6px;
+  max-height: 220px; overflow-y: auto; z-index: 50;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+.search-select-option { padding: 6px 10px; cursor: pointer; font-size: 13px; color: var(--text); }
+.search-select-option.active { background: var(--primary); color: #fff; }
+.search-select-more { padding: 6px 10px; font-size: 12px; color: #888; font-style: italic; }
 
 .form-panel { margin-top: 10px; }
 .form-row {
@@ -2625,27 +2634,114 @@ if (typeof module !== "undefined") {
     return { container, addBtn, getSplits, getTotal, reset, setSplits, syncAmountIfSingle };
   }
 
-  // ช่องเลือกแบบพิมพ์ค้นหาได้ (input + datalist) ใช้แทน select เมื่ออยากให้พิมพ์กรองตัวเลือกได้
+  // ช่องเลือกแบบพิมพ์ค้นหาได้ ใช้แทน select เมื่ออยากให้พิมพ์กรองตัวเลือกได้
   // ช่องเสิร์ชแบบพิมพ์ค้นหา: ค่าที่เลือกอยู่จะโชว์เป็นตัวจางๆ (placeholder) แทนการใส่เป็นข้อความจริงในช่อง
   // เพื่อให้พิมพ์ค้นหาต่อได้เลยโดยไม่ต้องลบข้อความเดิมออกก่อน
+  // หมายเหตุ: เดิมใช้ input + <datalist> ให้เบราว์เซอร์กรองผลลัพธ์เอง แต่พอรายการเยอะระดับหลักพัน
+  // (เช่น รายการผ้าที่มีเป็นพันรายการ) เบราว์เซอร์กรองได้ไม่แม่นยำ/ไม่กรองให้เลย จึงเปลี่ยนมากรองเองด้วย JS แทน
   function searchSelectInput(options, selectedValue, placeholder) {
-    const listId = "dl_" + Math.random().toString(36).slice(2, 10);
-    const datalist = el("datalist", { id: listId });
     const byLabel = new Map();
     options.forEach((o) => {
       if (!o.value) return;
-      datalist.appendChild(el("option", { value: o.label }));
       byLabel.set(o.label, o.value);
     });
     const defaultPlaceholder = placeholder || "พิมพ์เพื่อค้นหา...";
-    const selectedOpt = options.find((o) => o.value === String(selectedValue));
+    const selectedOpt = options.find((o) => o.value && o.value === String(selectedValue));
     const input = el("input", {
       type: "text",
-      list: listId,
+      autocomplete: "off",
       placeholder: selectedOpt ? selectedOpt.label : defaultPlaceholder,
       value: "",
     });
-    const wrap = el("span", { class: "search-select" }, input, datalist);
+    const dropdown = el("div", { class: "search-select-dropdown", style: { display: "none" } });
+    const wrap = el("span", { class: "search-select" }, input, dropdown);
+
+    const MAX_RESULTS = 50;
+    let filtered = [];
+    let highlightIdx = -1;
+
+    function renderDropdown() {
+      clear(dropdown);
+      if (filtered.length === 0) {
+        dropdown.style.display = "none";
+        return;
+      }
+      filtered.slice(0, MAX_RESULTS).forEach((o, i) => {
+        dropdown.appendChild(
+          el(
+            "div",
+            {
+              class: "search-select-option" + (i === highlightIdx ? " active" : ""),
+              text: o.label,
+              onMouseDown: (e) => {
+                e.preventDefault();
+                selectOption(o);
+              },
+              onMouseEnter: () => {
+                highlightIdx = i;
+                renderDropdown();
+              },
+            }
+          )
+        );
+      });
+      if (filtered.length > MAX_RESULTS) {
+        dropdown.appendChild(el("div", { class: "search-select-more", text: `พบ ${filtered.length} รายการ พิมพ์เพิ่มเพื่อจำกัดผลลัพธ์` }));
+      }
+      dropdown.style.display = "block";
+    }
+
+    function selectOption(o) {
+      input.value = o.label;
+      filtered = [];
+      highlightIdx = -1;
+      dropdown.style.display = "none";
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    function updateFilter() {
+      const q = input.value.trim().toLowerCase();
+      if (!q) {
+        filtered = [];
+        highlightIdx = -1;
+        renderDropdown();
+        return;
+      }
+      filtered = options.filter((o) => o.value && o.label.toLowerCase().includes(q));
+      highlightIdx = filtered.length > 0 ? 0 : -1;
+      renderDropdown();
+    }
+
+    input.addEventListener("input", updateFilter);
+    input.addEventListener("focus", () => {
+      if (input.value.trim()) updateFilter();
+    });
+    input.addEventListener("keydown", (e) => {
+      if (filtered.length === 0) return;
+      const shown = Math.min(filtered.length, MAX_RESULTS);
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        highlightIdx = Math.min(highlightIdx + 1, shown - 1);
+        renderDropdown();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        highlightIdx = Math.max(highlightIdx - 1, 0);
+        renderDropdown();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (highlightIdx >= 0 && filtered[highlightIdx]) selectOption(filtered[highlightIdx]);
+      } else if (e.key === "Escape") {
+        filtered = [];
+        highlightIdx = -1;
+        dropdown.style.display = "none";
+      }
+    });
+    input.addEventListener("blur", () => {
+      setTimeout(() => {
+        dropdown.style.display = "none";
+      }, 150);
+    });
+
     wrap.getMatchedValue = () => {
       const v = input.value.trim();
       if (!v) return "";
