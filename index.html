@@ -2682,6 +2682,12 @@ if (typeof module !== "undefined") {
       global.removeEventListener("resize", onScrollOrResize, true);
     }
 
+    function updateHighlightClasses() {
+      Array.from(dropdown.children).forEach((child, i) => {
+        child.classList.toggle("active", i === highlightIdx);
+      });
+    }
+
     function renderDropdown() {
       clear(dropdown);
       if (filtered.length === 0) {
@@ -2701,7 +2707,7 @@ if (typeof module !== "undefined") {
               },
               onMouseEnter: () => {
                 highlightIdx = i;
-                renderDropdown();
+                updateHighlightClasses();
               },
             }
           )
