@@ -2730,6 +2730,9 @@ if (typeof module !== "undefined") {
       filtered = [];
       highlightIdx = -1;
       closeDropdown();
+      // เอาโฟกัสออกจากช่องก่อนยิง change เผื่อโค้ดที่ทำงานต่อ (เช่น สร้างตารางใหม่) ไปลบ
+      // input ตัวนี้ทิ้ง ถ้ายังโฟกัสอยู่ตอนถูกลบจะเกิด blur ซ้อนขึ้นมาแทรกกลางการลบโหนด
+      input.blur();
       input.dispatchEvent(new Event("change", { bubbles: true }));
     }
 
