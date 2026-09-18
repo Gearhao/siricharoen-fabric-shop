@@ -350,9 +350,8 @@ html, body {
 .search-select { display: block; width: 100%; position: relative; }
 .search-select input { width: 100%; box-sizing: border-box; }
 .search-select-dropdown {
-  position: absolute; top: 100%; left: 0; right: 0; margin-top: 2px;
   background: #fff; border: 1px solid var(--border); border-radius: 6px;
-  max-height: 220px; overflow-y: auto; z-index: 50;
+  max-height: 220px; overflow-y: auto; z-index: 5000;
   box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
 .search-select-option { padding: 6px 10px; cursor: pointer; font-size: 13px; color: var(--text); }
@@ -2653,17 +2652,40 @@ if (typeof module !== "undefined") {
       placeholder: selectedOpt ? selectedOpt.label : defaultPlaceholder,
       value: "",
     });
-    const dropdown = el("div", { class: "search-select-dropdown", style: { display: "none" } });
-    const wrap = el("span", { class: "search-select" }, input, dropdown);
+    // ดรอปดาวน์ผลลัพธ์: แนบเข้ากับ document.body โดยตรง (แบบ "พอร์ทัล") แทนที่จะซ้อนอยู่ใน
+    // span ของช่องนี้ตามปกติ เพราะช่องนี้มักถูกใช้อยู่ในตารางที่เลื่อน (overflow) ได้ เช่น
+    // รายการสินค้าในหน้าขายสินค้า ถ้าแนบดรอปดาวน์ไว้ข้างในตารางที่เลื่อนได้ ส่วนที่ยื่นออกมา
+    // จะถูกครอบตัด (clip) โดยกรอบเลื่อนของตาราง ทำให้กดเลือกรายการที่ปรากฏไม่ติด (คลิกไป
+    // โดนตารางด้านหลังแทน) - นี่คือสาเหตุของปัญหาที่กดเลือกผ้าจากรายการที่ปรากฏไม่ได้
+    const dropdown = el("div", { class: "search-select-dropdown", style: { display: "none", position: "fixed" } });
+    const wrap = el("span", { class: "search-select" }, input);
 
     const MAX_RESULTS = 50;
     let filtered = [];
     let highlightIdx = -1;
 
+    function positionDropdown() {
+      const r = input.getBoundingClientRect();
+      dropdown.style.left = r.left + "px";
+      dropdown.style.top = r.bottom + 2 + "px";
+      dropdown.style.width = r.width + "px";
+    }
+
+    function onScrollOrResize() {
+      closeDropdown();
+    }
+
+    function closeDropdown() {
+      dropdown.style.display = "none";
+      if (dropdown.parentNode) dropdown.parentNode.removeChild(dropdown);
+      global.removeEventListener("scroll", onScrollOrResize, true);
+      global.removeEventListener("resize", onScrollOrResize, true);
+    }
+
     function renderDropdown() {
       clear(dropdown);
       if (filtered.length === 0) {
-        dropdown.style.display = "none";
+        closeDropdown();
         return;
       }
       filtered.slice(0, MAX_RESULTS).forEach((o, i) => {
@@ -2688,14 +2710,20 @@ if (typeof module !== "undefined") {
       if (filtered.length > MAX_RESULTS) {
         dropdown.appendChild(el("div", { class: "search-select-more", text: `พบ ${filtered.length} รายการ พิมพ์เพิ่มเพื่อจำกัดผลลัพธ์` }));
       }
+      positionDropdown();
       dropdown.style.display = "block";
+      if (!dropdown.parentNode) {
+        global.document.body.appendChild(dropdown);
+        global.addEventListener("scroll", onScrollOrResize, true);
+        global.addEventListener("resize", onScrollOrResize, true);
+      }
     }
 
     function selectOption(o) {
       input.value = o.label;
       filtered = [];
       highlightIdx = -1;
-      dropdown.style.display = "none";
+      closeDropdown();
       input.dispatchEvent(new Event("change", { bubbles: true }));
     }
 
@@ -2733,12 +2761,12 @@ if (typeof module !== "undefined") {
       } else if (e.key === "Escape") {
         filtered = [];
         highlightIdx = -1;
-        dropdown.style.display = "none";
+        closeDropdown();
       }
     });
     input.addEventListener("blur", () => {
       setTimeout(() => {
-        dropdown.style.display = "none";
+        closeDropdown();
       }, 150);
     });
 
