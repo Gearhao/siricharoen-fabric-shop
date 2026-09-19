@@ -9055,6 +9055,8 @@ function buildDataTable(columns, dataRows, opts) {
     );
     const expenseTableContainer = el("div", { class: "table-container" });
     refs.acctExpenseContainer = expenseTableContainer;
+    const expenseChartContainer = el("div", { style: { marginBottom: "14px" } });
+    refs.acctExpenseChartContainer = expenseChartContainer;
 
     const arContainer = el("div", { class: "table-container" });
     const apContainer = el("div", { class: "table-container" });
@@ -9074,7 +9076,7 @@ function buildDataTable(columns, dataRows, opts) {
       "div",
       { class: "dash-grid" },
       panel("บัญชีธนาคาร / เงินสด", el("div", {}, bankToolbar, bankTableContainer)),
-      panel("รายจ่าย", el("div", {}, expenseToolbar, expenseTableContainer)),
+      panel("รายจ่าย", el("div", {}, expenseToolbar, expenseChartContainer, expenseTableContainer)),
       panel(
         "ลูกหนี้ / เจ้าหนี้การค้า",
         el(
@@ -9093,6 +9095,50 @@ function buildDataTable(columns, dataRows, opts) {
     refreshBankAccountsTable();
   }
 
+  // สร้าง HTML กราฟวงกลม (โดนัท) + ตารางสรุปสัดส่วนรายจ่ายแยกตามหมวดหมู่ ใช้ SVG วาดเอง ไม่ต้องพึ่งไลบรารีกราฟภายนอก
+  // rows: [{ name, amount }] ที่รวมยอดต่อหมวดหมู่ไว้แล้ว เรียงจากมากไปน้อย
+  function buildExpenseCategoryChartHtml(rows) {
+    const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const total = rows.reduce((s, r) => s + r.amount, 0);
+    if (!rows.length || total <= 0) {
+      return '<p style="color:#888;font-size:13px;margin:0 0 8px;">ไม่มีรายจ่ายในช่วงที่เลือก</p>';
+    }
+    const palette = ["#2c6e9b", "#e08e45", "#4caf7d", "#c25b5b", "#8a6fc2", "#d4b74a", "#5aa7c2", "#c27ba0", "#7b9e3f", "#b5651d", "#5f6caf", "#c0392b"];
+    const cx = 90, cy = 90, r = 80;
+    let angleStart = -90;
+    const toXY = (deg) => {
+      const rad = (deg * Math.PI) / 180;
+      return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+    };
+    let pathsHtml = "";
+    const legendHtml = rows
+      .map((row, i) => {
+        const pct = row.amount / total;
+        const angle = pct * 360;
+        const angleEnd = angleStart + angle;
+        const color = palette[i % palette.length];
+        if (rows.length === 1) {
+          pathsHtml += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}"/>`;
+        } else {
+          const large = angle > 180 ? 1 : 0;
+          const [x1, y1] = toXY(angleStart);
+          const [x2, y2] = toXY(angleEnd);
+          pathsHtml += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${color}"/>`;
+        }
+        angleStart = angleEnd;
+        return `<div style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;">
+          <span style="width:11px;height:11px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block;"></span>
+          <span style="flex:1;">${esc(row.name)}</span>
+          <span style="font-weight:600;">${money(row.amount)}</span>
+          <span style="color:#888;width:48px;text-align:right;">${(pct * 100).toFixed(1)}%</span>
+        </div>`;
+      })
+      .join("");
+    return `<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
+      <svg viewBox="0 0 180 180" width="180" height="180" style="flex-shrink:0;">${pathsHtml}</svg>
+      <div style="flex:1;min-width:220px;">${legendHtml}</div>
+    </div>`;
+  }
   // คืนสีประจำธนาคาร (อิงจากสีแบรนด์ที่คุ้นตา) ให้กับชื่อธนาคารที่พิมพ์เอง ถ้าไม่ตรงกับธนาคารที่รู้จักจะคืน null (ใช้สีปกติ)
   function bankBrandColor(bankName) {
     const s = String(bankName || "").toLowerCase();
@@ -9353,6 +9399,17 @@ function buildDataTable(columns, dataRows, opts) {
 
     clear(refs.acctExpenseContainer);
     const expenses = DB.getExpenses(acctStart, acctEnd);
+    if (refs.acctExpenseChartContainer) {
+      const catTotals = {};
+      expenses.forEach((e) => {
+        const name = e.category || "ไม่ระบุหมวดหมู่";
+        catTotals[name] = (catTotals[name] || 0) + e.amount;
+      });
+      const catRows = Object.keys(catTotals)
+        .map((name) => ({ name, amount: catTotals[name] }))
+        .sort((a, b) => b.amount - a.amount);
+      refs.acctExpenseChartContainer.innerHTML = buildExpenseCategoryChartHtml(catRows);
+    }
     refs.acctExpenseContainer.appendChild(
       buildDataTable(
         ["วันที่", "หมวดหมู่", "รายละเอียด", "จำนวนเงิน", "จ่ายจากบัญชี"],
