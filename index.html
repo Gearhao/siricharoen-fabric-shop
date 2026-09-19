@@ -8041,7 +8041,7 @@ function buildDataTable(columns, dataRows, opts) {
 
   // =================================================================== รายการรอสินค้า
   let backorderSearch = "";
-  let backorderStatusFilter = "สินค้าหมด";
+  let backorderStatusFilter = "";
 
   function renderBackorders() {
     const sec = sections.backorders;
@@ -8110,7 +8110,7 @@ function buildDataTable(columns, dataRows, opts) {
       ]),
       {
         cellStyle: (row, ci, colName) => {
-          if (colName === "สถานะ" && (row[ci] === "สินค้าหมด" || row[ci] === "รอย้อม")) return { color: "var(--danger)", fontWeight: "600" };
+          if (colName === "สถานะ" && (row[ci] === "สินค้าหมด" || row[ci] === "รอย้อม" || row[ci] === "อื่นๆ")) return { color: "var(--danger)", fontWeight: "600" };
           if (colName === "สถานะ" && row[ci] === "เสร็จแล้ว") return { color: "var(--text-muted)" };
           return null;
         },
