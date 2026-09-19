@@ -1922,6 +1922,25 @@ function createDB(storageKey) {
   }
 
   // -------------------------------------------------------------- backorders (รายการรอสินค้า)
+  // แปลงข้อมูลผ้าที่ต้องการให้เป็น items array เสมอ รองรับทั้งแบบใหม่ (data.items หลายรายการ)
+  // และแบบเก่า (data.fabric_name/qty/unit เดี่ยวๆ) เผื่อโค้ดที่อื่นยังเรียกแบบเดิมอยู่
+  function normalizeBackorderItems(data) {
+    if (data && Array.isArray(data.items) && data.items.length) {
+      return data.items
+        .map((it) => ({ fabric_name: (it && it.fabric_name) || "", qty: (it && it.qty) || 0, unit: (it && it.unit) || "หลา" }))
+        .filter((it) => it.fabric_name);
+    }
+    if (data && data.fabric_name) {
+      return [{ fabric_name: data.fabric_name, qty: data.qty || 0, unit: data.unit || "หลา" }];
+    }
+    return [];
+  }
+  // ดึงรายการผ้าจาก backorder แบบรองรับข้อมูลเก่า (ที่ยังเก็บ fabric_name/qty/unit เดี่ยวๆ ไม่มี items)
+  function getBackorderItems(b) {
+    if (b && Array.isArray(b.items) && b.items.length) return b.items;
+    if (b && b.fabric_name) return [{ fabric_name: b.fabric_name, qty: b.qty || 0, unit: b.unit || "หลา" }];
+    return [];
+  }
   function addBackorder(data) {
     const item = {
       id: genId("backorder"),
@@ -1929,9 +1948,7 @@ function createDB(storageKey) {
       customer_id: (data && data.customer_id) || null,
       customer_name: (data && data.customer_name) || "",
       customer_phone: (data && data.customer_phone) || "",
-      fabric_name: (data && data.fabric_name) || "",
-      qty: (data && data.qty) || 0,
-      unit: (data && data.unit) || "หลา",
+      items: normalizeBackorderItems(data),
       status: (data && data.status) || "สินค้าหมด",
       note: (data && data.note) || "",
       sale_no: (data && data.sale_no) || "",
@@ -1945,7 +1962,9 @@ function createDB(storageKey) {
   function updateBackorder(id, data) {
     const b = store.backorders.find((x) => x.id === id);
     if (!b) return null;
-    Object.assign(b, data);
+    const patch = Object.assign({}, data);
+    if (data && (Array.isArray(data.items) || data.fabric_name)) patch.items = normalizeBackorderItems(data);
+    Object.assign(b, patch);
     save();
     return b;
   }
@@ -2402,7 +2421,7 @@ function createDB(storageKey) {
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense, updateExpense,
     getExpenseCategories, addExpenseCategory, updateExpenseCategory, deleteExpenseCategory,
-    addBackorder, updateBackorder, deleteBackorder, markBackorderDone, markBackorderUndone, getBackorders, getBackorder,
+    addBackorder, updateBackorder, deleteBackorder, markBackorderDone, markBackorderUndone, getBackorders, getBackorder, getBackorderItems,
     addCustomerOrder, updateCustomerOrder, deleteCustomerOrder, markCustomerOrderDone, markCustomerOrderUndone, getCustomerOrders, getCustomerOrder,
     addQuotation, updateQuotation, deleteQuotation, getQuotations, getQuotation, setQuotationStatus, markQuotationConverted,
     addBillingNote, updateBillingNote, deleteBillingNote, getBillingNotesForCustomer, getBillingNote,
@@ -8073,19 +8092,18 @@ function buildDataTable(columns, dataRows, opts) {
           name.toLowerCase().includes(q) ||
           code.toLowerCase().includes(q) ||
           (phone || "").includes(q) ||
-          (b.fabric_name || "").toLowerCase().includes(q)
+          DB.getBackorderItems(b).map((it) => it.fabric_name).join(" ").toLowerCase().includes(q)
         );
       });
     }
     rows = filtered.map((x) => x.b);
     const table = buildDataTable(
-      ["วันที่", "ลูกค้า", "เบอร์โทร", "ผ้าที่ต้องการ", "จำนวน", "สถานะ", "บิลที่ขาย", "หมายเหตุ"],
+      ["วันที่", "ลูกค้า", "เบอร์โทร", "ผ้าที่ต้องการ", "สถานะ", "บิลที่ขาย", "หมายเหตุ"],
       filtered.map(({ b, c }) => [
         fmtDate(b.date),
         c ? `${c.code} - ${c.name}` : b.customer_name || "-",
         c ? c.phone || "-" : b.customer_phone || "-",
-        b.fabric_name || "-",
-        `${b.qty || 0} ${b.unit || ""}`,
+        DB.getBackorderItems(b).map((it) => `${it.fabric_name} x${it.qty || 0} ${it.unit || ""}`).join(", ") || "-",
         b.done ? "เสร็จแล้ว" : b.status,
         b.sale_no || "-",
         b.note || "",
@@ -8137,10 +8155,33 @@ function buildDataTable(columns, dataRows, opts) {
     const fabricListId = "dl_backorder_fabric";
     const fabricDatalist = el("datalist", { id: fabricListId },
       ...fabrics.map((f) => el("option", { value: `${f.code} - ${f.name}` })));
-    const fabricNameInput = el("input", { type: "text", value: existing ? existing.fabric_name : "",
-      list: fabricListId, placeholder: "ชื่อ/รหัสผ้าที่ลูกค้าต้องการ" });
-    const qtyInput = numberInput(existing ? existing.qty : 1);
-    const unitInput = textInput(existing ? existing.unit : "หลา");
+    // แต่ละรายการผ้าที่ลูกค้าต้องการ เก็บเป็นแถวในลิสต์นี้ เพิ่ม/ลบได้หลายรายการในรายการรอสินค้าเดียวกัน
+    const itemRows = [];
+    const itemsContainer = el("div", { class: "backorder-items" });
+    function addItemRow(data) {
+      const fabricNameInput = el("input", { type: "text", value: (data && data.fabric_name) || "",
+        list: fabricListId, placeholder: "ชื่อ/รหัสผ้าที่ลูกค้าต้องการ", style: { flex: "2", minWidth: "0" } });
+      const qtyInput = numberInput((data && data.qty) || 1);
+      qtyInput.style.flex = "1"; qtyInput.style.minWidth = "0";
+      const unitInput = textInput((data && data.unit) || "หลา");
+      unitInput.style.flex = "1"; unitInput.style.minWidth = "0";
+      const rowEntry = { fabricNameInput, qtyInput, unitInput };
+      const removeBtn = el("button", { class: "btn btn-sm", title: "ลบผ้ารายการนี้", onClick: () => {
+        if (itemRows.length <= 1) return;
+        const idx2 = itemRows.indexOf(rowEntry);
+        if (idx2 !== -1) itemRows.splice(idx2, 1);
+        rowEntry.row.remove();
+      } }, "ลบ");
+      const rowEl = el("div", { class: "backorder-item-row", style: { display: "flex", gap: "6px", marginBottom: "6px" } },
+        fabricNameInput, qtyInput, unitInput, removeBtn);
+      rowEntry.row = rowEl;
+      itemRows.push(rowEntry);
+      itemsContainer.appendChild(rowEl);
+    }
+    const existingItems = existing ? DB.getBackorderItems(existing) : [];
+    if (existingItems.length) existingItems.forEach((it) => addItemRow(it));
+    else addItemRow(null);
+    const addItemBtn = el("button", { class: "btn btn-sm", onClick: () => addItemRow(null) }, "+ เพิ่มผ้าอีกรายการ");
     const statusSelect = selectInput(
       [{ value: "สินค้าหมด", label: "สินค้าหมด" }, { value: "อื่นๆ", label: "อื่นๆ" }],
       existing ? existing.status : "สินค้าหมด");
@@ -8148,19 +8189,19 @@ function buildDataTable(columns, dataRows, opts) {
     const saleNoInput = textInput(existing ? existing.sale_no : "");
     const form = el("div", { class: "form-panel" },
       formField("ลูกค้า", customerSelect),
-      fabricDatalist, formField("ผ้าที่ต้องการ", fabricNameInput),
-      formField("จำนวน", qtyInput), formField("หน่วย", unitInput),
+      fabricDatalist, formField("ผ้าที่ต้องการ", el("div", {}, itemsContainer, addItemBtn)),
       formField("สถานะ", statusSelect), formField("เลขที่บิลที่ขาย (ถ้ามี)", saleNoInput), formField("หมายเหตุ", noteInput));
     const saveBtn = el("button", { class: "btn btn-primary", onClick: () => {
       const customerId = customerSelect.getCustomerId();
-      const fabricName = fabricNameInput.value.trim();
+      const items = itemRows.map((r) => ({
+        fabric_name: r.fabricNameInput.value.trim(), qty: Number(r.qtyInput.value) || 0, unit: r.unitInput.value.trim() || "หลา",
+      })).filter((it) => it.fabric_name);
       if (!customerId) { global.alert("กรุณาเลือกลูกค้า"); return; }
-      if (!fabricName) { global.alert("กรุณาระบุผ้าที่ต้องการ"); return; }
+      if (!items.length) { global.alert("กรุณาระบุผ้าที่ต้องการอย่างน้อย 1 รายการ"); return; }
       const customer = DB.getCustomer(customerId);
       const data = {
         customer_id: customerId, customer_name: customer ? customer.name : "", customer_phone: customer ? customer.phone : "",
-        fabric_name: fabricName, qty: Number(qtyInput.value) || 0,
-        unit: unitInput.value.trim() || "หลา", status: statusSelect.value, sale_no: saleNoInput.value.trim(), note: noteInput.value.trim(),
+        items, status: statusSelect.value, sale_no: saleNoInput.value.trim(), note: noteInput.value.trim(),
       };
       if (existing) DB.updateBackorder(existing.id, data);
       else DB.addBackorder(data);
@@ -8168,7 +8209,7 @@ function buildDataTable(columns, dataRows, opts) {
       renderBackorderTable();
       updateBackordersBadge();
     }}, "บันทึก");
-    exposeTestRefs("backorderForm", { customerSelect, fabricNameInput, qtyInput, unitInput, statusSelect, saleNoInput, noteInput, saveBtn });
+    exposeTestRefs("backorderForm", { customerSelect, itemRows, statusSelect, saleNoInput, noteInput, saveBtn });
     openModal(existing ? "แก้ไขรายการรอสินค้า" : "เพิ่มรายการรอสินค้า", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
       }
 
