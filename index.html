@@ -1934,6 +1934,7 @@ function createDB(storageKey) {
       unit: (data && data.unit) || "หลา",
       status: (data && data.status) || "สินค้าหมด",
       note: (data && data.note) || "",
+      sale_no: (data && data.sale_no) || "",
       done: false,
       resolved_date: null,
     };
@@ -1948,11 +1949,12 @@ function createDB(storageKey) {
     save();
     return b;
   }
-  function markBackorderDone(id) {
+  function markBackorderDone(id, saleNo) {
     const b = store.backorders.find((x) => x.id === id);
     if (!b) return;
     b.done = true;
     b.resolved_date = nowStr();
+    if (saleNo) b.sale_no = saleNo;
     save();
   }
   function markBackorderUndone(id) {
@@ -8077,7 +8079,7 @@ function buildDataTable(columns, dataRows, opts) {
     }
     rows = filtered.map((x) => x.b);
     const table = buildDataTable(
-      ["วันที่", "ลูกค้า", "เบอร์โทร", "ผ้าที่ต้องการ", "จำนวน", "สถานะ", "หมายเหตุ"],
+      ["วันที่", "ลูกค้า", "เบอร์โทร", "ผ้าที่ต้องการ", "จำนวน", "สถานะ", "บิลที่ขาย", "หมายเหตุ"],
       filtered.map(({ b, c }) => [
         fmtDate(b.date),
         c ? `${c.code} - ${c.name}` : b.customer_name || "-",
@@ -8085,6 +8087,7 @@ function buildDataTable(columns, dataRows, opts) {
         b.fabric_name || "-",
         `${b.qty || 0} ${b.unit || ""}`,
         b.done ? "เสร็จแล้ว" : b.status,
+        b.sale_no || "-",
         b.note || "",
       ]),
       {
@@ -8099,7 +8102,16 @@ function buildDataTable(columns, dataRows, opts) {
           if (b.done) {
             actions.push({ label: "ยกเลิกเสร็จแล้ว", onClick: () => { DB.markBackorderUndone(b.id); renderBackorderTable(); updateBackordersBadge(); } });
           } else {
-            actions.push({ label: "เสร็จแล้ว", onClick: () => { DB.markBackorderDone(b.id); renderBackorderTable(); updateBackordersBadge(); } });
+            actions.push({
+              label: "เสร็จแล้ว",
+              onClick: () => {
+                const saleNo = global.prompt(`ขายให้ "${b.customer_name || "-"}" แล้วใช่มั้ย? ถ้าทราบ ระบุเลขที่บิลไว้อ้างอิง (เว้นว่างได้)`, b.sale_no || "");
+                if (saleNo === null) return;
+                DB.markBackorderDone(b.id, saleNo.trim());
+                renderBackorderTable();
+                updateBackordersBadge();
+              },
+            });
           }
           actions.push({ label: "ลบ", onClick: () => {
             if (global.confirm(`ต้องการลบรายการของ "${b.customer_name || "-"}" หรือไม่?`)) {
@@ -8133,11 +8145,12 @@ function buildDataTable(columns, dataRows, opts) {
       [{ value: "สินค้าหมด", label: "สินค้าหมด" }, { value: "อื่นๆ", label: "อื่นๆ" }],
       existing ? existing.status : "สินค้าหมด");
     const noteInput = textInput(existing ? existing.note : "");
+    const saleNoInput = textInput(existing ? existing.sale_no : "");
     const form = el("div", { class: "form-panel" },
       formField("ลูกค้า", customerSelect),
       fabricDatalist, formField("ผ้าที่ต้องการ", fabricNameInput),
       formField("จำนวน", qtyInput), formField("หน่วย", unitInput),
-      formField("สถานะ", statusSelect), formField("หมายเหตุ", noteInput));
+      formField("สถานะ", statusSelect), formField("เลขที่บิลที่ขาย (ถ้ามี)", saleNoInput), formField("หมายเหตุ", noteInput));
     const saveBtn = el("button", { class: "btn btn-primary", onClick: () => {
       const customerId = customerSelect.getCustomerId();
       const fabricName = fabricNameInput.value.trim();
@@ -8147,7 +8160,7 @@ function buildDataTable(columns, dataRows, opts) {
       const data = {
         customer_id: customerId, customer_name: customer ? customer.name : "", customer_phone: customer ? customer.phone : "",
         fabric_name: fabricName, qty: Number(qtyInput.value) || 0,
-        unit: unitInput.value.trim() || "หลา", status: statusSelect.value, note: noteInput.value.trim(),
+        unit: unitInput.value.trim() || "หลา", status: statusSelect.value, sale_no: saleNoInput.value.trim(), note: noteInput.value.trim(),
       };
       if (existing) DB.updateBackorder(existing.id, data);
       else DB.addBackorder(data);
@@ -8155,7 +8168,7 @@ function buildDataTable(columns, dataRows, opts) {
       renderBackorderTable();
       updateBackordersBadge();
     }}, "บันทึก");
-    exposeTestRefs("backorderForm", { customerSelect, fabricNameInput, qtyInput, unitInput, statusSelect, noteInput, saveBtn });
+    exposeTestRefs("backorderForm", { customerSelect, fabricNameInput, qtyInput, unitInput, statusSelect, saleNoInput, noteInput, saveBtn });
     openModal(existing ? "แก้ไขรายการรอสินค้า" : "เพิ่มรายการรอสินค้า", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
       }
 
