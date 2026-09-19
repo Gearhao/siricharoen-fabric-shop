@@ -5987,7 +5987,7 @@ function buildDataTable(columns, dataRows, opts) {
       .map(({ fabric, roll }) => {
         const url = rollQrUrl(fabric.code, roll.roll_no);
         const img = qrDataUrl(url, 200);
-        return `<div class="qr-tag"><img src="${img}" width="120" height="120"/><div class="qr-code">${escapeHtmlText(fabric.code)}</div><div class="qr-roll">ม้วนที่ ${roll.roll_no}</div><div class="qr-name">${escapeHtmlText(fabric.name)}</div></div>`;
+        return `<div class="qr-tag"><img src="${img}" width="120" height="120"/><div class="qr-code">${escapeHtmlText(fabric.code)}</div><div class="qr-name">${escapeHtmlText(fabric.name)}</div></div>`;
       })
       .join("");
     const w = global.window.open("", "_blank");
@@ -6005,7 +6005,6 @@ function buildDataTable(columns, dataRows, opts) {
           .qr-sheet { display: flex; flex-wrap: wrap; gap: 2px; }
           .qr-tag { border: 1px dashed #999; padding: 2px; text-align: center; width: 3.5cm; box-sizing: border-box; }
           .qr-code { font-size: 12px; font-weight: bold; margin-top: 4px; }
-          .qr-roll { font-size: 11px; color: #444; }
           .qr-name { font-size: 10px; color: #666; }
           .print-btn { margin-bottom: 16px; }
           @media print { .print-btn { display: none; } }
@@ -6020,12 +6019,17 @@ function buildDataTable(columns, dataRows, opts) {
     w.document.close();
   }
   function printQrForSelectedFabrics() {
+    const qtyInput = refs.printQrQtyInput;
+    let copies = qtyInput ? parseInt(qtyInput.value, 10) : 1;
+    if (!Number.isFinite(copies) || copies < 1) copies = 1;
     const items = [];
     fabricSelectedIds.forEach((fid) => {
       const fab = DB.getFabric(fid);
       if (!fab) return;
       const rolls = DB.getActiveRollsByFabric(fid);
-      rolls.forEach((roll) => items.push({ fabric: fab, roll }));
+      rolls.forEach((roll) => {
+        for (let i = 0; i < copies; i++) items.push({ fabric: fab, roll });
+      });
     });
     if (!items.length) {
       global.alert("ไม่มีม้วนที่มีสต็อกในรายการที่เลือก");
@@ -6226,6 +6230,8 @@ function buildDataTable(columns, dataRows, opts) {
       "ลบรายการที่เลือก"
     );
     refs.deleteSelectedFabricsBtn = deleteSelectedBtn;
+    const printQtyInput = el("input", { type: "number", min: "1", step: "1", value: "1", style: { width: "56px" } });
+    refs.printQrQtyInput = printQtyInput;
     const printSelectedBtn = el(
       "button",
       { class: "btn btn-sm", disabled: true, onClick: () => printQrForSelectedFabrics() },
@@ -6238,6 +6244,7 @@ function buildDataTable(columns, dataRows, opts) {
       searchInput,
       el("label", { class: "chk-label" }, lowChk, " แสดงเฉพาะสินค้าใกล้หมด"),
       el("button", { class: "btn btn-primary", onClick: () => openFabricModal(null) }, "+ เพิ่มผ้าใหม่"),
+      el("label", { class: "chk-label" }, "จำนวนแผ่น/รายการ ", printQtyInput),
       printSelectedBtn,
       deleteSelectedBtn
     );
