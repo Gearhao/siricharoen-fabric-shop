@@ -5576,6 +5576,10 @@ function buildDataTable(columns, dataRows, opts) {
     let lang = "th";
     let showQr = false;
     const accountSelect = buildBankAccountSelect(getCustomerPreferredAccountId(cust));
+    // บิล VAT ที่มีค่าส่ง: buildReceiptDoc จะแยกยอดเป็น 2 บัญชีอัตโนมัติ (ค่าผ้า -> บัญชีคงที่ของร้าน,
+    // ค่าส่ง -> บัญชีที่เลือกจาก dropdown ด้านล่าง) ต้องบอกในฟอร์มให้ชัดว่า dropdown นี้ใช้กับ "ค่าส่ง"
+    // เท่านั้น ไม่ใช่ทั้งบิล ไม่งั้นผู้ใช้จะงงตอนเห็นในใบเสร็จว่ามี 2 บัญชีโผล่มา ทั้งที่ฟอร์มดูเหมือนมีบัญชีเดียว
+    const hasShippingAccountSplit = (VAT_ENABLED || !!sale.is_vat) && docType !== "cash" && (sale.shipping_fee || 0) > 0;
     let current = buildReceiptDoc(sale, cust, shop, cartItems, docType, lang, payAccountLabelFromSelect(accountSelect), showQr);
 
     const previewBox = el("div", { class: "receipt-preview" });
@@ -5644,7 +5648,18 @@ function buildDataTable(columns, dataRows, opts) {
     );
     const qrCheckbox = el("input", { type: "checkbox", checked: showQr, onChange: (e) => { showQr = e.target.checked; refresh(); } });
     const qrRow = el("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" } }, qrCheckbox, el("span", { text: "พิมพ์ QR เช็คสต็อกท้ายใบเสร็จ/ใบส่งของ" }));
-    const accountRow = formField("บัญชีสำหรับโอนเงิน (ถ้ามี)", accountSelect);
+    const accountRow = hasShippingAccountSplit
+      ? el(
+          "div",
+          {},
+          el(
+            "div",
+            { style: { fontSize: "12px", color: "#555", marginBottom: "4px", padding: "6px 8px", background: "#f5f0e6", borderRadius: "4px" } },
+            `ค่าผ้าโอนเข้าบัญชี: ${BILLING_FABRIC_ACCOUNT_TEXT}`
+          ),
+          formField("บัญชีรับเงินค่าส่ง", accountSelect)
+        )
+      : formField("บัญชีสำหรับโอนเงิน (ถ้ามี)", accountSelect);
     const shippingBtn =
       sale.shipping_fee > 0
         ? el("button", { class: "btn btn-warning", onClick: () => openShippingReceiptModal(sale, custId) }, "ออกใบเสร็จค่าส่งแยก")
