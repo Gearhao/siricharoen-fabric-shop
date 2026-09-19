@@ -1927,19 +1927,28 @@ function createDB(storageKey) {
   function normalizeBackorderItems(data) {
     if (data && Array.isArray(data.items) && data.items.length) {
       return data.items
-        .map((it) => ({ fabric_name: (it && it.fabric_name) || "", qty: (it && it.qty) || 0, unit: (it && it.unit) || "หลา" }))
+        .map((it) => ({ fabric_name: (it && it.fabric_name) || "", qty: (it && it.qty) || 0, unit: (it && it.unit) || "หลา", done: !!(it && it.done) }))
         .filter((it) => it.fabric_name);
     }
     if (data && data.fabric_name) {
-      return [{ fabric_name: data.fabric_name, qty: data.qty || 0, unit: data.unit || "หลา" }];
+      return [{ fabric_name: data.fabric_name, qty: data.qty || 0, unit: data.unit || "หลา", done: false }];
     }
     return [];
   }
   // ดึงรายการผ้าจาก backorder แบบรองรับข้อมูลเก่า (ที่ยังเก็บ fabric_name/qty/unit เดี่ยวๆ ไม่มี items)
   function getBackorderItems(b) {
     if (b && Array.isArray(b.items) && b.items.length) return b.items;
-    if (b && b.fabric_name) return [{ fabric_name: b.fabric_name, qty: b.qty || 0, unit: b.unit || "หลา" }];
+    if (b && b.fabric_name) return [{ fabric_name: b.fabric_name, qty: b.qty || 0, unit: b.unit || "หลา", done: !!b.done }];
     return [];
+  }
+  // มาร์ค/ยกเลิกมาร์ค ว่าผ้ารายการที่ itemIndex ในรายการรอนี้มาถึงแล้ว โดยไม่กระทบสถานะรวมของทั้งรายการรอ
+  function setBackorderItemDone(id, itemIndex, done) {
+    const b = store.backorders.find((x) => x.id === id);
+    if (!b) return;
+    if (!Array.isArray(b.items) || !b.items.length) b.items = getBackorderItems(b);
+    if (!b.items[itemIndex]) return;
+    b.items[itemIndex].done = !!done;
+    save();
   }
   function addBackorder(data) {
     const item = {
@@ -2421,7 +2430,7 @@ function createDB(storageKey) {
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense, updateExpense,
     getExpenseCategories, addExpenseCategory, updateExpenseCategory, deleteExpenseCategory,
-    addBackorder, updateBackorder, deleteBackorder, markBackorderDone, markBackorderUndone, getBackorders, getBackorder, getBackorderItems,
+    addBackorder, updateBackorder, deleteBackorder, markBackorderDone, markBackorderUndone, getBackorders, getBackorder, getBackorderItems, setBackorderItemDone,
     addCustomerOrder, updateCustomerOrder, deleteCustomerOrder, markCustomerOrderDone, markCustomerOrderUndone, getCustomerOrders, getCustomerOrder,
     addQuotation, updateQuotation, deleteQuotation, getQuotations, getQuotation, setQuotationStatus, markQuotationConverted,
     addBillingNote, updateBillingNote, deleteBillingNote, getBillingNotesForCustomer, getBillingNote,
@@ -8103,7 +8112,7 @@ function buildDataTable(columns, dataRows, opts) {
         fmtDate(b.date),
         c ? `${c.code} - ${c.name}` : b.customer_name || "-",
         c ? c.phone || "-" : b.customer_phone || "-",
-        DB.getBackorderItems(b).map((it) => `${it.fabric_name} x${it.qty || 0} ${it.unit || ""}`).join(", ") || "-",
+        DB.getBackorderItems(b).map((it) => `${it.done ? "✓ " : ""}${it.fabric_name} x${it.qty || 0} ${it.unit || ""}`).join(", ") || "-",
         b.done ? "เสร็จแล้ว" : b.status,
         b.sale_no || "-",
         b.note || "",
@@ -8117,6 +8126,18 @@ function buildDataTable(columns, dataRows, opts) {
         actions: (idx) => {
           const b = rows[idx];
           const actions = [{ label: "แก้ไข", onClick: () => openBackorderModal(b.id) }];
+          if (!b.done) {
+            const bitems = DB.getBackorderItems(b);
+            if (bitems.length > 1) {
+              bitems.forEach((it, itemIdx) => {
+                const shortLabel = (it.fabric_name.split(" - ")[0] || it.fabric_name).slice(0, 20);
+                actions.push({
+                  label: it.done ? `ยกเลิกมาแล้ว: ${shortLabel}` : `มาแล้ว: ${shortLabel}`,
+                  onClick: () => { DB.setBackorderItemDone(b.id, itemIdx, !it.done); renderBackorderTable(); },
+                });
+              });
+            }
+          }
           if (b.done) {
             actions.push({ label: "ยกเลิกเสร็จแล้ว", onClick: () => { DB.markBackorderUndone(b.id); renderBackorderTable(); updateBackordersBadge(); } });
           } else {
@@ -8165,15 +8186,17 @@ function buildDataTable(columns, dataRows, opts) {
       qtyInput.style.flex = "1"; qtyInput.style.minWidth = "0";
       const unitInput = textInput((data && data.unit) || "หลา");
       unitInput.style.flex = "1"; unitInput.style.minWidth = "0";
-      const rowEntry = { fabricNameInput, qtyInput, unitInput };
+      const doneCheckbox = el("input", { type: "checkbox", checked: !!(data && data.done), title: "มาแล้ว" });
+      const rowEntry = { fabricNameInput, qtyInput, unitInput, doneCheckbox };
       const removeBtn = el("button", { class: "btn btn-sm", title: "ลบผ้ารายการนี้", onClick: () => {
         if (itemRows.length <= 1) return;
         const idx2 = itemRows.indexOf(rowEntry);
         if (idx2 !== -1) itemRows.splice(idx2, 1);
         rowEntry.row.remove();
       } }, "ลบ");
-      const rowEl = el("div", { class: "backorder-item-row", style: { display: "flex", gap: "6px", marginBottom: "6px" } },
-        fabricNameInput, qtyInput, unitInput, removeBtn);
+      const doneLabel = el("label", { class: "chk-label", style: { flexShrink: "0", fontSize: "12px", display: "flex", alignItems: "center", gap: "3px", whiteSpace: "nowrap" } }, doneCheckbox, "มาแล้ว");
+      const rowEl = el("div", { class: "backorder-item-row", style: { display: "flex", gap: "6px", marginBottom: "6px", alignItems: "center" } },
+        fabricNameInput, qtyInput, unitInput, doneLabel, removeBtn);
       rowEntry.row = rowEl;
       itemRows.push(rowEntry);
       itemsContainer.appendChild(rowEl);
@@ -8194,7 +8217,7 @@ function buildDataTable(columns, dataRows, opts) {
     const saveBtn = el("button", { class: "btn btn-primary", onClick: () => {
       const customerId = customerSelect.getCustomerId();
       const items = itemRows.map((r) => ({
-        fabric_name: r.fabricNameInput.value.trim(), qty: Number(r.qtyInput.value) || 0, unit: r.unitInput.value.trim() || "หลา",
+        fabric_name: r.fabricNameInput.value.trim(), qty: Number(r.qtyInput.value) || 0, unit: r.unitInput.value.trim() || "หลา", done: r.doneCheckbox.checked,
       })).filter((it) => it.fabric_name);
       if (!customerId) { global.alert("กรุณาเลือกลูกค้า"); return; }
       if (!items.length) { global.alert("กรุณาระบุผ้าที่ต้องการอย่างน้อย 1 รายการ"); return; }
