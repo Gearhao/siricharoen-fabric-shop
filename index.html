@@ -102,7 +102,22 @@ html, body {
   border-radius: 999px;
   font-size: 12px;
 }
-.header-actions { display: flex; gap: 8px; }
+.header-actions { display: flex; align-items: center; gap: 8px; overflow-x: auto; flex-shrink: 1; min-width: 0; }
+.header-tabs { display: flex; align-items: center; gap: 4px; }
+.tab-btn-header {
+  background: transparent;
+  border: none;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--sidebar-text);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.tab-btn-header:hover { color: #fff; }
+.tab-btn-header.active { color: #f4ead9; border-bottom-color: #c9a15a; font-weight: 500; }
+.header-actions-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.25); }
 
 .tabs {
   display: flex;
@@ -3158,22 +3173,18 @@ function buildDataTable(columns, dataRows, opts) {
     const badge = VAT_ENABLED ? el("span", { class: "badge", text: "รุ่นมี VAT (7%)" }) : null;
     const cloudBadge = el("span", { class: "badge", text: "คลาวด์: ..." });
     refs.cloudBadge = cloudBadge;
-    const header = el(
-      "header",
-      { class: "app-header" },
-      el("div", { class: "shop-title" }, shopTitleH1, badge, cloudBadge),
-      el(
-        "div",
-        { class: "header-actions" },
-        el("button", { class: "btn btn-ghost", onClick: openSettingsModal }, "ตั้งค่าร้าน"),
-        el("button", { class: "btn btn-ghost", onClick: openBackupModal }, "สำรอง/กู้คืนข้อมูล"),
-        global.__supabaseClient__ ? el("button", { class: "btn btn-ghost", onClick: signOut }, "ออกจากระบบ") : null
-      )
-    );
+
+    // แท็บ "บัญชี" กับ "รายงาน" ย้ายไปอยู่แถบบนสุด (ก่อนปุ่มตั้งค่าร้าน) แทนที่จะอยู่ในแถบเมนูหลัก
+    // เพื่อลดความแน่นของแถบเมนู (จาก 11 เหลือ 9 ปุ่ม) ยังคงสลับหน้า/โชว์ขีดใต้บอกว่ากำลังอยู่หน้าไหนเหมือนเดิม
+    // (switchTab ด้านบนสลับคลาส active ผ่าน navButtons[key] อยู่แล้ว ไม่สนว่าอยู่ตรงไหนของหน้า) แค่ใช้คลาส CSS
+    // คนละแบบ (tab-btn-header) เพื่อให้สีตัวหนังสือ/เส้นขีดใต้เห็นชัดบนพื้นหลังกรมท่าแทนพื้นขาว
+    const HEADER_TAB_KEYS = ["accounting", "reports"];
 
     const nav = el("nav", { class: "tabs" });
+    const headerTabsGroup = el("div", { class: "header-tabs" });
     TABS.forEach((t) => {
-      const btn = el("button", { class: "tab-btn", onClick: () => switchTab(t.key) }, t.label);
+      const isHeaderTab = HEADER_TAB_KEYS.includes(t.key);
+      const btn = el("button", { class: isHeaderTab ? "tab-btn-header" : "tab-btn", onClick: () => switchTab(t.key) }, t.label);
       if (t.key === "backorders") {
         const badge = el("span", { class: "tab-badge", style: { display: "none" } });
         refs.backordersNavBadge = badge;
@@ -3185,8 +3196,24 @@ function buildDataTable(columns, dataRows, opts) {
         btn.appendChild(badge);
       }
       navButtons[t.key] = btn;
-      nav.appendChild(btn);
+      if (isHeaderTab) headerTabsGroup.appendChild(btn);
+      else nav.appendChild(btn);
     });
+
+    const header = el(
+      "header",
+      { class: "app-header" },
+      el("div", { class: "shop-title" }, shopTitleH1, badge, cloudBadge),
+      el(
+        "div",
+        { class: "header-actions" },
+        headerTabsGroup,
+        el("span", { class: "header-actions-divider" }),
+        el("button", { class: "btn btn-ghost", onClick: openSettingsModal }, "ตั้งค่าร้าน"),
+        el("button", { class: "btn btn-ghost", onClick: openBackupModal }, "สำรอง/กู้คืนข้อมูล"),
+        global.__supabaseClient__ ? el("button", { class: "btn btn-ghost", onClick: signOut }, "ออกจากระบบ") : null
+      )
+    );
 
     const main = el("main", { class: "tab-content-wrap" });
     TABS.forEach((t) => {
