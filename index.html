@@ -9096,7 +9096,9 @@ function buildDataTable(columns, dataRows, opts) {
   }
 
   // สร้าง HTML กราฟวงกลม (โดนัท) + ตารางสรุปสัดส่วนรายจ่ายแยกตามหมวดหมู่ ใช้ SVG วาดเอง ไม่ต้องพึ่งไลบรารีกราฟภายนอก
-  // rows: [{ name, amount }] ที่รวมยอดต่อหมวดหมู่ไว้แล้ว เรียงจากมากไปน้อย
+  // rows: [{ name, amount, items }] ที่รวมยอดต่อหมวดหมู่ไว้แล้ว เรียงจากมากไปน้อย items คือรายจ่ายย่อยแต่ละ
+  // รายการในหมวดนั้น (ไว้โชว์ตอนคลิกขยายดูรายละเอียด - ต้องเรียก wireExpenseCategoryChartToggles() ต่อหลัง
+  // set innerHTML ด้วย ไม่งั้นคลิกแล้วจะไม่มีอะไรเกิดขึ้น)
   function buildExpenseCategoryChartHtml(rows) {
     const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const total = rows.reduce((s, r) => s + r.amount, 0);
@@ -9126,11 +9128,26 @@ function buildDataTable(columns, dataRows, opts) {
           pathsHtml += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${color}"/>`;
         }
         angleStart = angleEnd;
-        return `<div style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:5px;">
-          <span style="width:11px;height:11px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block;"></span>
-          <span style="flex:1;">${esc(row.name)}</span>
-          <span style="font-weight:600;">${money(row.amount)}</span>
-          <span style="color:#888;width:48px;text-align:right;">${(pct * 100).toFixed(1)}%</span>
+        const itemsHtml = (row.items || [])
+          .slice()
+          .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+          .map(
+            (it) =>
+              `<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;color:#888;font-size:12px;">
+                <span>${esc(fmtDate(it.date))}${it.description ? " · " + esc(it.description) : ""}</span>
+                <span style="white-space:nowrap;">${money(it.amount)}</span>
+              </div>`
+          )
+          .join("");
+        return `<div>
+          <div class="exp-cat-row" data-cat-idx="${i}" style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:2px;padding:3px 4px;border-radius:4px;cursor:pointer;">
+            <span class="exp-cat-caret" style="width:12px;flex-shrink:0;color:#888;font-size:11px;">&#9656;</span>
+            <span style="width:11px;height:11px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block;"></span>
+            <span style="flex:1;">${esc(row.name)}</span>
+            <span style="font-weight:600;">${money(row.amount)}</span>
+            <span style="color:#888;width:48px;text-align:right;">${(pct * 100).toFixed(1)}%</span>
+          </div>
+          <div class="exp-cat-detail" data-cat-idx="${i}" style="display:none;margin:0 0 6px 30px;padding-left:8px;border-left:2px solid #eee;">${itemsHtml}</div>
         </div>`;
       })
       .join("");
@@ -9138,6 +9155,20 @@ function buildDataTable(columns, dataRows, opts) {
       <svg viewBox="0 0 180 180" width="180" height="180" style="flex-shrink:0;">${pathsHtml}</svg>
       <div style="flex:1;min-width:220px;">${legendHtml}</div>
     </div>`;
+  }
+  function wireExpenseCategoryChartToggles(container) {
+    if (!container) return;
+    container.querySelectorAll(".exp-cat-row").forEach((row) => {
+      row.addEventListener("click", () => {
+        const idx = row.getAttribute("data-cat-idx");
+        const detail = container.querySelector(`.exp-cat-detail[data-cat-idx="${idx}"]`);
+        const caret = row.querySelector(".exp-cat-caret");
+        if (!detail) return;
+        const willShow = detail.style.display === "none";
+        detail.style.display = willShow ? "block" : "none";
+        if (caret) caret.innerHTML = willShow ? "&#9662;" : "&#9656;";
+      });
+    });
   }
   // คืนสีประจำธนาคาร (อิงจากสีแบรนด์ที่คุ้นตา) ให้กับชื่อธนาคารที่พิมพ์เอง ถ้าไม่ตรงกับธนาคารที่รู้จักจะคืน null (ใช้สีปกติ)
   function bankBrandColor(bankName) {
@@ -9400,15 +9431,16 @@ function buildDataTable(columns, dataRows, opts) {
     clear(refs.acctExpenseContainer);
     const expenses = DB.getExpenses(acctStart, acctEnd);
     if (refs.acctExpenseChartContainer) {
-      const catTotals = {};
+      const catMap = {};
       expenses.forEach((e) => {
         const name = e.category || "ไม่ระบุหมวดหมู่";
-        catTotals[name] = (catTotals[name] || 0) + e.amount;
+        if (!catMap[name]) catMap[name] = { name, amount: 0, items: [] };
+        catMap[name].amount += e.amount;
+        catMap[name].items.push(e);
       });
-      const catRows = Object.keys(catTotals)
-        .map((name) => ({ name, amount: catTotals[name] }))
-        .sort((a, b) => b.amount - a.amount);
+      const catRows = Object.values(catMap).sort((a, b) => b.amount - a.amount);
       refs.acctExpenseChartContainer.innerHTML = buildExpenseCategoryChartHtml(catRows);
+      wireExpenseCategoryChartToggles(refs.acctExpenseChartContainer);
     }
     refs.acctExpenseContainer.appendChild(
       buildDataTable(
