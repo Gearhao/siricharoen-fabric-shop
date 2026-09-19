@@ -8189,7 +8189,7 @@ function buildDataTable(columns, dataRows, opts) {
     const saleNoInput = textInput(existing ? existing.sale_no : "");
     const form = el("div", { class: "form-panel" },
       formField("ลูกค้า", customerSelect),
-      fabricDatalist, formField("ผ้าที่ต้องการ", el("div", {}, itemsContainer, addItemBtn)),
+      fabricDatalist, formField("ผ้าที่ต้องการ", el("div", { style: { flex: "1", minWidth: "0" } }, itemsContainer, addItemBtn)),
       formField("สถานะ", statusSelect), formField("เลขที่บิลที่ขาย (ถ้ามี)", saleNoInput), formField("หมายเหตุ", noteInput));
     const saveBtn = el("button", { class: "btn btn-primary", onClick: () => {
       const customerId = customerSelect.getCustomerId();
