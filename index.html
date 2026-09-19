@@ -126,6 +126,7 @@ html, body {
   overflow-x: auto;
   flex-wrap: wrap;
 }
+.tabs-right-group { display: flex; margin-left: auto; }
 .tab-btn {
   background: transparent;
   border: none;
@@ -3143,6 +3144,7 @@ function buildDataTable(columns, dataRows, opts) {
     if (renderers[key]) renderers[key]();
     updateBackordersBadge();
     updateCustomerOrdersBadge();
+    updatePosSubTabUI();
   }
 
   function updateBackordersBadge() {
@@ -3199,6 +3201,35 @@ function buildDataTable(columns, dataRows, opts) {
       if (isHeaderTab) headerTabsGroup.appendChild(btn);
       else nav.appendChild(btn);
     });
+
+    // ปุ่ม "ออกบิลใหม่" กับ "ประวัติการขาย" ย้ายมาอยู่ในแถบเมนูหลัก ต่อจากใบเสนอราคา แต่ดันชิดขวาสุด
+    // (margin-left: auto ในกลุ่มนี้) ให้ดูแยกออกจากแท็บหน้าอื่นๆ ด้านหน้า เพราะจริงๆ แล้วมันไม่ใช่ "หน้า"
+    // แยกเหมือนแท็บอื่น แต่เป็นแท็บย่อยของหน้าขายสินค้า (สลับมุมมองฟอร์มออกบิล/ประวัติการขาย) จึงสร้างไว้
+    // ที่นี่ครั้งเดียว (ไม่ได้สร้างซ้ำทุกครั้งที่ renderPOS วาดหน้าขายสินค้าใหม่แบบเดิม) แล้วให้ปุ่มพวกนี้
+    // สลับไปหน้าขายสินค้าให้ก่อนถ้ายังไม่ได้อยู่หน้านั้น
+    const posSubTabButtons = {};
+    const posTabsRightGroup = el("span", { class: "tabs-right-group" });
+    [
+      ["new", "ออกบิลใหม่"],
+      ["history", "ประวัติการขาย"],
+    ].forEach(([key, label]) => {
+      const b = el(
+        "button",
+        {
+          class: "tab-btn",
+          onClick: () => {
+            posSubTab = key;
+            if (currentTab !== "pos") switchTab("pos");
+            else updatePosSubTabUI();
+          },
+        },
+        label
+      );
+      posSubTabButtons[key] = b;
+      posTabsRightGroup.appendChild(b);
+    });
+    refs.posSubTabButtons = posSubTabButtons;
+    nav.appendChild(posTabsRightGroup);
 
     const header = el(
       "header",
@@ -3557,33 +3588,11 @@ function buildDataTable(columns, dataRows, opts) {
 
     // แท็บย่อย "ออกบิลใหม่" กับ "ประวัติการขาย" แยกกัน ไม่ต้องเลื่อนผ่านฟอร์มยาวๆไปหาประวัติด้านล่างอีก
         // สลับด้าน: ย้ายรายการสินค้า (pos-left) ไปแสดงทางขวา และฟอร์มลูกค้า/ชำระเงิน (pos-right) มาทางซ้ายแทน
+        // (ปุ่มสลับ "ออกบิลใหม่"/"ประวัติการขาย" ย้ายไปสร้างครั้งเดียวที่ buildLayout แล้ว อยู่ในแถบเมนูหลัก
+        // ไม่ได้สร้างซ้ำที่นี่ทุกครั้งที่ renderPOS วาดหน้าใหม่)
     const newSaleContainer = el("div", { class: "pos-grid" }, right, left);
     refs.posNewSaleContainer = newSaleContainer;
 
-    // จัดชิดขวาให้ตรงกับรายการสินค้าที่ย้ายไปฝั่งขวาแล้ว
-    const posSubTabsNav = el("div", { class: "subtabs pos-subtabs" });
-    const posSubTabButtons = {};
-    [
-      ["new", "ออกบิลใหม่"],
-      ["history", "ประวัติการขาย"],
-    ].forEach(([key, label]) => {
-      const b = el(
-        "button",
-        {
-          class: "tab-btn",
-          onClick: () => {
-            posSubTab = key;
-            updatePosSubTabUI();
-          },
-        },
-        label
-      );
-      posSubTabButtons[key] = b;
-      posSubTabsNav.appendChild(b);
-    });
-    refs.posSubTabButtons = posSubTabButtons;
-
-    sec.appendChild(posSubTabsNav);
     sec.appendChild(newSaleContainer);
 
     const historyTableContainer = el("div", { class: "table-container" });
@@ -3734,7 +3743,7 @@ function buildDataTable(columns, dataRows, opts) {
 
   function updatePosSubTabUI() {
     if (!refs.posSubTabButtons) return;
-    Object.keys(refs.posSubTabButtons).forEach((k) => refs.posSubTabButtons[k].classList.toggle("active", k === posSubTab));
+    Object.keys(refs.posSubTabButtons).forEach((k) => refs.posSubTabButtons[k].classList.toggle("active", k === posSubTab && currentTab === "pos"));
     if (refs.posNewSaleContainer) refs.posNewSaleContainer.style.display = posSubTab === "new" ? "" : "none";
     if (refs.posHistoryContainer) refs.posHistoryContainer.style.display = posSubTab === "history" ? "" : "none";
   }
