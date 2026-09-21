@@ -8234,11 +8234,14 @@ function buildDataTable(columns, dataRows, opts) {
       [{ value: "สินค้าหมด", label: "สินค้าหมด" }, { value: "อื่นๆ", label: "อื่นๆ" }],
       existing ? existing.status : "สินค้าหมด");
     const noteInput = textInput(existing ? existing.note : "");
-    const saleNoInput = textInput(existing ? existing.sale_no : "");
+    const recentSales = DB.getSales().slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 300);
+    const saleListId = "dl_backorder_sale";
+    const saleDatalist = el("datalist", { id: saleListId }, ...recentSales.map((s) => { const c = s.customer_id ? DB.getCustomer(s.customer_id) : null; return el("option", { value: s.sale_no, label: `${s.sale_no} - ${c ? c.name : "ลูกค้าทั่วไป"} (${fmtDate(s.date)})` }); }));
+    const saleNoInput = el("input", { type: "text", value: existing ? existing.sale_no : "", list: saleListId, placeholder: "เลือกจากบิลที่มี หรือพิมพ์เลขที่บิลเอง" });
     const form = el("div", { class: "form-panel" },
       formField("ลูกค้า", customerSelect),
       fabricDatalist, formField("ผ้าที่ต้องการ", el("div", { style: { flex: "1", minWidth: "0" } }, itemsContainer, addItemBtn)),
-      formField("สถานะ", statusSelect), formField("เลขที่บิลที่ขาย (ถ้ามี)", saleNoInput), formField("หมายเหตุ", noteInput));
+      formField("สถานะ", statusSelect), formField("เลขที่บิลที่ขาย (ถ้ามี)", el("div", {}, saleNoInput, saleDatalist)), formField("หมายเหตุ", noteInput));
     const saveBtn = el("button", { class: "btn btn-primary", onClick: () => {
       const customerId = customerSelect.getCustomerId();
       const items = itemRows.map((r) => ({
