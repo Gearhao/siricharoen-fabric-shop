@@ -1448,6 +1448,10 @@ function createDB(storageKey) {
   function getSale(id) {
     return store.sales.find((x) => x.id === id) || null;
   }
+  // ค้นหาบิลจากเลขที่บิล (sale_no) เช่น "S20260919010" ใช้ตอนจะลิงก์จากที่อื่น (เช่น รายการรอสินค้า) ไปแก้ไขบิลนั้นโดยตรง
+  function getSaleByNo(saleNo) {
+    return store.sales.find((x) => x.sale_no === saleNo) || null;
+  }
   function markSalePaid(saleId, method, accountSplits) {
     const sale = store.sales.find((x) => x.id === saleId);
     if (!sale) return;
@@ -2425,7 +2429,7 @@ function createDB(storageKey) {
     addFabric, updateFabric, deleteFabric, getFabrics, getFabric,
     adjustStock, getStockMovements, deleteStockMovement,
     addRoll, getRollsByFabric, getActiveRollsByFabric, getRoll, adjustRollQty,
-    createSale, updateSale, deleteSale, getSales, getSale, markSalePaid,
+    createSale, updateSale, deleteSale, getSales, getSale, getSaleByNo, markSalePaid,
     addProductReturn, getSaleReturns, getReturns, deleteReturn, getReturnedQtyForItem, useExchangeCredit,
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense, updateExpense,
@@ -2896,7 +2900,17 @@ function buildDataTable(columns, dataRows, opts) {
       }
       row.forEach((c, ci) => {
         const cellStyle = opts.cellStyle ? opts.cellStyle(row, ci, columns[ci]) : null;
-        tr.appendChild(el("td", { text: String(c), style: cellStyle || {} }));
+        if (c && typeof c === "object" && c.__cellLink) {
+          const link = el("a", {
+            href: "#",
+            text: c.text,
+            style: Object.assign({ color: "var(--primary)", textDecoration: "underline", cursor: "pointer" }, cellStyle || {}),
+            onClick: (e) => { e.preventDefault(); c.onClick(); },
+          });
+          tr.appendChild(el("td", {}, link));
+        } else {
+          tr.appendChild(el("td", { text: String(c), style: cellStyle || {} }));
+        }
       });
       if (opts.actions) {
         const actionsCell = el("td", { class: "actions-cell" });
@@ -8082,6 +8096,17 @@ function buildDataTable(columns, dataRows, opts) {
     renderBackorderTable();
   }
 
+  // กดที่เลขที่บิลในตารางรายการรอสินค้า แล้วลิงก์ตรงไปหน้าแก้ไขบิลนั้นในแท็บขายสินค้าเลย
+  function openSaleFromBackorder(saleNo) {
+    const sale = DB.getSaleByNo(saleNo);
+    if (!sale) {
+      global.alert(`ไม่พบบิลเลขที่ "${saleNo}" ในระบบ (อาจถูกลบไปแล้ว หรือพิมพ์เลขที่บิลผิด)`);
+      return;
+    }
+    switchTab("pos");
+    editSalePOS(sale.id);
+  }
+
   function renderBackorderTable() {
     const container = refs.backorderTableContainer;
     if (!container) return;
@@ -8114,7 +8139,7 @@ function buildDataTable(columns, dataRows, opts) {
         c ? c.phone || "-" : b.customer_phone || "-",
         DB.getBackorderItems(b).map((it) => `${it.done ? "✓ " : ""}${it.fabric_name} x${it.qty || 0} ${it.unit || ""}`).join(", ") || "-",
         b.done ? "เสร็จแล้ว" : b.status,
-        b.sale_no || "-",
+        b.sale_no ? { __cellLink: true, text: b.sale_no, onClick: () => openSaleFromBackorder(b.sale_no) } : "-",
         b.note || "",
       ]),
       {
