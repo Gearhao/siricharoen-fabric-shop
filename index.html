@@ -2771,6 +2771,16 @@ if (typeof module !== "undefined") {
   function buildAccountSplitRows(defaultAmount, defaultAccountId) {
     const container = el("div", { class: "account-split-rows" });
     const rows = [];
+    // userSplit = true หลังผู้ใช้กด "+ เพิ่มบัญชี" เอง (ตั้งใจแบ่งจ่ายหลายบัญชี) - ถึงจะโชว์ช่องจำนวนเงินแยกแต่ละแถว
+    // ถ้ายังไม่กด (กรณีบัญชีเดียวซึ่งเป็นกรณีส่วนใหญ่) ซ่อนช่องจำนวนเงินในแถวไว้ ใช้ยอดจากช่อง "จำนวนเงินที่ชำระ" ด้านบนแทน
+    // กันปัญหาต้องกรอกจำนวนเงินซ้ำสองที่ทั้งที่มีบัญชีเดียว
+    let userSplit = false;
+    function updateAmountVisibility() {
+      const showAmt = userSplit || rows.length > 1;
+      rows.forEach((r) => {
+        r.__amtInput.style.display = showAmt ? "" : "none";
+      });
+    }
     function addRow(presetAccountId, presetAmount) {
       const accSel = buildBankAccountSelect(presetAccountId);
       const amtInput = numberInput(presetAmount !== undefined && presetAmount !== null ? presetAmount : "");
@@ -2789,6 +2799,7 @@ if (typeof module !== "undefined") {
               const idx = rows.indexOf(rowEl);
               if (idx !== -1) rows.splice(idx, 1);
               if (rowEl.parentNode) rowEl.parentNode.removeChild(rowEl);
+              updateAmountVisibility();
             },
           },
           "ลบ"
@@ -2798,9 +2809,20 @@ if (typeof module !== "undefined") {
       rowEl.__amtInput = amtInput;
       rows.push(rowEl);
       container.appendChild(rowEl);
+      updateAmountVisibility();
     }
     addRow(defaultAccountId || null, defaultAmount);
-    const addBtn = el("button", { class: "btn btn-sm", onClick: () => addRow() }, "+ เพิ่มบัญชี");
+    const addBtn = el(
+      "button",
+      {
+        class: "btn btn-sm",
+        onClick: () => {
+          userSplit = true;
+          addRow();
+        },
+      },
+      "+ เพิ่มบัญชี"
+    );
     function getSplits() {
       return rows
         .map((r) => ({
@@ -2817,6 +2839,7 @@ if (typeof module !== "undefined") {
         const r = rows.pop();
         if (r.parentNode) r.parentNode.removeChild(r);
       }
+      userSplit = false;
       addRow(null, presetAmount);
     }
     function setSplits(list) {
@@ -2824,16 +2847,21 @@ if (typeof module !== "undefined") {
         const r = rows.pop();
         if (r.parentNode) r.parentNode.removeChild(r);
       }
-      if (list && list.length > 0) {
+      if (list && list.length > 1) {
+        userSplit = true;
         list.forEach((s) => addRow(s.account_id, s.amount));
+      } else if (list && list.length === 1) {
+        userSplit = false;
+        addRow(list[0].account_id, list[0].amount);
       } else {
+        userSplit = false;
         addRow(null, "");
       }
     }
     // ถ้ามีแค่บัญชีเดียว (ยังไม่ได้กด "+ เพิ่มบัญชี") ให้ก็อปจำนวนเงินมาใส่อัตโนมัติ
     // เพื่อไม่ต้องพิมพ์จำนวนเงินซ้ำสองที่ (ถ้าแบ่งหลายบัญชีแล้ว ผู้ใช้ต้องกรอกเองตามที่ต้องการ)
     function syncAmountIfSingle(amount) {
-      if (rows.length === 1) rows[0].__amtInput.value = amount;
+      if (rows.length === 1 && !userSplit) rows[0].__amtInput.value = amount;
     }
     return { container, addBtn, getSplits, getTotal, reset, setSplits, syncAmountIfSingle };
   }
