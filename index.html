@@ -4024,11 +4024,15 @@ function buildDataTable(columns, dataRows, opts) {
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOS(s.id) }, "ลบ")
       );
       const isUnpaidStatus = s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ";
+      // ถ้าจ่ายมาแล้วบางส่วน (แต่ยังไม่ครบ) ให้โชว์ยอดที่ยังค้างอยู่ต่อท้ายสถานะไปเลย จะได้ไม่ต้องเดา/กดเข้าไปดูทีละบิล
+      const remainAmt = Math.round((s.total - s.paid) * 100) / 100;
       const paidLabel =
         s.status === "ชำระแล้ว" && s.paid_method
           ? s.paid_method === "โอนเงิน" && (s.bank_name || s.bank_account_name)
             ? `${s.status} (${s.paid_method}: ${[s.bank_name, s.bank_account_name].filter(Boolean).join(" ")})`
             : `${s.status} (${s.paid_method})`
+          : isUnpaidStatus && s.paid > 0
+          ? `${s.status} ${money(remainAmt)} บาท${s.due_date ? ` (ครบกำหนด ${fmtDate(s.due_date)})` : ""}`
           : isUnpaidStatus && s.due_date
           ? `${s.status} (ครบกำหนด ${fmtDate(s.due_date)})`
           : s.status;
