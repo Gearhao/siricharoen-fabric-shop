@@ -1492,6 +1492,56 @@ function createDB(storageKey) {
     }
     save();
   }
+  // รับชำระบิลค้างแบบระบุจำนวนเงินเองได้ (รองรับจ่ายไม่เต็มจำนวน/แบ่งจ่ายหลายครั้ง) ต่างจาก markSalePaid ที่บังคับปิดยอดเต็มจำนวนเดียว
+  function paySale(saleId, amount, method, accountSplits) {
+    const sale = store.sales.find((x) => x.id === saleId);
+    if (!sale) return;
+    const remainBefore = Math.round((sale.total - sale.paid) * 100) / 100;
+    const amt = Math.max(0, Math.min(Math.round((Number(amount) || 0) * 100) / 100, remainBefore));
+    let newSplits = [];
+    if (method === "เงินสด" && amt > 0) {
+      newSplits = [{ account_id: getCashAccount().id, amount: amt }];
+    } else if (method === "โอนเงิน" && amt > 0) {
+      newSplits = normalizeSplits(accountSplits);
+    }
+    const desc = describeSplits(newSplits);
+    if (amt > 0 && sale.payment_method === "เงินเชื่อ" && sale.customer_id) {
+      const c = getCustomer(sale.customer_id);
+      if (c) {
+        store.customerPayments.push({
+          id: store.customerPayments.length + 1,
+          customer_id: sale.customer_id,
+          date: nowStr(),
+          amount: amt,
+          method: method || "เงินสด",
+          bank_name: desc.bank_name,
+          bank_account_name: desc.bank_account_name,
+          note: `ชำระตามบิล ${sale.sale_no}`,
+        });
+        c.credit_balance -= amt;
+      }
+    }
+    sale.paid = Math.round((sale.paid + amt) * 100) / 100;
+    sale.change_amt = 0;
+    if (sale.payment_method === "เงินเชื่อ") {
+      sale.status = sale.paid >= sale.total ? "ชำระแล้ว" : sale.paid === 0 ? "ค้างชำระ" : "ชำระบางส่วน";
+    } else if (sale.payment_method === "เงินสดแต่ยังไม่จ่าย") {
+      sale.status = sale.paid >= sale.total ? "ชำระแล้ว" : "เงินสดแต่ค้างชำระ";
+    } else if (sale.paid >= sale.total) {
+      sale.status = "ชำระแล้ว";
+    }
+    if (sale.status === "ชำระแล้ว") {
+      sale.paid_method = method || sale.paid_method || "เงินสด";
+      if (sale.paid_method === "โอนเงิน") {
+        sale.bank_name = desc.bank_name || sale.bank_name || "";
+        sale.bank_account_name = desc.bank_account_name || sale.bank_account_name || "";
+      }
+    }
+    if (newSplits.length > 0) {
+      syncSaleAccountBalance(sale, (sale.account_splits || []).concat(newSplits));
+    }
+    save();
+  }
 
   // ------------------------------------------------------------ product returns (รับคืนสินค้า ผูกกับบิลขายเดิม)
   function getReturnedQtyForItem(saleId, fabricId) {
@@ -2429,7 +2479,7 @@ function createDB(storageKey) {
     addFabric, updateFabric, deleteFabric, getFabrics, getFabric,
     adjustStock, getStockMovements, deleteStockMovement,
     addRoll, getRollsByFabric, getActiveRollsByFabric, getRoll, adjustRollQty,
-    createSale, updateSale, deleteSale, getSales, getSale, getSaleByNo, markSalePaid,
+    createSale, updateSale, deleteSale, getSales, getSale, getSaleByNo, markSalePaid, paySale,
     addProductReturn, getSaleReturns, getReturns, deleteReturn, getReturnedQtyForItem, useExchangeCredit,
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense, updateExpense,
@@ -3966,7 +4016,7 @@ function buildDataTable(columns, dataRows, opts) {
                 class: "btn btn-sm",
                 onClick: () => openMarkSalePaidModal(s.id),
               },
-              "ชำระแล้ว"
+              "รับชำระเงิน"
             )
           : null,
         el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, "พิมพ์ใบเสร็จ"),
@@ -4168,6 +4218,8 @@ function buildDataTable(columns, dataRows, opts) {
     // ใช้บัญชีที่ลูกค้าเคยเลือก/ที่แนะนำไว้ในใบเสร็จเป็นค่าเริ่มต้น จะได้ไม่ต้องเลื่อนหาบัญชีซ้ำตอนบันทึกว่าโอนเข้าบัญชีไหน
     const cust = sale.customer_id ? DB.getCustomer(sale.customer_id) : null;
     const preferredAccountId = getCustomerPreferredAccountId(cust);
+    // ระบุจำนวนเงินที่รับชำระได้เอง (ค่าเริ่มต้นคือยอดค้างทั้งหมด แต่แก้ให้น้อยกว่าได้ กรณีลูกค้าจ่ายมาไม่เต็มจำนวน)
+    const amountInput = numberInput(remain);
     const methodSelect = selectInput(
       [
         { value: "เงินสด", label: "เงินสด" },
@@ -4180,14 +4232,19 @@ function buildDataTable(columns, dataRows, opts) {
     function updateBankRowsVisibility() {
       const isTransfer = methodSelect.value === "โอนเงิน";
       accountSplitRow.style.display = isTransfer ? "" : "none";
+      if (isTransfer) accountSplit.reset(Number(amountInput.value) || remain);
     }
     methodSelect.addEventListener("change", updateBankRowsVisibility);
     updateBankRowsVisibility();
+    amountInput.addEventListener("input", () => {
+      if (methodSelect.value === "โอนเงิน") accountSplit.syncAmountIfSingle(amountInput.value);
+    });
 
     const form = el(
       "div",
       { class: "form-panel" },
       el("p", { text: `บิลเลขที่ ${sale.sale_no} ยอดค้างชำระ ${money(remain)} บาท` }),
+      formField("จำนวนเงินที่รับชำระ", amountInput),
       formField("ชำระโดย", methodSelect),
       accountSplitRow
     );
@@ -4196,33 +4253,36 @@ function buildDataTable(columns, dataRows, opts) {
       {
         class: "btn btn-primary",
         onClick: () => {
+          const amt = Number(amountInput.value) || 0;
+          if (remain > 0 && (!amt || amt <= 0 || amt > remain)) {
+            global.alert("กรุณาระบุจำนวนเงินให้ถูกต้อง (มากกว่า 0 และไม่เกินยอดค้างชำระ)");
+            return;
+          }
           const method = methodSelect.value;
           let accountSplits = null;
-          if (method === "โอนเงิน") {
+          if (method === "โอนเงิน" && amt > 0) {
             accountSplits = accountSplit.getSplits();
-            // ถ้ายอดค้างชำระเป็น 0 อยู่แล้ว (เช่น แก้ไขบิลจนยอดพอดีกับที่จ่ายไปแล้ว แต่สถานะยังไม่ขึ้น "ชำระแล้ว")
-            // ไม่ต้องบังคับให้เลือกบัญชี/กรอกจำนวนเงิน เพราะไม่มีเงินที่ต้องโอนจริงแล้ว แค่ต้องการอัปเดตสถานะให้ตรง
-            if (remain > 0) {
-              if (accountSplits.length === 0) {
-                global.alert("กรุณาเลือกบัญชีที่รับโอน และระบุจำนวนเงิน");
-                return;
-              }
-              const splitTotal = accountSplit.getTotal();
-              if (splitTotal !== remain) {
-                global.alert(`ยอดรวมที่แบ่งเข้าบัญชี (${money(splitTotal)}) ไม่เท่ากับยอดค้างชำระ (${money(remain)}) กรุณาตรวจสอบ`);
-                return;
-              }
-              if (accountSplits.length === 1) rememberCustomerAccount(cust, String(accountSplits[0].account_id));
+            if (accountSplits.length === 0) {
+              global.alert("กรุณาเลือกบัญชีที่รับโอน และระบุจำนวนเงิน");
+              return;
             }
+            const splitTotal = accountSplit.getTotal();
+            if (splitTotal !== amt) {
+              global.alert(`ยอดรวมที่แบ่งเข้าบัญชี (${money(splitTotal)}) ไม่เท่ากับจำนวนที่รับชำระ (${money(amt)}) กรุณาตรวจสอบ`);
+              return;
+            }
+            if (accountSplits.length === 1) rememberCustomerAccount(cust, String(accountSplits[0].account_id));
           }
-          DB.markSalePaid(saleId, method, accountSplits);
+          DB.paySale(saleId, amt, method, accountSplits);
           closeModal();
           refresh();
+          const stillRemain = amt < remain;
+          global.alert(stillRemain ? `บันทึกรับชำระ ${money(amt)} บาท เรียบร้อย (ยังค้างอยู่ ${money(remain - amt)} บาท)` : "บันทึกรับชำระเรียบร้อย");
         },
       },
       "บันทึกการชำระเงิน"
     );
-    exposeTestRefs("markSalePaid", { methodSelect, accountSplit, saveBtn });
+    exposeTestRefs("markSalePaid", { amountInput, methodSelect, accountSplit, saveBtn });
     openModal("บันทึกการชำระเงิน", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
   }
 
