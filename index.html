@@ -6961,7 +6961,10 @@ function buildDataTable(columns, dataRows, opts) {
                 el("td", { text: fmtDate(s.date) }),
                 el("td", { text: money(s.total) }),
                 el("td", { text: money(s.paid) }),
-                el("td", { text: s.status })
+                el("td", {
+                  text: s.status,
+                  style: s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : {},
+                })
               );
             })
           : [el("tr", {}, el("td", { colspan: 6, class: "empty", text: "ไม่มีข้อมูล" }))])
