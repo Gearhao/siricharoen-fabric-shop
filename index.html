@@ -1339,6 +1339,8 @@ function createDB(storageKey) {
       status = "ค้างชำระ";
     } else if (paymentMethod === "เงินสดแต่ยังไม่จ่าย") {
       status = "เงินสดแต่ค้างชำระ";
+    } else if (paymentMethod === "เช็ค") {
+      status = "รอเช็คขึ้นเงิน";
     }
     const paidMethod = status === "ชำระแล้ว" && (paymentMethod === "เงินสด" || paymentMethod === "โอนเงิน") ? paymentMethod : null;
     let effectiveSplits = [];
@@ -1394,6 +1396,8 @@ function createDB(storageKey) {
       status = "ค้างชำระ";
     } else if (paymentMethod === "เงินสดแต่ยังไม่จ่าย") {
       status = "เงินสดแต่ค้างชำระ";
+    } else if (paymentMethod === "เช็ค") {
+      status = "รอเช็คขึ้นเงิน";
     }
     let effectiveSplits = null; // null = คงยอดที่เคยลงบัญชีไว้เดิม (ยังไม่แตะ)
     if (paymentMethod === "เงินสด" && paid > 0) {
@@ -1766,6 +1770,8 @@ function createDB(storageKey) {
       else sale.status = "ค้างชำระ";
     } else if (sale.payment_method === "เงินสดแต่ยังไม่จ่าย") {
       sale.status = sale.paid >= sale.total ? "ชำระแล้ว" : "เงินสดแต่ค้างชำระ";
+    } else if (sale.payment_method === "เช็ค") {
+      sale.status = sale.paid >= sale.total ? "ชำระแล้ว" : "รอเช็คขึ้นเงิน";
     } else if (sale.paid < sale.total) {
       sale.status = "ค้างชำระ";
     }
@@ -2374,7 +2380,7 @@ function createDB(storageKey) {
   // ยอดเงินสดค้างชำระ (เงินสดแต่ยังไม่จ่าย) ของลูกค้ารายหนึ่ง - ไม่รวมอยู่ใน credit_balance เพราะ credit_balance ใช้เช็ควงเงินเครดิตแยกต่างหาก
   function getCustomerCashPendingTotal(customerId) {
     return store.sales
-      .filter((s) => s.customer_id === customerId && s.payment_method === "เงินสดแต่ยังไม่จ่าย" && (s.paid || 0) < s.total)
+      .filter((s) => s.customer_id === customerId && (s.payment_method === "เงินสดแต่ยังไม่จ่าย" || s.payment_method === "เช็ค") && (s.paid || 0) < s.total)
       .reduce((sum, s) => sum + (s.total - (s.paid || 0)), 0);
   }
   // ยอดค้างชำระรวมของลูกค้า = ยอดเครดิต (credit_balance) + ยอดเงินสดค้างจ่าย - ใช้แสดงผลเท่านั้น ไม่กระทบ credit_balance/credit_limit
@@ -2387,7 +2393,7 @@ function createDB(storageKey) {
     let fabric = customer.credit_balance || 0;
     let shipping = 0;
     const pending = store.sales.filter(
-      (s) => s.customer_id === customer.id && s.payment_method === "เงินสดแต่ยังไม่จ่าย" && (s.paid || 0) < s.total
+      (s) => s.customer_id === customer.id && (s.payment_method === "เงินสดแต่ยังไม่จ่าย" || s.payment_method === "เช็ค") && (s.paid || 0) < s.total
     );
     for (const s of pending) {
       const remain = s.total - (s.paid || 0);
@@ -3760,12 +3766,13 @@ function buildDataTable(columns, dataRows, opts) {
         { value: "เงินเชื่อ", label: "เครดิต" },
         { value: "เงินสด", label: "เงินสด" },
         { value: "โอนเงิน", label: "โอนเงิน" },
-          { value: "เงินสดแต่ยังไม่จ่าย", label: "เงินสดแต่ยังไม่จ่าย" },
+        { value: "เงินสดแต่ยังไม่จ่าย", label: "เงินสดแต่ยังไม่จ่าย" },
+        { value: "เช็ค", label: "เช็ค (รอขึ้นเงิน)" },
       ],
       "เงินสดแต่ยังไม่จ่าย"
     );
     paymentSelect.addEventListener("change", () => {
-      if (paymentSelect.value === "เงินเชื่อ" || paymentSelect.value === "เงินสดแต่ยังไม่จ่าย") refs.posPaidInput.value = 0;
+      if (paymentSelect.value === "เงินเชื่อ" || paymentSelect.value === "เงินสดแต่ยังไม่จ่าย" || paymentSelect.value === "เช็ค") refs.posPaidInput.value = 0;
       updateBankFieldsVisibility();
       updatePosTotals();
     });
@@ -3787,9 +3794,28 @@ function buildDataTable(columns, dataRows, opts) {
     refs.posAccountSplit = accountSplit;
     const accountSplitRow = formField("บัญชีที่รับโอน (แบ่งหลายบัญชีได้)", el("div", {}, accountSplit.container, accountSplit.addBtn));
     refs.posAccountSplitRow = accountSplitRow;
+
+    // ฟิลด์รายละเอียดเช็ค (เลขที่เช็ค/ธนาคาร/วันที่ขึ้นเงิน) - โชว์เฉพาะตอนเลือกชำระโดย "เช็ค" บิลจะถูกสร้างเป็นสถานะ "รอเช็คขึ้นเงิน" พร้อมบันทึกเช็คไว้ในระบบเตือนหน้าแรกทันที
+    const checkNoInput = textInput("");
+    const checkBankInput = textInput("");
+    const checkDueDateInput = dateInputEl({ value: "" });
+    refs.posCheckNoInput = checkNoInput;
+    refs.posCheckBankInput = checkBankInput;
+    refs.posCheckDueDateInput = checkDueDateInput;
+    const checkFieldsRow = el(
+      "div",
+      {},
+      formField("เลขที่เช็ค", checkNoInput),
+      formField("ธนาคาร/สาขา", checkBankInput),
+      formField("วันที่เช็คขึ้นเงินได้", checkDueDateInput)
+    );
+    refs.posCheckFieldsRow = checkFieldsRow;
+
     function updateBankFieldsVisibility() {
       const isTransfer = paymentSelect.value === "โอนเงิน";
+      const isCheck = paymentSelect.value === "เช็ค";
       accountSplitRow.style.display = isTransfer ? "" : "none";
+      checkFieldsRow.style.display = isCheck ? "" : "none";
       if (isTransfer) accountSplit.reset(Number(refs.posPaidInput.value) || 0);
     }
     updateBankFieldsVisibility();
@@ -3840,6 +3866,7 @@ function buildDataTable(columns, dataRows, opts) {
           formField("รับเงิน (บาท)", paidInput)
         ),
         accountSplitRow,
+        checkFieldsRow,
         formField("หมายเหตุ", noteInput)
       ),
       el("div", { class: "totals-box" }, subtotalLbl, vatLbl, shippingLbl, totalLbl, changeLbl)
@@ -4956,6 +4983,12 @@ function buildDataTable(columns, dataRows, opts) {
     refs.posPaidInput.value = sale.paid;
     refs.posAccountSplit.setSplits(sale.account_splits || []);
     refs.posAccountSplitRow.style.display = sale.payment_method === "โอนเงิน" ? "" : "none";
+    const existingChecks = DB.getChecksForSale(sale.id);
+    const latestCheck = existingChecks.length > 0 ? existingChecks[existingChecks.length - 1] : null;
+    refs.posCheckNoInput.value = latestCheck ? latestCheck.check_no : "";
+    refs.posCheckBankInput.value = latestCheck ? latestCheck.bank_name : "";
+    refs.posCheckDueDateInput.value = latestCheck ? latestCheck.due_date : "";
+    refs.posCheckFieldsRow.style.display = sale.payment_method === "เช็ค" ? "" : "none";
     refs.posNoteInput.value = sale.note || "";
   }
 
@@ -5022,6 +5055,10 @@ function buildDataTable(columns, dataRows, opts) {
     refs.posPaymentSelect.value = "เงินสดแต่ยังไม่จ่าย";
     refs.posAccountSplit.reset(0);
     refs.posAccountSplitRow.style.display = "none";
+    refs.posCheckNoInput.value = "";
+    refs.posCheckBankInput.value = "";
+    refs.posCheckDueDateInput.value = "";
+    refs.posCheckFieldsRow.style.display = "none";
     refs.posNoteInput.value = "";
     const newCustomerSelect = buildCustomerSelectOptions();
     const oldSelect = refs.posCustomerSelect;
@@ -5389,6 +5426,11 @@ function buildDataTable(columns, dataRows, opts) {
         );
         if (!ok) return;
       }
+    } else if (paymentMethod === "เช็ค") {
+      if (!refs.posCheckNoInput.value.trim() || !refs.posCheckDueDateInput.value) {
+        global.alert("กรุณากรอกเลขที่เช็คและวันที่เช็คขึ้นเงินให้ครบ");
+        return;
+      }
     } else if (paymentMethod !== "เงินสด" && paymentMethod !== "เงินสดแต่ยังไม่จ่าย" && paid < total) {
       global.alert("จำนวนเงินที่รับน้อยกว่ายอดที่ต้องชำระ");
       return;
@@ -5458,6 +5500,10 @@ function buildDataTable(columns, dataRows, opts) {
       return;
     }
 
+    if (paymentMethod === "เช็ค" && DB.getChecksForSale(sale.id).length === 0) {
+      DB.receiveCheck(sale.id, sale.total, refs.posCheckNoInput.value.trim(), refs.posCheckBankInput.value.trim(), refs.posCheckDueDateInput.value);
+    }
+
     // เก็บค่าที่ต้องใช้ทำใบเสร็จไว้ก่อน แล้วรีเซ็ตฟอร์ม/สถานะแก้ไขให้เรียบร้อยทันที
     // ก่อนเปิดโมดัลใบเสร็จ กันปัญหาปุ่ม "ยกเลิกการแก้ไข" ค้างอยู่ ถ้าโมดัลใบเสร็จมีปัญหาระหว่างเปิด
     const receiptCustId = custId;
@@ -5483,6 +5529,10 @@ function buildDataTable(columns, dataRows, opts) {
     refs.posAccountSplit.reset(0);
     refs.posNoteInput.value = "";
     refs.posAccountSplitRow.style.display = "none";
+    refs.posCheckNoInput.value = "";
+    refs.posCheckBankInput.value = "";
+    refs.posCheckDueDateInput.value = "";
+    refs.posCheckFieldsRow.style.display = "none";
     if (refs.posVatChk) refs.posVatChk.checked = false;
 
     const newCustomerSelect = buildCustomerSelectOptions();
