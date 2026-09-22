@@ -4302,24 +4302,39 @@ function buildDataTable(columns, dataRows, opts) {
       [
         { value: "เงินสด", label: "เงินสด" },
         { value: "โอนเงิน", label: "โอนเงิน" },
+        { value: "เช็ค", label: "เช็ค (รอขึ้นเงิน)" },
       ],
       "เงินสด"
     );
     const accountSelect = buildBankAccountSelect();
     const accountRow = formField("บัญชีที่รับโอน (ใช้บัญชีเดียวกันทุกบิลที่เลือก)", accountSelect);
+    const checkNoInput = textInput("");
+    const checkBankInput = textInput("");
+    const checkDueDateInput = dateInputEl({ value: "" });
+    const checkFieldsRow = el(
+      "div",
+      {},
+      formField("เลขที่เช็ค", checkNoInput),
+      formField("ธนาคาร/สาขา", checkBankInput),
+      formField("วันที่เช็คขึ้นเงินได้", checkDueDateInput),
+      el("p", { text: "* ใช้เลขที่เช็คเดียวกันกับทุกบิลที่เลือก เหมาะสำหรับกรณีลูกค้าจ่ายหลายบิลด้วยเช็คใบเดียว", style: { fontSize: "0.85em", color: "#777" } })
+    );
+    const skipNote = sales.length > unpaidSales.length ? ` (ข้ามบิลที่ชำระแล้ว ${sales.length - unpaidSales.length} บิล)` : "";
+    const summaryLbl = el("p", {
+      text: `เปลี่ยนสถานะเป็น "ชำระแล้ว" ให้ ${unpaidSales.length} บิล ยอดค้างชำระรวม ${money(totalRemain)} บาท${skipNote}`,
+    });
     function updateVis() {
-      accountRow.style.display = methodSelect.value === "โอนเงิน" ? "" : "none";
+      const isTransfer = methodSelect.value === "โอนเงิน";
+      const isCheck = methodSelect.value === "เช็ค";
+      accountRow.style.display = isTransfer ? "" : "none";
+      checkFieldsRow.style.display = isCheck ? "" : "none";
+      summaryLbl.textContent = isCheck
+        ? `บันทึกรับเช็คให้ ${unpaidSales.length} บิล ยอดรวม ${money(totalRemain)} บาท (รอขึ้นเงิน)${skipNote}`
+        : `เปลี่ยนสถานะเป็น "ชำระแล้ว" ให้ ${unpaidSales.length} บิล ยอดค้างชำระรวม ${money(totalRemain)} บาท${skipNote}`;
     }
     methodSelect.addEventListener("change", updateVis);
     updateVis();
-    const skipNote = sales.length > unpaidSales.length ? ` (ข้ามบิลที่ชำระแล้ว ${sales.length - unpaidSales.length} บิล)` : "";
-    const form = el(
-      "div",
-      { class: "form-panel" },
-      el("p", { text: `เปลี่ยนสถานะเป็น "ชำระแล้ว" ให้ ${unpaidSales.length} บิล ยอดค้างชำระรวม ${money(totalRemain)} บาท${skipNote}` }),
-      formField("ชำระโดย", methodSelect),
-      accountRow
-    );
+    const form = el("div", { class: "form-panel" }, summaryLbl, formField("ชำระโดย", methodSelect), accountRow, checkFieldsRow);
     const saveBtn = el(
       "button",
       {
@@ -4328,6 +4343,21 @@ function buildDataTable(columns, dataRows, opts) {
           const method = methodSelect.value;
           if (method === "โอนเงิน" && !accountSelect.value) {
             global.alert("กรุณาเลือกบัญชีที่รับโอน");
+            return;
+          }
+          if (method === "เช็ค") {
+            if (!checkNoInput.value.trim() || !checkDueDateInput.value) {
+              global.alert("กรุณากรอกเลขที่เช็คและวันที่เช็คขึ้นเงินให้ครบ");
+              return;
+            }
+            unpaidSales.forEach((s) => {
+              const remain = s.total - s.paid;
+              if (remain > 0) DB.receiveCheck(s.id, remain, checkNoInput.value.trim(), checkBankInput.value.trim(), checkDueDateInput.value);
+            });
+            closeModal();
+            posHistorySelectedIds.clear();
+            renderPosSalesHistory();
+            global.alert(`บันทึกรับเช็คให้ ${unpaidSales.length} บิลเรียบร้อยแล้ว ระบบจะเตือนที่หน้าแรกก่อนถึงวันที่เช็คขึ้นเงิน`);
             return;
           }
           unpaidSales.forEach((s) => {
