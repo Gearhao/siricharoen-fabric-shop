@@ -6971,13 +6971,20 @@ function buildDataTable(columns, dataRows, opts) {
 
     const billingNotes = DB.getBillingNotesForCustomer(cid);
     const billingHistoryTable = buildDataTable(
-      ["เลขที่", "วันที่สร้าง", "กำหนดชำระ", "จำนวนบิล", "ยอดรวม"],
+      ["เลขที่", "วันที่สร้าง", "กำหนดชำระ", "จำนวนบิล", "ยอดรวม", "สถานะ"],
       billingNotes.map((n) => {
         const foundSales = (n.sale_ids || []).map((id) => DB.getSale(id)).filter(Boolean);
         const total = foundSales.reduce((sum, s) => sum + (s.total || 0), 0);
-        return [n.doc_no, fmtDate(n.created_date), n.due_date ? fmtDate(n.due_date) : "-", String(foundSales.length), money(total) + " บาท"];
+        const paidTotal = foundSales.reduce((sum, s) => sum + (s.paid || 0), 0);
+        const remain = Math.round((total - paidTotal) * 100) / 100;
+        const statusText = remain > 0 ? `ค้างชำระ ${money(remain)} บาท` : "ชำระแล้ว";
+        return [n.doc_no, fmtDate(n.created_date), n.due_date ? fmtDate(n.due_date) : "-", String(foundSales.length), money(total) + " บาท", statusText];
       }),
       {
+        cellStyle: (row, ci, colName) => {
+          if (colName === "สถานะ" && String(row[ci]).indexOf("ค้างชำระ") === 0) return { color: "var(--danger)", fontWeight: "600" };
+          return null;
+        },
         actions: (idx) => {
           const n = billingNotes[idx];
           const foundSales = (n.sale_ids || []).map((id) => DB.getSale(id)).filter(Boolean);
