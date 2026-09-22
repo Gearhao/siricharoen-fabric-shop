@@ -1331,7 +1331,7 @@ function createDB(storageKey) {
     const changeAmt = paymentMethod !== "เงินเชื่อ" ? Math.max(0, paid - total) : 0;
     let status = "ชำระแล้ว";
     if (paymentMethod === "เงินเชื่อ" && paid < total) {
-      status = paid === 0 ? "ค้างชำระ" : "ชำระบางส่วน";
+      status = "ค้างชำระ";
     } else if (paymentMethod === "เงินสดแต่ยังไม่จ่าย") {
       status = "เงินสดแต่ค้างชำระ";
     }
@@ -1386,7 +1386,7 @@ function createDB(storageKey) {
     const changeAmt = paymentMethod !== "เงินเชื่อ" ? Math.max(0, paid - total) : 0;
     let status = "ชำระแล้ว";
     if (paymentMethod === "เงินเชื่อ" && paid < total) {
-      status = paid === 0 ? "ค้างชำระ" : "ชำระบางส่วน";
+      status = "ค้างชำระ";
     } else if (paymentMethod === "เงินสดแต่ยังไม่จ่าย") {
       status = "เงินสดแต่ค้างชำระ";
     }
@@ -1524,7 +1524,7 @@ function createDB(storageKey) {
     sale.paid = Math.round((sale.paid + amt) * 100) / 100;
     sale.change_amt = 0;
     if (sale.payment_method === "เงินเชื่อ") {
-      sale.status = sale.paid >= sale.total ? "ชำระแล้ว" : sale.paid === 0 ? "ค้างชำระ" : "ชำระบางส่วน";
+      sale.status = sale.paid >= sale.total ? "ชำระแล้ว" : "ค้างชำระ";
     } else if (sale.payment_method === "เงินสดแต่ยังไม่จ่าย") {
       sale.status = sale.paid >= sale.total ? "ชำระแล้ว" : "เงินสดแต่ค้างชำระ";
     } else if (sale.paid >= sale.total) {
@@ -1667,7 +1667,7 @@ function createDB(storageKey) {
   function updateSaleStatusAfterReturn(sale) {
     if (sale.payment_method === "เงินเชื่อ") {
       if (sale.paid >= sale.total) sale.status = "ชำระแล้ว";
-      else sale.status = sale.paid === 0 ? "ค้างชำระ" : "ชำระบางส่วน";
+      else sale.status = "ค้างชำระ";
     } else if (sale.payment_method === "เงินสดแต่ยังไม่จ่าย") {
       sale.status = sale.paid >= sale.total ? "ชำระแล้ว" : "เงินสดแต่ค้างชำระ";
     } else if (sale.paid < sale.total) {
