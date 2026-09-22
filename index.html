@@ -3449,14 +3449,18 @@ function buildDataTable(columns, dataRows, opts) {
       ["รหัส", "ชื่อผ้า", "คงเหลือ", "จุดสั่งซื้อ", "หน่วย"],
       DB.lowStockList().map((f) => [f.code, f.name, f.stock_qty, f.reorder_point, f.unit])
     );
-    const recentTable = buildTable(
+    const recentTable = buildDataTable(
       ["เลขที่บิล", "วันที่", "ลูกค้า", "ยอดรวม", "สถานะ"],
       DB.getSales()
         .slice(0, 25)
         .map((s) => {
           const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
           return [s.sale_no, fmtDate(s.date), c ? c.name : "ลูกค้าทั่วไป", money(s.total), s.status];
-        })
+        }),
+      {
+        cellStyle: (row, ci, colName) =>
+          colName === "สถานะ" && (row[ci] === "ค้างชำระ" || row[ci] === "เงินสดแต่ค้างชำระ") ? { color: "var(--danger)", fontWeight: "600" } : null,
+      }
     );
 
     const grid = el(
