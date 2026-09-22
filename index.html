@@ -639,6 +639,7 @@ function createDB(storageKey) {
           if (!store.expenseCategories) store.expenseCategories = [];
           if (!store.quotations) store.quotations = [];
           if (!store.billingNotes) store.billingNotes = [];
+          if (!store.checks) store.checks = [];
           
           
           if (!store.nextId) store.nextId = {};
@@ -648,6 +649,7 @@ function createDB(storageKey) {
           if (!store.nextId.expenseCategory) store.nextId.expenseCategory = store.expenseCategories.length + 1;
           if (!store.nextId.quotation) store.nextId.quotation = store.quotations.length + 1;
           if (!store.nextId.billingNote) store.nextId.billingNote = store.billingNotes.length + 1;
+          if (!store.nextId.check) store.nextId.check = store.checks.length + 1;
           
           
           migrateCodes(store);
@@ -674,7 +676,7 @@ function createDB(storageKey) {
 
   function emptyStore() {
     return {
-      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1, bankAccount: 1, customerOrder: 1, expenseCategory: 1, quotation: 1, return: 1, billingNote: 1, roll: 1 },
+      nextId: { supplier: 1, customer: 1, fabric: 1, sale: 1, purchase: 1, expense: 1, backorder: 1, bankAccount: 1, customerOrder: 1, expenseCategory: 1, quotation: 1, return: 1, billingNote: 1, roll: 1, check: 1 },
       shopInfo: { name: "ร้านผ้าศิริเจริญ", address: "", phone: "", tax_id: "" },
       suppliers: [],
       customers: [],
@@ -693,6 +695,7 @@ function createDB(storageKey) {
       quotations: [],
       returns: [],
       billingNotes: [],
+      checks: [],
       rolls: [],
       rollsMigrated: false,
       
@@ -714,6 +717,7 @@ function createDB(storageKey) {
         if (!data.expenseCategories) data.expenseCategories = [];
         if (!data.quotations) data.quotations = [];
         if (!data.billingNotes) data.billingNotes = [];
+        if (!data.checks) data.checks = [];
         
         
         if (!data.nextId) data.nextId = {};
@@ -723,6 +727,7 @@ function createDB(storageKey) {
         if (!data.nextId.expenseCategory) data.nextId.expenseCategory = data.expenseCategories.length + 1;
         if (!data.nextId.quotation) data.nextId.quotation = data.quotations.length + 1;
         if (!data.nextId.billingNote) data.nextId.billingNote = data.billingNotes.length + 1;
+        if (!data.nextId.check) data.nextId.check = data.checks.length + 1;
         
         
         migrateCodes(data);
@@ -1455,6 +1460,7 @@ function createDB(storageKey) {
   function markSalePaid(saleId, method, accountSplits) {
     const sale = store.sales.find((x) => x.id === saleId);
     if (!sale) return;
+    if (getPendingCheckTotalForSale(saleId) > 0) return;
     const remain = sale.total - sale.paid;
     let newSplits = [];
     if (method === "โอนเงิน") {
@@ -1496,12 +1502,12 @@ function createDB(storageKey) {
   function paySale(saleId, amount, method, accountSplits) {
     const sale = store.sales.find((x) => x.id === saleId);
     if (!sale) return;
-    const remainBefore = Math.round((sale.total - sale.paid) * 100) / 100;
+    const remainBefore = Math.round((sale.total - sale.paid) * 100) / 100 - (method === "เช็ค" ? 0 : getPendingCheckTotalForSale(saleId));
     const amt = Math.max(0, Math.min(Math.round((Number(amount) || 0) * 100) / 100, remainBefore));
     let newSplits = [];
     if (method === "เงินสด" && amt > 0) {
       newSplits = [{ account_id: getCashAccount().id, amount: amt }];
-    } else if (method === "โอนเงิน" && amt > 0) {
+    } else if ((method === "โอนเงิน" || method === "เช็ค") && amt > 0) {
       newSplits = normalizeSplits(accountSplits);
     }
     const desc = describeSplits(newSplits);
@@ -1532,7 +1538,7 @@ function createDB(storageKey) {
     }
     if (sale.status === "ชำระแล้ว") {
       sale.paid_method = method || sale.paid_method || "เงินสด";
-      if (sale.paid_method === "โอนเงิน") {
+      if (sale.paid_method === "โอนเงิน" || sale.paid_method === "เช็ค") {
         sale.bank_name = desc.bank_name || sale.bank_name || "";
         sale.bank_account_name = desc.bank_account_name || sale.bank_account_name || "";
       }
@@ -1543,6 +1549,96 @@ function createDB(storageKey) {
     save();
   }
 
+  
+  // ------------------------------------------------------------ เช็ครับล่วงหน้า (checks) - รับเช็คจากลูกค้าไว้รอวันขึ้นเงิน แล้วเตือนก่อนถึงกำหนด
+  // ยอดรวมเช็คที่ยังรอขึ้นเงินของบิลหนึ่งใบ (กันไม่ให้รับชำระซ้ำในส่วนที่เช็คคุมไว้แล้ว)
+  function getPendingCheckTotalForSale(saleId) {
+    return store.checks
+      .filter((c) => c.sale_id === saleId && c.status === "รอขึ้นเงิน")
+      .reduce((sum, c) => sum + c.amount, 0);
+  }
+  function getChecksForSale(saleId) {
+    return store.checks.filter((c) => c.sale_id === saleId).sort((a, b) => (a.due_date < b.due_date ? -1 : 1));
+  }
+  function getCheck(checkId) {
+    return store.checks.find((c) => c.id === checkId) || null;
+  }
+  // เช็คที่ยังรอขึ้นเงินทั้งหมด เรียงตามวันครบกำหนดใกล้สุดก่อน - ใช้แสดงเตือนที่หน้าแรก
+  function getPendingChecks() {
+    return store.checks
+      .filter((c) => c.status === "รอขึ้นเงิน")
+      .map((c) => Object.assign({}, c, { sale: getSale(c.sale_id) }))
+      .sort((a, b) => (a.due_date < b.due_date ? -1 : 1));
+  }
+  // สถานะบิลที่ควรจะเป็นถ้าไม่นับเช็คที่รอขึ้นเงิน - ใช้ตอนเช็คเด้ง/ลบเช็คที่บันทึกผิด เพื่อคืนสถานะเดิมของบิล
+  function computeSaleStatusIgnoringChecks(sale) {
+    if (sale.payment_method === "เงินเชื่อ") return sale.paid >= sale.total ? "ชำระแล้ว" : "ค้างชำระ";
+    if (sale.payment_method === "เงินสดแต่ยังไม่จ่าย") return sale.paid >= sale.total ? "ชำระแล้ว" : "เงินสดแต่ค้างชำระ";
+    return sale.paid >= sale.total ? "ชำระแล้ว" : "ค้างชำระ";
+  }
+  // รับเช็คจากลูกค้าไว้เป็นการชำระบิล - ยังไม่นับเป็นเงินที่ได้รับจริงจนกว่าจะกดยืนยันว่าขึ้นเงินแล้ว (clearCheck) บิลจะค้างสถานะ "รอเช็คขึ้นเงิน" ระหว่างนี้
+  function receiveCheck(saleId, amount, checkNo, bankName, dueDate, note) {
+    const sale = store.sales.find((x) => x.id === saleId);
+    if (!sale) return null;
+    const remainBefore = Math.round((sale.total - sale.paid) * 100) / 100 - getPendingCheckTotalForSale(saleId);
+    const amt = Math.max(0, Math.min(Math.round((Number(amount) || 0) * 100) / 100, remainBefore));
+    if (amt <= 0) return null;
+    const check = {
+      id: genIdSimple("check"),
+      sale_id: saleId,
+      customer_id: sale.customer_id,
+      check_no: checkNo || "",
+      bank_name: bankName || "",
+      due_date: dueDate || "",
+      amount: amt,
+      status: "รอขึ้นเงิน",
+      received_date: nowStr(),
+      cleared_date: "",
+      cleared_account_id: null,
+      note: note || "",
+    };
+    store.checks.push(check);
+    sale.status = "รอเช็คขึ้นเงิน";
+    save();
+    return check;
+  }
+  // ยืนยันว่าเช็คนำเข้าบัญชีแล้ว (เงินเข้าจริง) - เรียก paySale ต่อให้จัดการผลกระทบต่อยอดหนี้ลูกค้า/บัญชีเงินเหมือนช่องทางอื่นๆ
+  function clearCheck(checkId, accountId) {
+    const check = store.checks.find((c) => c.id === checkId);
+    if (!check || check.status !== "รอขึ้นเงิน") return false;
+    check.status = "ขึ้นเงินแล้ว";
+    check.cleared_date = nowStr();
+    check.cleared_account_id = accountId;
+    paySale(check.sale_id, check.amount, "เช็ค", [{ account_id: accountId, amount: check.amount }]);
+    return true;
+  }
+  // เช็คเด้ง/ถูกปฏิเสธ - คืนสถานะบิลกลับไปเป็นค้างชำระตามปกติ เพื่อให้ติดตามทวงถามใหม่
+  function bounceCheck(checkId) {
+    const check = store.checks.find((c) => c.id === checkId);
+    if (!check || check.status !== "รอขึ้นเงิน") return false;
+    check.status = "เช็คเด้ง";
+    check.cleared_date = nowStr();
+    const sale = store.sales.find((x) => x.id === check.sale_id);
+    if (sale && getPendingCheckTotalForSale(check.sale_id) === 0) {
+      sale.status = computeSaleStatusIgnoringChecks(sale);
+    }
+    save();
+    return true;
+  }
+  // ลบเช็คที่บันทึกผิด (ยังไม่ขึ้นเงิน) - คืนสถานะบิลกลับเหมือน bounceCheck แต่ลบทิ้งไปเลยไม่เก็บประวัติ
+  function deleteCheck(checkId) {
+    const idx = store.checks.findIndex((c) => c.id === checkId);
+    if (idx === -1) return false;
+    const check = store.checks[idx];
+    if (check.status !== "รอขึ้นเงิน") return false;
+    store.checks.splice(idx, 1);
+    const sale = store.sales.find((x) => x.id === check.sale_id);
+    if (sale && getPendingCheckTotalForSale(check.sale_id) === 0) {
+      sale.status = computeSaleStatusIgnoringChecks(sale);
+    }
+    save();
+    return true;
+  }
   // ------------------------------------------------------------ product returns (รับคืนสินค้า ผูกกับบิลขายเดิม)
   function getReturnedQtyForItem(saleId, fabricId) {
     return store.returns
@@ -2480,6 +2576,7 @@ function createDB(storageKey) {
     adjustStock, getStockMovements, deleteStockMovement,
     addRoll, getRollsByFabric, getActiveRollsByFabric, getRoll, adjustRollQty,
     createSale, updateSale, deleteSale, getSales, getSale, getSaleByNo, markSalePaid, paySale,
+    getPendingCheckTotalForSale, getChecksForSale, getCheck, getPendingChecks, receiveCheck, clearCheck, bounceCheck, deleteCheck,
     addProductReturn, getSaleReturns, getReturns, deleteReturn, getReturnedQtyForItem, useExchangeCredit,
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense, updateExpense,
@@ -3459,7 +3556,7 @@ function buildDataTable(columns, dataRows, opts) {
         }),
       {
         cellStyle: (row, ci, colName) =>
-          colName === "สถานะ" && (row[ci] === "ค้างชำระ" || row[ci] === "เงินสดแต่ค้างชำระ") ? { color: "var(--danger)", fontWeight: "600" } : null,
+          colName === "สถานะ" && (row[ci] === "ค้างชำระ" || row[ci] === "เงินสดแต่ค้างชำระ" || row[ci] === "รอเช็คขึ้นเงิน") ? { color: "var(--danger)", fontWeight: "600" } : null,
       }
     );
 
@@ -3470,7 +3567,69 @@ function buildDataTable(columns, dataRows, opts) {
       panel("รายการขายล่าสุด", recentTable)
     );
 
-    sec.appendChild(el("div", { class: "section-inner" }, statsRow, rangeRow, grid));
+    // -------------------------------------------------- เตือนเช็ครอขึ้นเงิน (แสดงเฉพาะตอนมีเช็คค้างอยู่)
+    const pendingChecks = DB.getPendingChecks();
+    let checkReminderPanel = null;
+    if (pendingChecks.length > 0) {
+      const hasOverdue = pendingChecks.some((c) => c.due_date && c.due_date <= today);
+      const checkRows = pendingChecks.map((c) => {
+        const overdue = c.due_date && c.due_date < today;
+        const dueToday = c.due_date === today;
+        const cust = c.customer_id ? DB.getCustomer(c.customer_id) : null;
+        return el(
+          "tr",
+          {},
+          el("td", { text: cust ? cust.name : "-" }),
+          el("td", { text: c.sale ? c.sale.sale_no : "-" }),
+          el("td", { text: c.check_no || "-" }),
+          el("td", { text: c.bank_name || "-" }),
+          el("td", { text: money(c.amount) + " บาท" }),
+          el("td", {
+            text: `${fmtDate(c.due_date)}${overdue ? " (เลยกำหนด)" : dueToday ? " (วันนี้)" : ""}`,
+            style: overdue || dueToday ? { color: "var(--danger)", fontWeight: "600" } : {},
+          }),
+          el(
+            "td",
+            { class: "actions-cell" },
+            el("button", { class: "btn btn-sm btn-primary", onClick: () => openClearCheckModal(c.id) }, "ขึ้นเงินแล้ว"),
+            el("button", { class: "btn btn-sm", onClick: () => bounceCheckAction(c.id) }, "เช็คเด้ง")
+          )
+        );
+      });
+      const checkTable = el(
+        "table",
+        { class: "data-table" },
+        el(
+          "thead",
+          {},
+          el(
+            "tr",
+            {},
+            el("th", { text: "ลูกค้า" }),
+            el("th", { text: "เลขที่บิล" }),
+            el("th", { text: "เลขที่เช็ค" }),
+            el("th", { text: "ธนาคาร" }),
+            el("th", { text: "จำนวนเงิน" }),
+            el("th", { text: "วันที่ขึ้นเงิน" }),
+            el("th", { text: "จัดการ" })
+          )
+        ),
+        el("tbody", {}, ...checkRows)
+      );
+      checkReminderPanel = el(
+        "div",
+        { class: "panel", style: { border: `2px solid ${hasOverdue ? "var(--danger)" : "#f0ad4e"}`, marginBottom: "16px" } },
+        el("h3", {
+          text: `🔔 เช็ครอขึ้นเงิน (${pendingChecks.length} ใบ)`,
+          style: { margin: "0 0 8px", color: hasOverdue ? "var(--danger)" : "inherit" },
+        }),
+        checkTable
+      );
+    }
+
+    sec.appendChild(
+      el("div", { class: "section-inner" }, checkReminderPanel, statsRow, rangeRow, grid)
+    );
   }
 
   // =================================================================== POS
@@ -4027,14 +4186,21 @@ function buildDataTable(columns, dataRows, opts) {
         el("button", { class: "btn btn-sm", onClick: () => openProductReturnModal(s.id) }, "รับคืนสินค้า"),
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOS(s.id) }, "ลบ")
       );
-      const isUnpaidStatus = s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ";
+      const isUnpaidStatus = s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" || s.status === "รอเช็คขึ้นเงิน";
       // ถ้าจ่ายมาแล้วบางส่วน (แต่ยังไม่ครบ) ให้โชว์ยอดที่ยังค้างอยู่ต่อท้ายสถานะไปเลย จะได้ไม่ต้องเดา/กดเข้าไปดูทีละบิล
       const remainAmt = Math.round((s.total - s.paid) * 100) / 100;
+      let checkDueLabel = "";
+      if (s.status === "รอเช็คขึ้นเงิน") {
+        const pendingChecksForSale = DB.getChecksForSale(s.id).filter((c) => c.status === "รอขึ้นเงิน");
+        if (pendingChecksForSale.length > 0) checkDueLabel = ` (เช็ค ${money(pendingChecksForSale[0].amount)} บาท ครบกำหนด ${fmtDate(pendingChecksForSale[0].due_date)})`;
+      }
       const paidLabel =
         s.status === "ชำระแล้ว" && s.paid_method
           ? s.paid_method === "โอนเงิน" && (s.bank_name || s.bank_account_name)
             ? `${s.status} (${s.paid_method}: ${[s.bank_name, s.bank_account_name].filter(Boolean).join(" ")})`
             : `${s.status} (${s.paid_method})`
+          : s.status === "รอเช็คขึ้นเงิน"
+          ? `${s.status}${checkDueLabel}`
           : isUnpaidStatus && s.paid > 0
           ? `${s.status} ${money(remainAmt)} บาท${s.due_date ? ` (ครบกำหนด ${fmtDate(s.due_date)})` : ""}`
           : isUnpaidStatus && s.due_date
@@ -4222,7 +4388,9 @@ function buildDataTable(columns, dataRows, opts) {
     const refresh = refreshFn || renderPosSalesHistory;
     const sale = DB.getSale(saleId);
     if (!sale) return;
-    const remain = sale.total - sale.paid;
+    // หักยอดเช็คที่รับไว้แล้วแต่ยังรอขึ้นเงินออกจากยอดค้างที่แสดง กันไม่ให้รับซ้ำในส่วนที่เช็คคุมไว้อยู่แล้ว
+    const pendingCheckTotal = DB.getPendingCheckTotalForSale(saleId);
+    const remain = Math.round((sale.total - sale.paid) * 100) / 100 - pendingCheckTotal;
     // ใช้บัญชีที่ลูกค้าเคยเลือก/ที่แนะนำไว้ในใบเสร็จเป็นค่าเริ่มต้น จะได้ไม่ต้องเลื่อนหาบัญชีซ้ำตอนบันทึกว่าโอนเข้าบัญชีไหน
     const cust = sale.customer_id ? DB.getCustomer(sale.customer_id) : null;
     const preferredAccountId = getCustomerPreferredAccountId(cust);
@@ -4232,29 +4400,52 @@ function buildDataTable(columns, dataRows, opts) {
       [
         { value: "เงินสด", label: "เงินสด" },
         { value: "โอนเงิน", label: "โอนเงิน" },
+        { value: "เช็ค", label: "เช็ค (รอขึ้นเงิน)" },
       ],
       "เงินสด"
     );
     const accountSplit = buildAccountSplitRows(remain, preferredAccountId);
     const accountSplitRow = formField("บัญชีที่รับโอน (แบ่งหลายบัญชีได้)", el("div", {}, accountSplit.container, accountSplit.addBtn));
-    function updateBankRowsVisibility() {
+    const checkNoInput = textInput("");
+    const checkBankInput = textInput("");
+    const checkDueDateInput = dateInputEl({ value: DB.todayStr() });
+    const checkFieldsRow = el(
+      "div",
+      {},
+      formField("เลขที่เช็ค", checkNoInput),
+      formField("ธนาคาร/สาขา", checkBankInput),
+      formField("วันที่เช็คขึ้นเงินได้", checkDueDateInput),
+      el("p", { text: "* บิลจะขึ้นสถานะ \"รอเช็คขึ้นเงิน\" และมีเตือนที่หน้าแรกก่อนถึงวันที่เช็คขึ้นเงิน จนกว่าจะกดยืนยันว่าเช็คเข้าบัญชีแล้ว", style: { fontSize: "0.85em", color: "#777" } })
+    );
+    function updateFieldsVisibility() {
       const isTransfer = methodSelect.value === "โอนเงิน";
+      const isCheck = methodSelect.value === "เช็ค";
       accountSplitRow.style.display = isTransfer ? "" : "none";
+      checkFieldsRow.style.display = isCheck ? "" : "none";
       if (isTransfer) accountSplit.reset(Number(amountInput.value) || remain);
     }
-    methodSelect.addEventListener("change", updateBankRowsVisibility);
-    updateBankRowsVisibility();
+    methodSelect.addEventListener("change", updateFieldsVisibility);
+    updateFieldsVisibility();
     amountInput.addEventListener("input", () => {
+      // ถ้าเป็นโอนเงินและยังไม่ได้แบ่งหลายบัญชี ก็อปยอดมาใส่ให้เลยไม่ต้องพิมพ์ซ้ำ
       if (methodSelect.value === "โอนเงิน") accountSplit.syncAmountIfSingle(amountInput.value);
     });
 
     const form = el(
       "div",
       { class: "form-panel" },
-      el("p", { text: `บิลเลขที่ ${sale.sale_no} ยอดค้างชำระ ${money(remain)} บาท` }),
+      el(
+        "p",
+        {
+          text:
+            `บิลเลขที่ ${sale.sale_no} ยอดค้างชำระ ${money(remain)} บาท` +
+            (pendingCheckTotal > 0 ? ` (มีเช็ครอขึ้นเงินคุมไว้แล้ว ${money(pendingCheckTotal)} บาท)` : ""),
+        }
+      ),
       formField("จำนวนเงินที่รับชำระ", amountInput),
       formField("ชำระโดย", methodSelect),
-      accountSplitRow
+      accountSplitRow,
+      checkFieldsRow
     );
     const saveBtn = el(
       "button",
@@ -4262,11 +4453,28 @@ function buildDataTable(columns, dataRows, opts) {
         class: "btn btn-primary",
         onClick: () => {
           const amt = Number(amountInput.value) || 0;
+          // ถ้ายอดค้างชำระเป็น 0 อยู่แล้ว (เช่น แก้ไขบิลจนยอดพอดีกับที่จ่ายไปแล้ว แต่สถานะยังไม่ขึ้น "ชำระแล้ว")
+          // ไม่ต้องบังคับให้กรอกจำนวนเงิน เพราะไม่มีเงินที่ต้องรับจริงแล้ว แค่ต้องการอัปเดตสถานะให้ตรง
           if (remain > 0 && (!amt || amt <= 0 || amt > remain)) {
             global.alert("กรุณาระบุจำนวนเงินให้ถูกต้อง (มากกว่า 0 และไม่เกินยอดค้างชำระ)");
             return;
           }
           const method = methodSelect.value;
+          if (method === "เช็ค") {
+            if (!checkNoInput.value.trim() || !checkDueDateInput.value) {
+              global.alert("กรุณากรอกเลขที่เช็คและวันที่เช็คขึ้นเงินให้ครบ");
+              return;
+            }
+            const check = DB.receiveCheck(saleId, amt, checkNoInput.value.trim(), checkBankInput.value.trim(), checkDueDateInput.value);
+            if (!check) {
+              global.alert("บันทึกรับเช็คไม่สำเร็จ กรุณาตรวจสอบจำนวนเงินอีกครั้ง");
+              return;
+            }
+            closeModal();
+            refresh();
+            global.alert(`บันทึกรับเช็คเลขที่ ${check.check_no} จำนวน ${money(amt)} บาท เรียบร้อย ระบบจะเตือนที่หน้าแรกก่อนถึงวันที่ ${fmtDate(check.due_date)}`);
+            return;
+          }
           let accountSplits = null;
           if (method === "โอนเงิน" && amt > 0) {
             accountSplits = accountSplit.getSplits();
@@ -4279,6 +4487,7 @@ function buildDataTable(columns, dataRows, opts) {
               global.alert(`ยอดรวมที่แบ่งเข้าบัญชี (${money(splitTotal)}) ไม่เท่ากับจำนวนที่รับชำระ (${money(amt)}) กรุณาตรวจสอบ`);
               return;
             }
+            // จำบัญชีที่เลือกไว้เป็นค่าเริ่มต้นของลูกค้ารายนี้ในครั้งถัดไป (เฉพาะกรณีโอนเข้าบัญชีเดียว ไม่แบ่งหลายบัญชี)
             if (accountSplits.length === 1) rememberCustomerAccount(cust, String(accountSplits[0].account_id));
           }
           DB.paySale(saleId, amt, method, accountSplits);
@@ -4290,8 +4499,55 @@ function buildDataTable(columns, dataRows, opts) {
       },
       "บันทึกการชำระเงิน"
     );
-    exposeTestRefs("markSalePaid", { amountInput, methodSelect, accountSplit, saveBtn });
+    exposeTestRefs("markSalePaid", { amountInput, methodSelect, accountSplit, checkNoInput, checkBankInput, checkDueDateInput, saveBtn });
     openModal("บันทึกการชำระเงิน", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
+  }
+
+  // ยืนยันว่าเช็คที่รับไว้นำเข้าบัญชีแล้ว (เงินเข้าจริง) - ให้เลือกบัญชีที่นำเข้า แล้วเรียก DB.clearCheck ต่อ
+  function openClearCheckModal(checkId, refreshFn) {
+    const refresh = refreshFn || renderDashboard;
+    const check = DB.getCheck(checkId);
+    if (!check) return;
+    const sale = DB.getSale(check.sale_id);
+    const cust = check.customer_id ? DB.getCustomer(check.customer_id) : null;
+    const accountSelect = buildBankAccountSelect(getCustomerPreferredAccountId(cust));
+    const form = el(
+      "div",
+      { class: "form-panel" },
+      el("p", {
+        text: `เช็คเลขที่ ${check.check_no || "-"} จากลูกค้า ${cust ? cust.name : "-"} บิล ${sale ? sale.sale_no : "-"} จำนวน ${money(check.amount)} บาท`,
+      }),
+      formField("นำเข้าบัญชี", accountSelect)
+    );
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          if (!accountSelect.value) {
+            global.alert("กรุณาเลือกบัญชีที่นำเช็คเข้า");
+            return;
+          }
+          DB.clearCheck(checkId, Number(accountSelect.value));
+          closeModal();
+          refresh();
+          global.alert("บันทึกเช็คขึ้นเงินเรียบร้อย");
+        },
+      },
+      "ยืนยันเช็คขึ้นเงินแล้ว"
+    );
+    exposeTestRefs("clearCheck", { accountSelect, saveBtn });
+    openModal("ยืนยันเช็คขึ้นเงิน", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
+  }
+  // เช็คเด้ง/ถูกปฏิเสธ - คืนสถานะบิลกลับไปเป็นค้างชำระตามปกติ เพื่อให้ติดตามทวงถามใหม่
+  function bounceCheckAction(checkId, refreshFn) {
+    const refresh = refreshFn || renderDashboard;
+    const check = DB.getCheck(checkId);
+    if (!check) return;
+    if (!global.confirm(`ยืนยันว่าเช็คเลขที่ ${check.check_no || "-"} จำนวน ${money(check.amount)} บาท เด้ง/ถูกปฏิเสธ? บิลจะกลับไปเป็นค้างชำระตามปกติ`)) return;
+    DB.bounceCheck(checkId);
+    refresh();
+    global.alert("บันทึกเช็คเด้งเรียบร้อย บิลกลับไปเป็นค้างชำระแล้ว");
   }
 
   // สร้างและเปิดตัวอย่างใบเสร็จสำหรับผ้าที่ให้ลูกค้าแทนตอนเปลี่ยนของ (ใช้ได้ทั้งตอนบันทึกใหม่ และย้อนดูประวัติภายหลัง)
@@ -6967,7 +7223,10 @@ function buildDataTable(columns, dataRows, opts) {
                 el("td", { text: money(s.paid) }),
                 el("td", {
                   text: s.status,
-                  style: s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" ? { color: "var(--danger)", fontWeight: "600" } : {},
+                  style:
+                    s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" || s.status === "รอเช็คขึ้นเงิน"
+                      ? { color: "var(--danger)", fontWeight: "600" }
+                      : {},
                 })
               );
             })
@@ -9871,7 +10130,7 @@ function buildDataTable(columns, dataRows, opts) {
       container.appendChild(
         buildDataTable(["เลขที่บิล", "วันที่", "ลูกค้า", "ก่อนภาษี", "VAT", "ยอดรวม", "สถานะ"], rows, {
           cellStyle: (row, ci, colName) =>
-            colName === "สถานะ" && (row[ci] === "ค้างชำระ" || row[ci] === "เงินสดแต่ค้างชำระ") ? { color: "var(--danger)", fontWeight: "600" } : null,
+            colName === "สถานะ" && (row[ci] === "ค้างชำระ" || row[ci] === "เงินสดแต่ค้างชำระ" || row[ci] === "รอเช็คขึ้นเงิน") ? { color: "var(--danger)", fontWeight: "600" } : null,
         })
       );
     } else if (reportSubTab === "best") {
