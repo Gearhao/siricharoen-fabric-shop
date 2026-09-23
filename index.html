@@ -6051,12 +6051,12 @@ function buildDataTable(columns, dataRows, opts) {
     let docType = isCredit ? "delivery" : "normal";
     let lang = "th";
     let showQr = false;
-    // บิลแว็ดที่ไม่มีค่าส่งแยก: ยอดทั้งบิลคือค่าผ้าล้วนๆ ให้ default บัญชีเป็นบัญชี หจก. นิวศิริเจริญ (บัญชีที่ใช้รับเงินค่าผ้าของบิลแว็ดเสมอ เหมือนกรณีมีค่าส่งแยก)
-    // เว้นแต่ลูกค้ารายนี้เคยเลือกบัญชีอื่นไว้ก่อนแล้ว (ให้ความสำคัญกับบัญชีที่จำไว้ต่อลูกค้าก่อนเสมอ)
+    // บิลแว็ดที่ไม่มีค่าส่งแยก: ยอดทั้งบิลคือค่าผ้าล้วนๆ ให้ default บัญชีเป็นบัญชี หจก. นิวศิริเจริญ เสมอ (บัญชีที่ใช้รับเงินค่าผ้าของบิลแว็ดทุกกรณี เหมือนกรณีมีค่าส่งแยกที่ค่าผ้าเข้าบัญชีนี้ตายตัวอยู่แล้ว)
+    // ไม่อิงตามบัญชีที่เคยจำไว้ต่อลูกค้า เพราะบิลแว็ดต้องเข้าบัญชีนิติบุคคลนี้เท่านั้น (บัญชีที่จำไว้ต่อลูกค้าใช้กับบิลที่ไม่ใช่แว็ดเท่านั้น)
     const preferredAccountId = getCustomerPreferredAccountId(cust);
     const isVatNoShipping = !!sale.is_vat && !((sale.shipping_fee || 0) > 0);
     const defaultVatAccount = isVatNoShipping ? DB.getBankAccounts().find((a) => !a.is_cash && String(a.account_no || "") === "0458527326") : null;
-    const accountSelect = buildBankAccountSelect(preferredAccountId || (defaultVatAccount ? defaultVatAccount.id : ""));
+    const accountSelect = buildBankAccountSelect(isVatNoShipping && defaultVatAccount ? defaultVatAccount.id : preferredAccountId);
     // บิล VAT ที่มีค่าส่ง: buildReceiptDoc จะแยกยอดเป็น 2 บัญชีอัตโนมัติ (ค่าผ้า -> บัญชีคงที่ของร้าน,
     // ค่าส่ง -> บัญชีที่เลือกจาก dropdown ด้านล่าง) ต้องบอกในฟอร์มให้ชัดว่า dropdown นี้ใช้กับ "ค่าส่ง"
     // เท่านั้น ไม่ใช่ทั้งบิล ไม่งั้นผู้ใช้จะงงตอนเห็นในใบเสร็จว่ามี 2 บัญชีโผล่มา ทั้งที่ฟอร์มดูเหมือนมีบัญชีเดียว
