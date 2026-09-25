@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="th">
 <head>
 <meta charset="UTF-8">
@@ -7,13 +6,6 @@
 <title>ร้านผ้าศิริเจริญ - ระบบจัดการร้านค้า (ไม่มี VAT)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1f4788">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="ร้านผ้าศิริเจริญ">
-<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAQAElEQVR4AeydCXwURRbGP8J9hRs55JIFgqwG5BQFsrBAkHAEQQ5FJJFTQFCuXVZUVCAcAioGUCKoKEIWA4RLBAMoh6AgGIkgJCCHChKEcCQEsF8nIQczk5manklX1+NHZ2a6q6rf+94/lerq6jc+NTpOv80ba2AVBnzA/1gBCynAQFsomOwKwEAzBZZSgIG2VDjZGQZaGQbUcJSBViPOynjJQCsTajUcZaDViLMyXjLQyoRaDUcZaDXirIyXDDQAZaKtgKMMtAJBVslFBlqlaCvgKwOtQJBVcpGBVinaCvjKQCsQZJVczAVolaRgX62gAANthSiyD3cUYKDvSMFvrKAAA22FKLIPdxRgoO9IwW+soAADbYUoGuGDRdpgoC0SSHYjTQEGOk0H/mkRBRhoiwSS3UhTgIFO04F/WkQBBtoigWQ30hRgoNN0cPSTj0mkAAMtUbDY1NwVYKBz14hLSKQAAy1RsNjU3BVgoHPXiEtIpAADLVGw2NTcFXAP6Nzb5xKsgFcVYKC9KjefzNMKMNCeVpjb96oCDLRX5eaTeVoBBtrTCnP7XlWAgfaq3PKeTBbLGWhZIsV2OqUAA+2UTFxIFgUYaFkixXY6pQAD7ZRMXEgWBRhoWSLFdjqlAAPtlEyOCvExMynAQJspGmyL2wow0G5LyA2YSQEG2kzRYFvcVoCBdkPCyuVLonfHBzHrxccQNbc/tn8wBLGfj8Hh1S8gfsMEJGy8ezuydqxe5vsVo7BpQQg+ntYbk4e2Q9tmtd2whKtmKMBAZyjh5GvHlnWxcHIw9n06Al9/OAxhYzqhZ/sH0NCvCqpXLo3iRQuhaOGCyJfPdoOFCubXy5T1LYp6NSvg0UY1EdK9CSKm9MQv68YhJmIw5owPQosHq9tugPc6VMDH4VE3D1qlOvXErwz7N75bPhILXgoGQV2+THHk97FDraDjBfL7oGaVMghu2wCfhvXFNx8Ow/iBbfRfAMEmlavGQDsIOfW2r2ggb9SGBs90a4xypYvZ7XkdNCN0iHr4qhV9Mbx3C+xYOhQvDW7LYDuhJANtRyTqJde/OxADujZGqRJF7JTyzu6y2vAkJLgpot95Bu0fruOdk0p6FgbaRuCoV542OhA1tDEx9ZQ2inh9F9lRq2oZzNXG12MHtPb6+WU5IQOdI1KzX+yMp4IaoUihAjmOmOMjDYOG9GqG6dovnDksMpcVDHSWeMwe2xnd2zUAXZxl2W26twUL5NdnVuiXzyTGmcYMBjo9FOOeaY2g1n6Gz1ykN2/4C/3SBbXxA9lteOMSN8hAa8ELaHqf3uMVNukwQzPR5n+yt0+gvz6NaLOAgjuVB5rGpIMfb4Z7ypWQMvw0lTjo8aY8pZcePeWBfqLDA/pdvnQ9pHzxr1cZQ3o1l9J2o41WHuhOrfxQrEhBt3W9ci0Fh47+hk/WH8D4ORvQb+Jy1AwMy7aFTI7Ea4u2Yv2On5FwJhE3b912+7zUAF0ktmtem3tpTQylge72r/tRr2Z5TQax/7c1Hk+cvYiwiG1o1m8+uoxciv++tQkrNh3EzgMn0hrN8nPrt8eweNVeDH8jCgEhixA4NALR2w4jOSU1Symxt7WrlUN/bbpRrLZ1aikN9CMNa8C3eBGhaFKPPH/5LrQZuBDhK3aDPrva0NGT5zFi2hp9ox7b1fpZy9O8eeMG92bdpeR7pYG+v/Y9QmszLiUlY+r7MZi1dLsh0GzedRSvhH+Js+cvu9Ve/VoV4F+3slttyF7ZR3YHRO1v9VBNVCxb3OXqt7RxBgG4bN1+l+s6qhCz9ziox798JdlRMYfHyvgWRT0NaoeFLH5QWaArV/AVuoii3pnGwp7g4uPo/dgbe0q4aZqXrlO9nHB9K1RUFuh77ykFWmzvahCvp9xA4uVrrlZzuvxX2oWjyHicTkB3D8v6FqO3ym55CbSyojtyfNWWWH1Kz1EZR8cqVSjp6LDljzHQLoa4RNFCqKINV1ys5nRx6p3jjp9zujwXzK4AA51dj1w/FS9aGIGP1M21nDsFTv52ESk3buobAU7bSW2+Oy7+HGjbsucYqCeP3HxIv1HzwsxoPB+2Fu0HL8aT2g0dd84te11lgb6q3dkTuVNHC+1phmRiaIDHYj9v2Teo22WWvjUIngPaWmvz3YHDIkBb6MuReEGDeOzs9fqNGoJ79Vc/gea1PWaUJA0rCzTN+d7QekGRONFsQmhwE7w9sSvoAVqRNriOZxRQFuiE04n4K+m6sKq0fqJLQH39Ob//PBvAYDtU0nsHlQX6hyNnQesw3JWalm8O6dkcWxcP0pPG0PoQd9vk+uIKKAs0SXZQgzo19Ra9dXuj5DKUNGbu+C74IfJ5HW56NrG4NividuPcgNMKKA30nkO/4qLBN0noopHSHhDcr4/ogO8/G4nNi0L1DEv0ZIzTkeGCQgooDTStn9itQX37tpB2TlWiC8g61cuDcuAtea2XnveOAH9jZAe0bFjDqTa4kPMKKA00ybQ25jAu/HWV3nplo6EJAf5k50ZYNq2PPjyhtF9DezXnC0sDIqA80Jt2HsG6HXGGPT3iSkxoeELDk4f9q4PmtSlR44Z3B+r57Hg60BUlM8sqDzRJQU+c7D98mt7m6UbDk/r3VdTz2RHcq996Gn07+eepTbKdnIHWIka3lt9ZvsvtBfZaU4b9J7hpsf7UUYHY++kI8Fy3c9Iy0Ok60QXijIht+P3PpPQ95nihYUmFMsVBc93rtOEIZyF1HBcGOos+n2+NxfTFMaaDOsPEjCykUfP6o3XjWhm7+TWLAgx0FjHoLUFNK9eOnDgPT07n0blENuqx62jTgOH/6w7OQnq3giYG+m5jvbVn98GTCB79EWgFmxEpBuCBf3QHcghnIb1LWQb6LknSdtCF4ugZazHo1VX48Zff82RaL80S+z9pgRR9vwtnIc3UiIHO1MLmu+3fxSNoxBIMfz0K++PO4EbqTZvl8monPUfIWUgz1WegM7Vw+I5uwARrw5Anxn4C/e7ipWumGWPTFB/deezSpj5U/8dAu0gA9dIjp6/BQ0+8BRqSUA9O66rz+gKydMkiGPR4M6HUDC5KYOriDLQb4aGLxqcnrYB/z3kYOHklaIbk9B+XkHrTmCWprppW/74KGNKruavV8r68gRYw0AaJSTdmxsyIxiNPh6PVgAV6ai/qvc8nXvHaBSVdJNK3ENSqWtYgr+RrhoH2QMzoecUlq78D9d5N+r4DyjIa9sE2/aIy6WqyR8fe9N2GnR6t6wGv5GiSgfZCnOhp7PDPdutz2//sMffO8OSMNjwRefLckcl0gdhE4SykDLQjOjx0LGN40lIbnlDv/dmmg/jz4lXDeu66Ncorm4WUgfYQtM42S733hDkb0LjP25ihDUsIbGfr2itXRuEspAy0PSryYD8lTqebONSDpw9FhKygYYeqWUgZaCFkPFeJLiifm7oau344ITwEobuHqmYhVRJoeji1R7sGoG3y0HZ4c1wQ5k3ogqi5/bExPER/SptSEcR+PkZ/qPX4hvGYOqqj5yjO0TKtI5m9dAdO/f5XjiPOf1Q1C6mP8xLJX7JzKz8cWPk8PpneR4eYQA7p3kQHmxLENPSrAr9aFUDLM+lZP1rRRg+1+uTLB2/P7dIdSXd6abJf/oi57oFSQFOPR/PArssEVKtUyuszB8dPXUDyjVQRc1G4UH6herJXUgpoSv918bJYPruypYqhoZ93v5DnjwtJuJlHt9FlBVteoAUVp4sukarFihREU4VvWIholhd1lAM64fQF4cVDjepXRSNtnO2tQFWrVBq0PkPkfOcTvZc8R8Q+T9VRDugDcWeRdDVFSM9K5UsiWJsdEaosUInmkkW+2IhOlXRNzEeqK/OmHNAx+46DxqYiQcvvkw/tW/zDKznp6C8B/UUQsZO+S/HsuUsiVaWvoxzQNMcbF/+H8E2LSuV9Mbx3C48vpB/QtTEqC36j1fXkVBz79U/p4RRxQDmgSaS9P57C1etif5K1KWk87F8DU55rT015ZHuycyO0bVYbPnQygTNQ8kkaWglUNWUVV4xSEmj6kp2EM4mu6JStLA09ugbUx/TRgdn2G/FhYLfGmDCwDXxLFBZujnKK0BSlcAMSV1QSaBp20NMk7mTvp9mH3h39sWJmP0NmPuiuJPX6E0ID3IKZ8ojsiz0lMZLuma4k0CTZqi9j8asbayWoDRoRNHugmv71E/MndRMCm0Ae2bclvlwUiv5BD6FIoQLUtPAWr/3l2fD1EeH6sldUFmhah7x222EYkWeDoKR1IpFvPoWdHw7Du5O6I7RHU30cnBMQGhvTGHnO+CB9ERR9ZcWLA1ppF4C+oF+QnOVd+Uy+fLHzKOK1uXZX6lmprLJAUxAXrtyDwwZ+DTGNratU9MVjreqBsoRGTOmJhI0Tsm20j76OIrhtA30RFK1dJluM2MgX8smItmRtQ2mgaSz93v+/hej6jrwPeqYFl5KSQY9ykU+Ze9V7pzTQFG4adixbtx90MUWfZdxu3rqNzbuPgvyQ0X4jbVYeaBJz5pLtiN4e57X8GXROozbK2ETrpifP32xUk1K3w0Cnh4+A2KbdFqfeLn2X6V8IZrrr+Wr4Fqg+1MgIFgOdrgQBMXLaGqyJ+Ul4NV56U155IZjpm3BHTV8LmrHxykklOAkDnSVIBPWYGdFYsGKPqXs8yp23/us49Ju4nGHOEj96a1mgyTnRbdbS7Rj2epSe6Jx6QtF2PFGP8nbQ98A898ZqU//SecJ3Z9pkoO2oRLfGKUcGJX85l3hFeHWeneZd3n35SjJWfnFIT77+/qq9LtdXpQIDnUukKflLQMgiPasRjVW9edFIfx0oPe/CyD3oMGQxxr25HqKPkOXipmUOM9BOhJLG1gR2+8GL0WP0R/p8Lz2RnXLD+K+noDZpJSDlmqac05Sed9r7MQyyE3GiIgw0qeDCRssyJ739Bdo++x7qdpmFkMmRiIjahy17juHnhHO4cOmaPrYlMO01ez0lVS9DuaPj4s/pdecv36W3RW3SXwS6OKWUYPba4P22FWCgbevi9N6t3x7DlAVbEPpyJDoOjdC/qqJB8Bwd9pqBYbC1+XWdDSqj544eFqHXnand3KG2nD4xF8xQINsrA51NDv4guwIMtOwRZPuzKcBAZ5ODP8iuAAMtewTZ/mwKMNDZ5OAPsivAQMseQUf2K3iMgVYw6FZ2mYG2cnQV9I2BVjDoVnaZgbZydBX0jYFWMOhWdllVoK0cU6V9Y6CVDr/1nGegrRdTpT1ioJUOv/WcZ6CtF1OlPWKglQ6/9Zy/G2jr+cgeKaQAA61QsFVwlYFWIcoK+chAKxRsFVxloFWIskI+MtAKBTunq1b8zEBbMaoK+8RAKxx8K7rOQFsxqgr7xEArHHwrus5AWzGqCvvEQNsMPu+UVQEGWtbIsd02FWCgbcrCO2VVgIGWNXJst00FGGibsvBOWRVgoGWNHNttUwGXgbbZCu9kBUyidYukhgAAALZJREFUAANtkkCwGcYowEAboyO3YhIFGGiTBILNMEYBBtoYHbkVkyjAQJskECY0Q0qTGGgpw8ZG21OAgbanDO+XUgEGWsqwsdH2FGCg7SnD+6VUgIGWMmxstD0FGGh7yjjaz8dMqwADbdrQsGEiCjDQIqpxHdMqwECbNjRsmIgCDLSIalzHtAow0KYNDRsmooDRQIvYwHVYAcMUYKANk5IbMoMCDLQZosA2GKYAA22YlNyQGRT4GwAA//80v3FSAAAABklEQVQDAAJ621hCcYtxAAAAAElFTkSuQmCC">
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 
@@ -518,7 +510,7 @@ p { line-height: 1.6; }
 <noscript>โปรแกรมนี้ต้องเปิดใช้งาน JavaScript ในเบราว์เซอร์ กรุณาเปิดใช้งานแล้วโหลดหน้านี้ใหม่</noscript>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 <script>
 // ===== การเชื่อมต่อคลาวด์ (Supabase) =====
 // โปรเจกต์: siricharoen-fabric-shop (เฉพาะไฟล์ "ไม่มี VAT" นี้เท่านั้น)
@@ -537,6 +529,7 @@ const __supabaseClient__ =
   typeof window !== "undefined" && window.supabase && window.__SUPABASE_URL__
     ? window.supabase.createClient(window.__SUPABASE_URL__, window.__SUPABASE_ANON_KEY__)
     : null;
+// เปิดให้สคริปต์บล็อกอื่น (เช่นชั้น UI ที่ห่อด้วย IIFE ของตัวเอง) เข้าถึง client ตัวเดียวกันนี้ได้แน่นอนผ่าน window แทนที่จะพึ่งการมองเห็นตัวแปรข้าม <script> บล็อก
 if (typeof window !== "undefined") window.__supabaseClient__ = __supabaseClient__;
 
 function createDB(storageKey) {
@@ -586,7 +579,8 @@ function createDB(storageKey) {
   }
 
   // เช็คว่าข้อมูลที่จะดึงจากคลาวด์มาทับเครื่องนี้ดู "หายไปผิดปกติ" หรือไม่ เทียบกับข้อมูลที่เครื่องนี้มีอยู่แล้ว
-  // ป้องกันกรณีคลาวด์มีข้อมูลว่าง/น้อยผิดปกติ (เช่น อัปโหลดข้อมูลตัวอย่างทับของจริงไปโดยไม่ตั้งใจ) ไม่ให้มาทับข้อมูลจริงในเครื่อง
+  // ป้องกันกรณีคลาวด์มีข้อมูลว่าง/น้อยผิดปกติ (เช่น มีแท็บเก่าที่เปิดค้างไว้ดันข้อมูลว่าง/เก่าทับ, อัปโหลดข้อมูลตัวอย่างทับของจริงไปโดยไม่ตั้งใจ) ไม่ให้มาทับข้อมูลจริงในเครื่อง
+  // เช็คครอบคลุมทุกตารางสำคัญ (ไม่ใช่แค่ลูกค้า/ซัพพลายเออร์) เพราะข้อมูลอาจหายเฉพาะบางตาราง เช่น บิลขาย/ผ้า โดยที่ลูกค้ายังอยู่ครบ
   function looksLikeDataLoss(incoming) {
     const keysToCheck = ["customers", "suppliers", "fabrics", "sales", "purchases", "bankAccounts"];
     for (const key of keysToCheck) {
@@ -638,23 +632,21 @@ function createDB(storageKey) {
           if (!store.customerOrders) store.customerOrders = [];
           if (!store.expenseCategories) store.expenseCategories = [];
           if (!store.quotations) store.quotations = [];
+          if (!store.returns) store.returns = [];
           if (!store.billingNotes) store.billingNotes = [];
           if (!store.checks) store.checks = [];
-          
-          
           if (!store.nextId) store.nextId = {};
           if (!store.nextId.backorder) store.nextId.backorder = store.backorders.length + 1;
           if (!store.nextId.bankAccount) store.nextId.bankAccount = store.bankAccounts.length + 1;
           if (!store.nextId.customerOrder) store.nextId.customerOrder = store.customerOrders.length + 1;
           if (!store.nextId.expenseCategory) store.nextId.expenseCategory = store.expenseCategories.length + 1;
           if (!store.nextId.quotation) store.nextId.quotation = store.quotations.length + 1;
+          if (!store.nextId.return) store.nextId.return = store.returns.length + 1;
           if (!store.nextId.billingNote) store.nextId.billingNote = store.billingNotes.length + 1;
           if (!store.nextId.check) store.nextId.check = store.checks.length + 1;
-          
-          
-          migrateCodes(store);
           if (!store.rolls) store.rolls = [];
           if (!store.nextId.roll) store.nextId.roll = 1;
+          migrateCodes(store);
           migrateFabricsToRolls(store);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
           cloudStatus = "synced";
@@ -698,7 +690,6 @@ function createDB(storageKey) {
       checks: [],
       rolls: [],
       rollsMigrated: false,
-      
     };
   }
 
@@ -716,23 +707,21 @@ function createDB(storageKey) {
         if (!data.customerOrders) data.customerOrders = [];
         if (!data.expenseCategories) data.expenseCategories = [];
         if (!data.quotations) data.quotations = [];
+        if (!data.returns) data.returns = [];
         if (!data.billingNotes) data.billingNotes = [];
         if (!data.checks) data.checks = [];
-        
-        
         if (!data.nextId) data.nextId = {};
         if (!data.nextId.backorder) data.nextId.backorder = data.backorders.length + 1;
         if (!data.nextId.bankAccount) data.nextId.bankAccount = data.bankAccounts.length + 1;
         if (!data.nextId.customerOrder) data.nextId.customerOrder = data.customerOrders.length + 1;
         if (!data.nextId.expenseCategory) data.nextId.expenseCategory = data.expenseCategories.length + 1;
         if (!data.nextId.quotation) data.nextId.quotation = data.quotations.length + 1;
+        if (!data.nextId.return) data.nextId.return = data.returns.length + 1;
         if (!data.nextId.billingNote) data.nextId.billingNote = data.billingNotes.length + 1;
         if (!data.nextId.check) data.nextId.check = data.checks.length + 1;
-        
-        
-        migrateCodes(data);
         if (!data.rolls) data.rolls = [];
         if (!data.nextId.roll) data.nextId.roll = 1;
+        migrateCodes(data);
         migrateFabricsToRolls(data);
         return data;
       }
@@ -855,7 +844,7 @@ function createDB(storageKey) {
     if (delta !== 0) recordAccountMovement(id, delta, "adjust", null, note || "ปรับปรุงยอดบัญชี");
     return acct;
   }
-    // โยกเงินจากบัญชีหนึ่งไปอีกบัญชีหนึ่ง (เช่น เงินสด -> ธนาคาร หรือระหว่างบัญชีธนาคาร)
+  // โยกเงินจากบัญชีหนึ่งไปอีกบัญชีหนึ่ง (เช่น เงินสด -> ธนาคาร หรือระหว่างบัญชีธนาคาร)
   function transferBetweenAccounts(fromId, toId, amount, note) {
     const from = getBankAccount(fromId);
     const to = getBankAccount(toId);
@@ -891,7 +880,8 @@ function createDB(storageKey) {
     return [...rows].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id));
   }
   // ปรับยอดบัญชีที่ผูกกับบิลขาย/ใบสั่งซื้อให้ตรงกับสถานะล่าสุดเสมอ โดยย้อนผลเดิมก่อนแล้วค่อยใส่ผลใหม่
-  // (ใช้ได้ทั้งตอนสร้างใหม่ [oldAccountId ไม่มี], แก้ไข, และลบ [newAccountId/newAmount เป็น null/0])
+  // (ใช้ได้ทั้งตอนสร้างใหม่ [ไม่เคยมี splits เดิม], แก้ไข, และลบ [newSplits เป็น null/[]])
+  // newSplits: อาร์เรย์ [{account_id, amount}] รองรับกรณีลูกค้าโอนแยกหลายบัญชีสำหรับบิลเดียวกัน
   function normalizeSplits(splits) {
     return (splits || []).filter((s) => s && s.account_id && s.amount > 0).map((s) => ({ account_id: s.account_id, amount: s.amount }));
   }
@@ -917,6 +907,7 @@ function createDB(storageKey) {
     });
     purchase.account_splits = splits;
   }
+  // สร้างข้อความแสดงชื่อธนาคาร/บัญชี จาก splits (รองรับหลายบัญชี) สำหรับแสดงผล/พิมพ์ใบเสร็จ
   function describeSplits(splits) {
     const list = normalizeSplits(splits);
     if (list.length === 0) return { bank_name: "", bank_account_name: "" };
@@ -1147,14 +1138,13 @@ function createDB(storageKey) {
     let rows = store.fabrics;
     if (opts.onlyActive !== false) rows = rows.filter((f) => f.active);
     if (search) {
-      const q = search.toLowerCase();
-      rows = rows.filter(
-        (f) =>
-          f.name.toLowerCase().includes(q) ||
-          f.code.toLowerCase().includes(q) ||
-          (f.color || "").toLowerCase().includes(q) ||
-          (f.category || "").toLowerCase().includes(q)
-      );
+      const terms = search.toLowerCase().split(/\s+/).filter(Boolean);
+      rows = rows.filter((f) => {
+        const haystack = [f.name, f.code, f.color || "", f.category || ""]
+          .join(" ")
+          .toLowerCase();
+        return terms.every((t) => haystack.includes(t));
+      });
     }
     if (opts.onlyLowStock) rows = rows.filter((f) => f.stock_qty <= f.reorder_point);
     return [...rows].sort((a, b) => a.name.localeCompare(b.name, "th"));
@@ -1178,13 +1168,22 @@ function createDB(storageKey) {
     });
     save();
   }
-    function migrateFabricsToRolls(data) {
+  // -------------------------------------------------------------- ม้วนผ้า (roll)
+  // ย้ายสต็อกเดิมของผ้าทุกตัว (ที่ยังไม่เคยมีม้วน) เข้าเป็น "ม้วนที่ 1" อัตโนมัติครั้งเดียว
+  // เพื่อให้ทุกรหัสผ้ามีม้วนรองรับ QR ตั้งแต่แรก ไม่ต้องแยกระบบเก่า/ใหม่
+  function migrateFabricsToRolls(data) {
     if (data.rollsMigrated) return;
     if (!data.rolls) data.rolls = [];
     const existingFabricIds = new Set(data.rolls.map((r) => r.fabric_id));
     (data.fabrics || []).forEach((f) => {
       if (f.active && !existingFabricIds.has(f.id)) {
-        data.rolls.push({ id: data.nextId.roll++, fabric_id: f.id, roll_no: 1, qty: f.stock_qty || 0, active: true });
+        data.rolls.push({
+          id: data.nextId.roll++,
+          fabric_id: f.id,
+          roll_no: 1,
+          qty: f.stock_qty || 0,
+          active: true,
+        });
       }
     });
     data.rollsMigrated = true;
@@ -1194,13 +1193,30 @@ function createDB(storageKey) {
     if (!rolls.length) return 1;
     return Math.max(...rolls.map((r) => r.roll_no)) + 1;
   }
+  // เพิ่มม้วนใหม่ให้รหัสผ้า (ตอนรับผ้าเข้า) เลขม้วนรันต่ออัตโนมัติ ไม่ตั้งเอง ไม่ซ้ำแม้ม้วนก่อนจะขายหมดไปแล้ว
   function addRoll(fabricId, qty, note) {
     const f = getFabric(fabricId);
     if (!f) return null;
-    const roll = { id: genId("roll"), fabric_id: fabricId, roll_no: nextRollNo(fabricId), qty: Number(qty) || 0, active: true };
+    const roll = {
+      id: genId("roll"),
+      fabric_id: fabricId,
+      roll_no: nextRollNo(fabricId),
+      qty: Number(qty) || 0,
+      active: true,
+    };
     store.rolls.push(roll);
-    // ไม่บวกสต็อกรวมตรงนี้ เพราะฟังก์ชันนี้ใช้แค่แบ่งของที่มีอยู่แล้วออกเป็นม้วนเพื่อผูก QR (สต็อกถูกบวกไปแล้วตอนรับผ้าเข้าจริง)
-    store.stockMovements.push({ id: store.stockMovements.length + 1, fabric_id: fabricId, date: nowStr(), move_type: `แบ่งม้วน/ผูก QR (ม้วนที่ ${roll.roll_no}) - ไม่กระทบสต็อกรวม`, qty: roll.qty, ref_type: "roll", ref_id: roll.id, note: note || "" });
+    // หมายเหตุ: ไม่บวกสต็อกรวมตรงนี้ เพราะฟังก์ชันนี้ใช้แค่ "แบ่งของที่มีอยู่แล้ว" ออกเป็นม้วนๆ เพื่อผูก QR
+    // ถ้าเป็นผ้าที่รับเข้าจริงใหม่ (ผ่านใบสั่งซื้อ) สต็อกถูกบวกไปแล้วตอนกด "รับสินค้าเข้า" จึงไม่ควรบวกซ้ำที่นี่อีก
+    store.stockMovements.push({
+      id: store.stockMovements.length + 1,
+      fabric_id: fabricId,
+      date: nowStr(),
+      move_type: `แบ่งม้วน/ผูก QR (ม้วนที่ ${roll.roll_no}) - ไม่กระทบสต็อกรวม`,
+      qty: roll.qty,
+      ref_type: "roll",
+      ref_id: roll.id,
+      note: note || "",
+    });
     save();
     return roll;
   }
@@ -1213,6 +1229,8 @@ function createDB(storageKey) {
   function getRoll(id) {
     return store.rolls.find((r) => r.id === id) || null;
   }
+  // ตัด/คืนจำนวนของม้วนที่ระบุ พร้อมปรับสต็อกรวมของรหัสผ้าให้ตรงกันเสมอ ม้วนที่เหลือ <= 0 จะถูกปิด (active:false) อัตโนมัติ
+  // และถ้าคืนของ (delta > 0) เข้าม้วนที่เคยปิดไปแล้ว จะเปิดกลับมาใช้งานได้อีกอัตโนมัติ
   function adjustRollQty(rollId, delta, note) {
     const r = getRoll(rollId);
     if (!r) return;
@@ -1221,10 +1239,18 @@ function createDB(storageKey) {
     else if (delta > 0 && !r.active) r.active = true;
     const f = getFabric(r.fabric_id);
     if (f) f.stock_qty += delta;
-    store.stockMovements.push({ id: store.stockMovements.length + 1, fabric_id: r.fabric_id, date: nowStr(), move_type: delta >= 0 ? `คืนม้วน (ม้วนที่ ${r.roll_no})` : `ตัดขาย (ม้วนที่ ${r.roll_no})`, qty: delta, ref_type: "roll", ref_id: r.id, note: note || "" });
+    store.stockMovements.push({
+      id: store.stockMovements.length + 1,
+      fabric_id: r.fabric_id,
+      date: nowStr(),
+      move_type: delta >= 0 ? `คืนม้วน (ม้วนที่ ${r.roll_no})` : `ตัดขาย (ม้วนที่ ${r.roll_no})`,
+      qty: delta,
+      ref_type: "roll",
+      ref_id: r.id,
+      note: note || "",
+    });
     save();
   }
-
   function getStockMovements(fabricId) {
     return store.stockMovements
       .filter((m) => m.fabric_id === fabricId)
@@ -1260,14 +1286,14 @@ function createDB(storageKey) {
       unit_price: it.unit_price,
       unit: it.unit || "",
       stock_qty: it.stock_qty !== undefined && it.stock_qty !== null ? it.stock_qty : it.qty,
-      subtotal: Math.round(it.qty * it.unit_price * 100) / 100,
       roll_id: it.roll_id || null,
+      subtotal: Math.round(it.qty * it.unit_price * 100) / 100,
       note: it.note || "",
-      }));
+    }));
   }
   function applySaleEffects(sale) {
     for (const it of sale.items) {
-      if (it.is_misc) continue;
+      if (it.is_misc) continue; // รายการฝากซื้อ ไม่มีสต็อกให้ตัด
       const f = getFabric(it.fabric_id);
       if (f) f.stock_qty -= it.stock_qty;
       if (it.roll_id) {
@@ -1298,7 +1324,7 @@ function createDB(storageKey) {
   }
   function revertSaleEffects(sale) {
     for (const it of sale.items) {
-      if (it.is_misc) continue;
+      if (it.is_misc) continue; // รายการฝากซื้อ ไม่มีสต็อกให้คืน
       const f = getFabric(it.fabric_id);
       if (f) f.stock_qty += it.stock_qty;
       if (it.roll_id) {
@@ -1359,6 +1385,7 @@ function createDB(storageKey) {
       subtotal,
       discount,
       vat_amount: vatAmount,
+      is_vat: !!isVat,
       shipping_fee: shipFee,
       shipping_method: shippingMethod || "",
       due_date: dueDate || "",
@@ -1371,7 +1398,6 @@ function createDB(storageKey) {
       note: note || "",
       bank_name: paymentMethod === "โอนเงิน" ? desc.bank_name : "",
       bank_account_name: paymentMethod === "โอนเงิน" ? desc.bank_account_name : "",
-      is_vat: !!isVat,
       account_splits: [],
     };
     store.sales.push(sale);
@@ -1415,6 +1441,7 @@ function createDB(storageKey) {
     sale.subtotal = subtotal;
     sale.discount = discount;
     sale.vat_amount = vatAmount;
+    if (isVat !== undefined) sale.is_vat = !!isVat;
     sale.shipping_fee = shipFee;
     sale.shipping_method = shippingMethod || "";
     sale.due_date = dueDate !== undefined ? dueDate : sale.due_date || "";
@@ -1431,9 +1458,10 @@ function createDB(storageKey) {
     sale.note = note || "";
     sale.bank_name = paymentMethod === "โอนเงิน" ? desc.bank_name : "";
     sale.bank_account_name = paymentMethod === "โอนเงิน" ? desc.bank_account_name : "";
-    if (isVat !== undefined) sale.is_vat = !!isVat;
 
     applySaleEffects(sale);
+    // ปรับยอดบัญชีธนาคาร/เงินสดให้ตรงกับข้อมูลที่แก้ไข: ถ้าเป็นเงินสด/โอนเงินทันทีคำนวณใหม่จากยอดรับปัจจุบัน
+    // ถ้าเป็นเงินเชื่อ/เงินสดแต่ยังไม่จ่ายที่เคย "ชำระแล้ว" มาก่อน (เช่น กดชำระเงินภายหลัง) ให้คงยอดที่เคยลงบัญชีไว้เดิม ไม่ล้างทิ้ง
     syncSaleAccountBalance(sale, effectiveSplits === null ? sale.account_splits || [] : effectiveSplits);
     save();
     return sale;
@@ -1464,6 +1492,7 @@ function createDB(storageKey) {
   function markSalePaid(saleId, method, accountSplits) {
     const sale = store.sales.find((x) => x.id === saleId);
     if (!sale) return;
+    // ถ้ามีเช็ครอขึ้นเงินค้างอยู่ ต้องจัดการเช็คให้จบก่อน (ขึ้นเงิน/เช็คเด้ง) ผ่านหน้าเช็ครับล่วงหน้า ไม่ให้มาร์คปิดยอดทับตรงนี้ กันปัญหานับเงินซ้ำ
     if (getPendingCheckTotalForSale(saleId) > 0) return;
     const remain = sale.total - sale.paid;
     let newSplits = [];
@@ -1506,6 +1535,7 @@ function createDB(storageKey) {
   function paySale(saleId, amount, method, accountSplits) {
     const sale = store.sales.find((x) => x.id === saleId);
     if (!sale) return;
+    // หักยอดเช็คที่รับไว้แล้วแต่ยังรอขึ้นเงินออกก่อน กันไม่ให้รับชำระซ้ำในส่วนที่เช็คคุมไว้อยู่แล้ว (ยกเว้นตอนเรียกจาก clearCheck ที่จะลบเช็คตัวนั้นออกจากยอดคงค้างไปแล้วในตัว)
     const remainBefore = Math.round((sale.total - sale.paid) * 100) / 100 - (method === "เช็ค" ? 0 : getPendingCheckTotalForSale(saleId));
     const amt = Math.max(0, Math.min(Math.round((Number(amount) || 0) * 100) / 100, remainBefore));
     let newSplits = [];
@@ -1515,6 +1545,7 @@ function createDB(storageKey) {
       newSplits = normalizeSplits(accountSplits);
     }
     const desc = describeSplits(newSplits);
+    // ถ้าเป็นบิลเงินเชื่อ ทุกครั้งที่รับชำระ (ไม่ว่าเต็มหรือบางส่วน) ต้องบันทึกประวัติการชำระและหักยอดหนี้ลูกค้าไว้ด้วย
     if (amt > 0 && sale.payment_method === "เงินเชื่อ" && sale.customer_id) {
       const c = getCustomer(sale.customer_id);
       if (c) {
@@ -1553,7 +1584,6 @@ function createDB(storageKey) {
     save();
   }
 
-  
   // ------------------------------------------------------------ เช็ครับล่วงหน้า (checks) - รับเช็คจากลูกค้าไว้รอวันขึ้นเงิน แล้วเตือนก่อนถึงกำหนด
   // ยอดรวมเช็คที่ยังรอขึ้นเงินของบิลหนึ่งใบ (กันไม่ให้รับชำระซ้ำในส่วนที่เช็คคุมไว้แล้ว)
   function getPendingCheckTotalForSale(saleId) {
@@ -1643,12 +1673,15 @@ function createDB(storageKey) {
     save();
     return true;
   }
+
   // ------------------------------------------------------------ product returns (รับคืนสินค้า ผูกกับบิลขายเดิม)
+  // จำนวนที่เคยคืนไปแล้วของ "ผ้าตัวนี้" ในบิลนี้ (รวมทุกครั้งที่เคยรับคืน) ใช้กันไม่ให้คืนเกินจำนวนที่ซื้อจริง
   function getReturnedQtyForItem(saleId, fabricId) {
     return store.returns
       .filter((r) => r.sale_id === saleId)
       .reduce((sum, r) => sum + r.items.filter((it) => it.fabric_id === fabricId).reduce((s, it) => s + it.qty, 0), 0);
   }
+  // ประวัติการคืนทั้งหมดของบิลหนึ่งใบ (ใหม่สุดก่อน)
   function getSaleReturns(saleId) {
     return store.returns.filter((r) => r.sale_id === saleId).sort((a, b) => (a.date < b.date ? 1 : -1));
   }
@@ -1663,6 +1696,9 @@ function createDB(storageKey) {
     save();
     return true;
   }
+  // returnItems: [{ fabric_id, qty }] จำนวนที่ลูกค้าเอามาคืนรอบนี้ (ต่อรายการ)
+  // method: "หักลดหนี้" | "คืนเงินสด" | "เปลี่ยนของ"
+  // accountId: บัญชีที่จ่ายเงินคืน (ใช้เฉพาะ method === "คืนเงินสด")
   function addProductReturn(saleId, returnItems, method, accountId, note, exchangeItems, extraAccountId) {
     const sale = store.sales.find((x) => x.id === saleId);
     if (!sale) return null;
@@ -1680,25 +1716,71 @@ function createDB(storageKey) {
       const lineSubtotal = Math.round(qty * saleItem.unit_price * 100) / 100;
       subtotal += lineSubtotal;
       const f = getFabric(ri.fabric_id);
-      validItems.push({ fabric_id: ri.fabric_id, code: saleItem.code || (f ? f.code : "") || "", name: saleItem.name || (f ? f.name : "") || "", qty, unit: saleItem.unit, unit_price: saleItem.unit_price, subtotal: lineSubtotal });
+      validItems.push({
+        fabric_id: ri.fabric_id,
+        code: saleItem.code || (f ? f.code : "") || "",
+        name: saleItem.name || (f ? f.name : "") || "",
+        qty,
+        unit: saleItem.unit,
+        unit_price: saleItem.unit_price,
+        subtotal: lineSubtotal,
+      });
     }
     if (validItems.length === 0) return null;
     subtotal = Math.round(subtotal * 100) / 100;
+    // คิดสัดส่วนส่วนลด/VAT ของบิลเดิม ตามสัดส่วนมูลค่าที่คืนเทียบกับยอดก่อนหักส่วนลดทั้งบิล
     const ratio = sale.subtotal > 0 ? subtotal / sale.subtotal : 0;
     const discountPortion = Math.round(sale.discount * ratio * 100) / 100;
     const vatPortion = Math.round(sale.vat_amount * ratio * 100) / 100;
     const amount = Math.round((subtotal - discountPortion + vatPortion) * 100) / 100;
-    const ret = { id: genId("return"), date: nowStr(), sale_id: saleId, sale_no: sale.sale_no, customer_id: sale.customer_id, items: validItems, subtotal, discount_portion: discountPortion, vat_portion: vatPortion, amount, method, account_id: method === "คืนเงินสด" ? accountId || null : null, note: note || "", exchange_items: [], exchange_diff: 0, extra_payment_amount: 0, extra_account_id: null };
+
+    const ret = {
+      id: genId("return"),
+      date: nowStr(),
+      sale_id: saleId,
+      sale_no: sale.sale_no,
+      customer_id: sale.customer_id,
+      items: validItems,
+      subtotal,
+      discount_portion: discountPortion,
+      vat_portion: vatPortion,
+      amount,
+      method,
+      account_id: method === "คืนเงินสด" ? accountId || null : null,
+      note: note || "",
+      exchange_items: [],
+      exchange_diff: 0,
+      extra_payment_amount: 0,
+      extra_account_id: null,
+    };
     store.returns.push(ret);
+
+    // บวกผ้ากลับเข้าสต็อก + บันทึกความเคลื่อนไหวสต็อก
     for (const it of validItems) {
       const f = getFabric(it.fabric_id);
       if (f) f.stock_qty = Math.round((f.stock_qty + it.qty) * 100) / 100;
-      store.stockMovements.push({ id: store.stockMovements.length + 1, fabric_id: it.fabric_id, date: nowStr(), move_type: "รับคืนจากลูกค้า", qty: it.qty, ref_type: "return", ref_id: ret.id, note: `คืนจากบิล ${sale.sale_no}` });
+      store.stockMovements.push({
+        id: store.stockMovements.length + 1,
+        fabric_id: it.fabric_id,
+        date: nowStr(),
+        move_type: "รับคืนจากลูกค้า",
+        qty: it.qty,
+        ref_type: "return",
+        ref_id: ret.id,
+        note: `คืนจากบิล ${sale.sale_no}`,
+      });
     }
+
+    // ยอดค้างชำระเดิม (ก่อนรับคืน) - ใช้แบ่งว่ามูลค่าที่คืนส่วนไหน "ยังไม่ได้จ่าย" (แค่หักหนี้พอ ไม่ต้องคืนเงิน/เครดิตจริง)
+    // กับส่วนไหนที่ "จ่ายเงินมาแล้วจริงๆ" (ต้องคืนเงิน/ให้เครดิตของส่วนนั้น)
     const remainBeforeReturn = Math.max(0, Math.round((sale.total - sale.paid) * 100) / 100);
+    // ปรับยอดบิลเดิมให้เป็นยอดขายสุทธิ (หักส่วนที่คืนออก)
     sale.total = Math.round((sale.total - amount) * 100) / 100;
+    // ส่วนของมูลค่าที่คืน ที่เกินยอดค้างชำระเดิม = ส่วนที่ลูกค้าจ่ายเงินมาแล้วจริง ต้องคืนเงิน/เครดิตเฉพาะส่วนนี้
     const refundPortion = Math.max(0, Math.round((amount - remainBeforeReturn) * 100) / 100);
+
     if (method === "หักลดหนี้") {
+      // ไม่แตะยอดที่จ่ายไปแล้ว (paid) ปล่อยให้ยอดค้างชำระ (total - paid) ลดลงเองตามยอด total ที่ลดลง
       if (sale.payment_method === "เงินเชื่อ" && sale.customer_id) {
         const c = getCustomer(sale.customer_id);
         if (c) c.credit_balance = Math.round((c.credit_balance - amount) * 100) / 100;
@@ -1750,8 +1832,10 @@ function createDB(storageKey) {
         const c = getCustomer(sale.customer_id);
         if (c) {
           if (diff > 0) {
+            // ผ้าใหม่ถูกกว่าของที่คืน -> เก็บส่วนต่างเป็นเครดิตแลกเปลี่ยน
             c.exchange_credit = Math.round(((c.exchange_credit || 0) + diff) * 100) / 100;
           } else if (diff < 0) {
+            // ผ้าใหม่แพงกว่าของที่คืน -> รับชำระส่วนต่างทันที
             const extra = Math.round(-diff * 100) / 100;
             ret.extra_payment_amount = extra;
             ret.extra_account_id = extraAccountId || null;
@@ -1764,6 +1848,7 @@ function createDB(storageKey) {
     save();
     return ret;
   }
+  // ปรับสถานะบิลใหม่หลังยอด total/paid เปลี่ยนจากการรับคืน (ตรรกะเดียวกับตอนสร้าง/แก้ไขบิล)
   function updateSaleStatusAfterReturn(sale) {
     if (sale.payment_method === "เงินเชื่อ") {
       if (sale.paid >= sale.total) sale.status = "ชำระแล้ว";
@@ -1773,9 +1858,11 @@ function createDB(storageKey) {
     } else if (sale.payment_method === "เช็ค") {
       sale.status = sale.paid >= sale.total ? "ชำระแล้ว" : "รอเช็คขึ้นเงิน";
     } else if (sale.paid < sale.total) {
+      // เงินสด/โอนเงิน ปกติชำระครบตั้งแต่แรก แต่ถ้าหลังคืนของแล้วเงินที่นับว่าจ่ายจริงลดต่ำกว่ายอดใหม่ (ไม่ควรเกิดขึ้นปกติ) ให้ปรับสถานะให้สอดคล้อง
       sale.status = "ค้างชำระ";
     }
   }
+  // หักเครดิตแลกเปลี่ยนของลูกค้า (ใช้ตอนเอาไปหักในบิลใหม่ที่หน้าขายสินค้า)
   function useExchangeCredit(customerId, amount) {
     const c = getCustomer(customerId);
     if (!c || !amount) return;
@@ -1820,7 +1907,6 @@ function createDB(storageKey) {
     };
     store.purchases.push(purchase);
     applyPurchaseEffects(purchase);
-    
     if (paymentMethod === "เงินสด" && total > 0) {
       syncPurchaseAccountBalance(purchase, [{ account_id: getCashAccount().id, amount: total }]);
     }
@@ -1917,7 +2003,7 @@ function createDB(storageKey) {
         purchase.payment_status = purchase.paid >= purchase.total ? "ชำระแล้ว" : purchase.paid > 0 ? "ชำระบางส่วน" : "ค้างชำระ";
       }
       applyPurchaseEffects(purchase);
-      }
+    }
     save();
     return purchase;
   }
@@ -1944,11 +2030,11 @@ function createDB(storageKey) {
     const p = store.purchases.find((x) => x.id === purchaseId);
     if (!p || p.status === "รับสินค้าแล้ว") return false;
     applyPurchaseEffects(p);
-    
     p.status = "รับสินค้าแล้ว";
     save();
     return true;
   }
+  // method: "เงินสด" หรือ "โอนเงิน" -> ตัดยอดจากบัญชีที่เลือก (เงินสด = บัญชีเงินสดอัตโนมัติ, โอนเงิน = accountSplits รองรับแบ่งจ่ายหลายบัญชี)
   function payPurchase(purchaseId, amount, method, accountSplits) {
     const p = store.purchases.find((x) => x.id === purchaseId);
     if (!p) return;
@@ -2083,7 +2169,12 @@ function createDB(storageKey) {
   function normalizeBackorderItems(data) {
     if (data && Array.isArray(data.items) && data.items.length) {
       return data.items
-        .map((it) => ({ fabric_name: (it && it.fabric_name) || "", qty: (it && it.qty) || 0, unit: (it && it.unit) || "หลา", done: !!(it && it.done) }))
+        .map((it) => ({
+          fabric_name: (it && it.fabric_name) || "",
+          qty: (it && it.qty) || 0,
+          unit: (it && it.unit) || "หลา",
+          done: !!(it && it.done),
+        }))
         .filter((it) => it.fabric_name);
     }
     if (data && data.fabric_name) {
@@ -2098,6 +2189,7 @@ function createDB(storageKey) {
     return [];
   }
   // มาร์ค/ยกเลิกมาร์ค ว่าผ้ารายการที่ itemIndex ในรายการรอนี้มาถึงแล้ว โดยไม่กระทบสถานะรวมของทั้งรายการรอ
+  // (เผื่อ items ยังไม่เคยถูกสร้างเป็น array จริงๆ ในข้อมูลเก่า ให้แปลงเป็น array ก่อนแก้)
   function setBackorderItemDone(id, itemIndex, done) {
     const b = store.backorders.find((x) => x.id === id);
     if (!b) return;
@@ -2133,6 +2225,8 @@ function createDB(storageKey) {
     save();
     return b;
   }
+  // ทำเครื่องหมายว่าจัดการเรียบร้อยแล้ว ถ้าระบุ saleNo มาด้วย (เช่น ตอนขายให้ลูกค้าคนนี้จริงๆ) จะบันทึกเลขที่บิล
+  // ไว้อ้างอิงด้วย ไม่ทับของเดิมถ้าไม่ได้ระบุมาใหม่ (เผื่อกดยืนยันซ้ำ/แก้ไขทีหลัง)
   function markBackorderDone(id, saleNo) {
     const b = store.backorders.find((x) => x.id === id);
     if (!b) return;
@@ -2284,6 +2378,7 @@ function createDB(storageKey) {
     return q;
   }
 
+  // -------------------------------------------------------------- ใบวางบิล
   function addBillingNote(data) {
     const seq = genId("billingNote");
     const d = todayStr().replace(/-/g, "");
@@ -2362,7 +2457,7 @@ function createDB(storageKey) {
     const map = {};
     for (const s of rows) {
       for (const it of s.items) {
-        if (it.is_misc) continue;
+        if (it.is_misc) continue; // รายการฝากซื้อ ไม่ใช่ผ้า ไม่นับในสินค้าขายดี
         const f = getFabric(it.fabric_id);
         const key = it.fabric_id;
         if (!map[key]) map[key] = { code: f ? f.code : "?", name: f ? f.name : "(ลบแล้ว)", qty_sold: 0, total_sold: 0 };
@@ -2377,10 +2472,15 @@ function createDB(storageKey) {
   function lowStockList() {
     return getFabrics("", { onlyLowStock: true });
   }
-  // ยอดเงินสดค้างชำระ (เงินสดแต่ยังไม่จ่าย) ของลูกค้ารายหนึ่ง - ไม่รวมอยู่ใน credit_balance เพราะ credit_balance ใช้เช็ควงเงินเครดิตแยกต่างหาก
+  // ยอดเงินสดค้างชำระ (เงินสดแต่ยังไม่จ่าย/เช็ครอขึ้นเงิน) ของลูกค้ารายหนึ่ง - ไม่รวมอยู่ใน credit_balance เพราะ credit_balance ใช้เช็ควงเงินเครดิตแยกต่างหาก
   function getCustomerCashPendingTotal(customerId) {
     return store.sales
-      .filter((s) => s.customer_id === customerId && (s.payment_method === "เงินสดแต่ยังไม่จ่าย" || s.payment_method === "เช็ค") && (s.paid || 0) < s.total)
+      .filter(
+        (s) =>
+          s.customer_id === customerId &&
+          (s.payment_method === "เงินสดแต่ยังไม่จ่าย" || s.payment_method === "เช็ค") &&
+          (s.paid || 0) < s.total
+      )
       .reduce((sum, s) => sum + (s.total - (s.paid || 0)), 0);
   }
   // ยอดค้างชำระรวมของลูกค้า = ยอดเครดิต (credit_balance) + ยอดเงินสดค้างจ่าย - ใช้แสดงผลเท่านั้น ไม่กระทบ credit_balance/credit_limit
@@ -2393,7 +2493,10 @@ function createDB(storageKey) {
     let fabric = customer.credit_balance || 0;
     let shipping = 0;
     const pending = store.sales.filter(
-      (s) => s.customer_id === customer.id && (s.payment_method === "เงินสดแต่ยังไม่จ่าย" || s.payment_method === "เช็ค") && (s.paid || 0) < s.total
+      (s) =>
+        s.customer_id === customer.id &&
+        (s.payment_method === "เงินสดแต่ยังไม่จ่าย" || s.payment_method === "เช็ค") &&
+        (s.paid || 0) < s.total
     );
     for (const s of pending) {
       const remain = s.total - (s.paid || 0);
@@ -2424,7 +2527,7 @@ function createDB(storageKey) {
   function exportBackup() {
     return JSON.stringify(store, null, 2);
   }
-  // ช่วยแปลงค่าช่องหนึ่งให้เป็นข้อความปลอดภัยสำหรับ CSV (ค่าที่เป็น object/array ซ้อนอยู่ข้างในจะถูกแปลงเป็น JSON ในช่องเดียว)
+  // ช่วยแปลงค่า object/array ซ้อนอยู่ข้างในให้เป็นข้อความอ่านง่าย (key=value คั่นด้วยช่องว่าง, รายการคั่นด้วย " | ") แทนการ dump เป็น JSON ดิบ
   function csvNestedToReadable(v) {
     if (Array.isArray(v)) return v.map(csvNestedToReadable).join(" | ");
     if (v && typeof v === "object") {
@@ -2434,6 +2537,7 @@ function createDB(storageKey) {
     }
     return String(v);
   }
+  // ช่วยแปลงค่าช่องหนึ่งให้เป็นข้อความปลอดภัยสำหรับ CSV (ค่าที่เป็น object/array ซ้อนอยู่ข้างในจะถูกแปลงเป็นข้อความอ่านง่ายในช่องเดียว)
   function csvCell(v) {
     if (v === undefined || v === null) return "";
     if (typeof v === "object") v = csvNestedToReadable(v);
@@ -2842,6 +2946,7 @@ if (typeof module !== "undefined") {
       userSplit = false;
       addRow(null, presetAmount);
     }
+    // ตั้งค่าแถวทั้งหมดจากรายการ splits ที่มีอยู่แล้ว (เช่น ตอนแก้ไขบิลเดิม) ถ้าไม่มีจะเหลือ 1 แถวว่าง
     function setSplits(list) {
       while (rows.length) {
         const r = rows.pop();
@@ -2932,6 +3037,9 @@ if (typeof module !== "undefined") {
     }
 
     function updateHighlightClasses() {
+      // แค่สลับคลาส active ของตัวเลือกที่ชี้อยู่ ไม่ต้องรื้อสร้าง dropdown ใหม่ทั้งหมด
+      // (ถ้าสร้างใหม่ทุกครั้งที่เมาส์ชี้ อาจทำให้ตำแหน่ง/ขนาดขยับเล็กน้อยระหว่างที่ผู้ใช้
+      // กำลังจะกดเลือกพอดี ทำให้กดไม่ติดตัวเลือกที่ต้องการ)
       Array.from(dropdown.children).forEach((child, i) => {
         child.classList.toggle("active", i === highlightIdx);
       });
@@ -2951,7 +3059,7 @@ if (typeof module !== "undefined") {
               class: "search-select-option" + (i === highlightIdx ? " active" : ""),
               text: o.label,
               onMouseDown: (e) => {
-                e.preventDefault();
+                e.preventDefault(); // กันไม่ให้ input เสีย focus ก่อนคลิกจะทำงาน
                 selectOption(o);
               },
               onMouseEnter: () => {
@@ -3023,6 +3131,7 @@ if (typeof module !== "undefined") {
       }
     });
     input.addEventListener("blur", () => {
+      // หน่วงเล็กน้อยให้ mousedown บนตัวเลือกทำงานก่อน dropdown จะถูกซ่อน
       setTimeout(() => {
         closeDropdown();
       }, 150);
@@ -3046,7 +3155,7 @@ if (typeof module !== "undefined") {
     return buildDataTable(headers, rows);
   }
 
-function buildDataTable(columns, dataRows, opts) {
+  function buildDataTable(columns, dataRows, opts) {
     opts = opts || {};
     const headers = [];
     if (opts.checkbox) headers.push("");
@@ -3081,13 +3190,21 @@ function buildDataTable(columns, dataRows, opts) {
       }
       row.forEach((c, ci) => {
         const cellStyle = opts.cellStyle ? opts.cellStyle(row, ci, columns[ci]) : null;
+        // เซลล์บางแบบอยากให้คลิกแล้วลิงก์ไปที่อื่นได้ (เช่น เลขที่บิล) ส่งมาเป็น { __cellLink: true, text, onClick }
+        // แทนที่จะเป็นข้อความ/ตัวเลขธรรมดา โดยไม่กระทบตารางอื่นๆ ที่ยังส่งค่าแบบเดิม
         if (c && typeof c === "object" && c.__cellLink) {
-          const link = el("a", {
-            href: "#",
-            text: c.text,
-            style: Object.assign({ color: "var(--primary)", textDecoration: "underline", cursor: "pointer" }, cellStyle || {}),
-            onClick: (e) => { e.preventDefault(); c.onClick(); },
-          });
+          const link = el(
+            "a",
+            {
+              href: "#",
+              text: c.text,
+              style: Object.assign({ color: "var(--primary)", textDecoration: "underline", cursor: "pointer" }, cellStyle || {}),
+              onClick: (e) => {
+                e.preventDefault();
+                c.onClick();
+              },
+            }
+          );
           tr.appendChild(el("td", {}, link));
         } else {
           tr.appendChild(el("td", { text: String(c), style: cellStyle || {} }));
@@ -3183,6 +3300,7 @@ function buildDataTable(columns, dataRows, opts) {
     return out;
   }
   // สร้างไฟล์ .xlsx แบบหลาย worksheet (1 worksheet ต่อ 1 หน้าเมนู) จากข้อมูลที่ DB.exportBackupPages() จัดกลุ่มไว้ให้แล้ว
+  // ถ้าเบราว์เซอร์รองรับ ให้เปิดหน้าต่าง "บันทึกเป็น" ให้เลือกตำแหน่งที่จะเซฟเองได้ เหมือน downloadTextFile
   async function downloadBackupXlsx(filename) {
     const pages = DB.exportBackupPages();
     const wb = global.XLSX.utils.book_new();
@@ -3226,13 +3344,17 @@ function buildDataTable(columns, dataRows, opts) {
   function printReceiptHtml(html) {
     const w = global.window.open("", "_blank", "width=420,height=640");
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>@media print{.qr-footer{position:fixed;left:0;bottom:0;margin-top:0 !important;text-align:left !important;}}</style></head><body>${html}</body></html>`);
+    // ดัน qr-footer (QR เช็คสต็อกท้ายใบเสร็จ) ลงไปติดขอบกระดาษด้านล่างสุดตอนพิมพ์จริง โดยไม่กระทบหน้าพรีวิวบนจอ
+    w.document.write(
+      `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@media print{.qr-footer{position:fixed;left:0;bottom:0;margin-top:0 !important;text-align:left !important;}}</style></head><body>${html}</body></html>`
+    );
     w.document.close();
     w.focus();
     w.print();
   }
 
   // ดาวน์โหลดใบเสร็จ/ใบส่งของเป็นไฟล์ PDF โดยตรง ไม่ต้องผ่านหน้าต่างพิมพ์ของเบราว์เซอร์
+  // ใช้ html2canvas + jsPDF ตรงๆ (ไม่ใช้ html2pdf.js เพราะรุ่นที่มันห่อ html2canvas ไว้ข้างในเก่าและมีบั๊กจับภาพว่างเปล่า)
   async function downloadReceiptPdf(html, filename) {
     if (typeof global.html2canvas === "undefined" || typeof global.jspdf === "undefined") {
       global.alert("โหลดตัวช่วยสร้าง PDF ไม่สำเร็จ (อาจเพราะเน็ตกระตุก) กรุณาโหลดหน้าเว็บใหม่แล้วลองอีกครั้ง");
@@ -3262,6 +3384,10 @@ function buildDataTable(columns, dataRows, opts) {
       const widthMm = pxToMm(canvas.width / 2) + 10;
       const heightMm = pxToMm(canvas.height / 2) + 10;
       const { jsPDF } = global.jspdf;
+      // สำคัญ: ต้องกำหนด orientation ให้ตรงกับสัดส่วนจริงของภาพ (กว้างกว่าสูง = landscape, สูงกว่ากว้าง = portrait)
+      // ถ้าใบเสร็จสั้นมาก (มีน้อยรายการ) จนกว้างกว่าสูง แล้วยังบังคับ orientation: "portrait" อยู่ jsPDF จะสลับด้าน
+      // กว้าง/สูงของหน้ากระดาษเองเงียบๆ เพื่อให้เป็น portrait จริง แต่ addImage ยังวางภาพด้วยขนาดเดิมก่อนสลับ
+      // ทำให้ภาพวางผิดสัดส่วนกับหน้าที่ถูกสลับแล้ว เห็นเป็นเนื้อหาโดนตัด/เหลือที่ว่างครึ่งหน้า
       const orientation = widthMm > heightMm ? "landscape" : "portrait";
       const doc = new jsPDF({ unit: "mm", format: [widthMm, heightMm], orientation });
       doc.addImage(imgData, "JPEG", 5, 5, widthMm - 10, heightMm - 10);
@@ -3326,7 +3452,7 @@ function buildDataTable(columns, dataRows, opts) {
     { key: "stock", label: "คลังผ้า" },
     { key: "customers", label: "ลูกค้า" },
     { key: "suppliers", label: "ซัพพลายเออร์" },
-      { key: "backorders", label: "รายการรอสินค้า" },
+    { key: "backorders", label: "รายการรอสินค้า" },
     { key: "customerOrders", label: "ลูกค้าสั่งผ้า" },
     { key: "quotations", label: "ใบเสนอราคา" },
     { key: "accounting", label: "บัญชี" },
@@ -3395,7 +3521,7 @@ function buildDataTable(columns, dataRows, opts) {
       refs.customerOrdersNavBadge.style.display = "none";
     }
   }
-  
+
   function buildLayout() {
     const shopTitleH1 = el("h1", { text: DB.getShopInfo().name || "ร้านผ้าศิริเจริญ" });
     refs.shopTitleH1 = shopTitleH1;
@@ -3590,7 +3716,9 @@ function buildDataTable(columns, dataRows, opts) {
         }),
       {
         cellStyle: (row, ci, colName) =>
-          colName === "สถานะ" && (row[ci] === "ค้างชำระ" || row[ci] === "เงินสดแต่ค้างชำระ" || row[ci] === "รอเช็คขึ้นเงิน") ? { color: "var(--danger)", fontWeight: "600" } : null,
+          colName === "สถานะ" && (row[ci] === "ค้างชำระ" || row[ci] === "เงินสดแต่ค้างชำระ" || row[ci] === "รอเช็คขึ้นเงิน")
+            ? { color: "var(--danger)", fontWeight: "600" }
+            : null,
       }
     );
 
@@ -3793,8 +3921,8 @@ function buildDataTable(columns, dataRows, opts) {
       [
         { value: "เงินเชื่อ", label: "เครดิต" },
         { value: "เงินสด", label: "เงินสด" },
-        { value: "โอนเงิน", label: "โอนเงิน" },
         { value: "เงินสดแต่ยังไม่จ่าย", label: "เงินสดแต่ยังไม่จ่าย" },
+        { value: "โอนเงิน", label: "โอนเงิน" },
         { value: "เช็ค", label: "เช็ค (รอขึ้นเงิน)" },
       ],
       "เงินสดแต่ยังไม่จ่าย"
@@ -3868,6 +3996,7 @@ function buildDataTable(columns, dataRows, opts) {
 
     const checkoutBtn = el("button", { class: "btn btn-primary btn-block", onClick: checkout }, "ชำระเงิน / บันทึกบิล");
     refs.posCheckoutBtn = checkoutBtn;
+    // ย้ายปุ่มชำระเงินไปไว้ท้ายฝั่งรายการสินค้า (ตอนนี้อยู่ขวา) แทนฝั่งฟอร์ม (ตอนนี้อยู่ซ้าย) ตามที่ขอ
     left.appendChild(checkoutBtn);
 
     const right = el(
@@ -3901,9 +4030,9 @@ function buildDataTable(columns, dataRows, opts) {
     );
 
     // แท็บย่อย "ออกบิลใหม่" กับ "ประวัติการขาย" แยกกัน ไม่ต้องเลื่อนผ่านฟอร์มยาวๆไปหาประวัติด้านล่างอีก
-        // สลับด้าน: ย้ายรายการสินค้า (pos-left) ไปแสดงทางขวา และฟอร์มลูกค้า/ชำระเงิน (pos-right) มาทางซ้ายแทน
-        // (ปุ่มสลับ "ออกบิลใหม่"/"ประวัติการขาย" ย้ายไปสร้างครั้งเดียวที่ buildLayout แล้ว อยู่ในแถบเมนูหลัก
-        // ไม่ได้สร้างซ้ำที่นี่ทุกครั้งที่ renderPOS วาดหน้าใหม่)
+    // สลับด้าน: ย้ายรายการสินค้า (pos-left) ไปแสดงทางขวา และฟอร์มลูกค้า/ชำระเงิน (pos-right) มาทางซ้ายแทน
+    // (ปุ่มสลับ "ออกบิลใหม่"/"ประวัติการขาย" ย้ายไปสร้างครั้งเดียวที่ buildLayout แล้ว อยู่ในแถบเมนูหลัก
+    // ไม่ได้สร้างซ้ำที่นี่ทุกครั้งที่ renderPOS วาดหน้าใหม่)
     const newSaleContainer = el("div", { class: "pos-grid" }, right, left);
     refs.posNewSaleContainer = newSaleContainer;
 
@@ -4057,6 +4186,8 @@ function buildDataTable(columns, dataRows, opts) {
 
   function updatePosSubTabUI() {
     if (!refs.posSubTabButtons) return;
+    // ปุ่ม "ออกบิลใหม่"/"ประวัติการขาย" ตอนนี้อยู่ในแถบเมนูหลัก (ไม่ใช่แค่ในหน้าขายสินค้าอีกต่อไป) ต้องไม่โชว์
+    // ไฮไลต์ active ค้างไว้ตอนผู้ใช้ไปหน้าอื่นแล้ว ถึงแม้ posSubTab จะยังจำค่าล่าสุดไว้อยู่ก็ตาม
     Object.keys(refs.posSubTabButtons).forEach((k) => refs.posSubTabButtons[k].classList.toggle("active", k === posSubTab && currentTab === "pos"));
     if (refs.posNewSaleContainer) refs.posNewSaleContainer.style.display = posSubTab === "new" ? "" : "none";
     if (refs.posHistoryContainer) refs.posHistoryContainer.style.display = posSubTab === "history" ? "" : "none";
@@ -4170,6 +4301,7 @@ function buildDataTable(columns, dataRows, opts) {
         (totalShipping ? ` (ค่าส่งรวม ${money(totalShipping)} บาท)` : "");
     }
 
+    // ตัดรายการที่ติ๊กเลือกไว้แต่ไม่อยู่ในผลลัพธ์ที่กรองอยู่ตอนนี้ทิ้ง (เช่น พิมพ์ค้นหา/เปลี่ยนช่วงวันที่ใหม่) กันค้างเลือกบิลที่มองไม่เห็น
     const visibleIds = new Set(sales.map((s) => s.id));
     Array.from(posHistorySelectedIds).forEach((id) => {
       if (!visibleIds.has(id)) posHistorySelectedIds.delete(id);
@@ -4246,8 +4378,8 @@ function buildDataTable(columns, dataRows, opts) {
       const remainAmt = Math.round((s.total - s.paid) * 100) / 100;
       let checkDueLabel = "";
       if (s.status === "รอเช็คขึ้นเงิน") {
-        const pendingChecksForSale = DB.getChecksForSale(s.id).filter((c) => c.status === "รอขึ้นเงิน");
-        if (pendingChecksForSale.length > 0) checkDueLabel = ` (เช็ค ${money(pendingChecksForSale[0].amount)} บาท ครบกำหนด ${fmtDate(pendingChecksForSale[0].due_date)})`;
+        const pendingChecks = DB.getChecksForSale(s.id).filter((c) => c.status === "รอขึ้นเงิน");
+        if (pendingChecks.length > 0) checkDueLabel = ` (เช็ค ${money(pendingChecks[0].amount)} บาท ครบกำหนด ${fmtDate(pendingChecks[0].due_date)})`;
       }
       const paidLabel =
         s.status === "ชำระแล้ว" && s.paid_method
@@ -4336,6 +4468,7 @@ function buildDataTable(columns, dataRows, opts) {
     );
     const accountSelect = buildBankAccountSelect();
     const accountRow = formField("บัญชีที่รับโอน (ใช้บัญชีเดียวกันทุกบิลที่เลือก)", accountSelect);
+    // รับเช็คหลายบิลพร้อมกัน - ใช้เลขที่เช็คเดียวกันกับทุกบิลที่เลือก เหมาะกรณีลูกค้าจ่ายหลายบิลด้วยเช็คใบเดียว บิลจะขึ้นสถานะ "รอเช็คขึ้นเงิน" ไม่ใช่ "ชำระแล้ว" ทันที
     const checkNoInput = textInput("");
     const checkBankInput = textInput("");
     const checkDueDateInput = dateInputEl({ value: "" });
@@ -4635,6 +4768,7 @@ function buildDataTable(columns, dataRows, opts) {
     global.alert("บันทึกเช็คเด้งเรียบร้อย บิลกลับไปเป็นค้างชำระแล้ว");
   }
 
+  // ==================================================== รับคืนสินค้า (ผูกกับบิลขายเดิม)
   // สร้างและเปิดตัวอย่างใบเสร็จสำหรับผ้าที่ให้ลูกค้าแทนตอนเปลี่ยนของ (ใช้ได้ทั้งตอนบันทึกใหม่ และย้อนดูประวัติภายหลัง)
   function printExchangeReceipt(ret) {
     if (!ret.exchange_items || ret.exchange_items.length === 0) {
@@ -5041,6 +5175,7 @@ function buildDataTable(columns, dataRows, opts) {
     refs.posPaidInput.value = sale.paid;
     refs.posAccountSplit.setSplits(sale.account_splits || []);
     refs.posAccountSplitRow.style.display = sale.payment_method === "โอนเงิน" ? "" : "none";
+    // ถ้าบิลนี้มีเช็คผูกอยู่แล้ว (รอขึ้นเงิน/ขึ้นเงินแล้ว/เด้ง) ให้โชว์รายละเอียดเช็คล่าสุดไว้ให้ดู (แก้ไขไม่ได้ผ่านช่องนี้ถ้าเช็คถูกบันทึกไปแล้ว เพราะจะไม่สร้างเช็คซ้ำตอนบันทึก)
     const existingChecks = DB.getChecksForSale(sale.id);
     const latestCheck = existingChecks.length > 0 ? existingChecks[existingChecks.length - 1] : null;
     refs.posCheckNoInput.value = latestCheck ? latestCheck.check_no : "";
@@ -5081,9 +5216,9 @@ function buildDataTable(columns, dataRows, opts) {
         unit_price: it.unit_price,
         cost_price: 0,
         stock_qty: f ? f.stock_qty : null,
+        roll_id: it.roll_id || null,
         is_misc: false,
         note: it.note || "",
-        roll_id: it.roll_id || null,
       };
     });
     if (cart.length === 0) addPosRow();
@@ -5134,7 +5269,7 @@ function buildDataTable(columns, dataRows, opts) {
         return { code: "", name: `${it.name || ""} (ฝากซื้อ)`, qty: it.qty, unit_price: it.unit_price, unit: it.unit, note: it.note || "" };
       }
       const f = DB.getFabric(it.fabric_id);
-      return { fabric_id: it.fabric_id || null, code: f ? f.code : "", name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)", qty: it.qty, unit_price: it.unit_price, unit: it.unit, note: it.note || "", roll_id: it.roll_id || null };
+      return { code: f ? f.code : "", name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)", qty: it.qty, unit_price: it.unit_price, unit: it.unit, roll_id: it.roll_id || null, fabric_id: it.fabric_id || null, note: it.note || "" };
     });
     showReceiptModal(sale, sale.customer_id, cartItems);
   }
@@ -5195,13 +5330,13 @@ function buildDataTable(columns, dataRows, opts) {
   }
 
   function addPosRow() {
-    cart.push({ fabric_id: "", code: "", name: "", unit: "หลา", baseUnit: "", qty: 1, unit_price: 0, cost_price: 0, stock_qty: null, is_misc: false, note: "", roll_id: null });
+    cart.push({ fabric_id: "", code: "", name: "", unit: "หลา", baseUnit: "", qty: 1, unit_price: 0, cost_price: 0, stock_qty: null, roll_id: null, is_misc: false, note: "" });
     renderPosItemsTable();
     updatePosTotals();
   }
 
   function addMiscPosRow() {
-    cart.push({ fabric_id: "", code: "", name: "", unit: "ชิ้น", baseUnit: "", qty: 1, unit_price: 0, cost_price: 0, stock_qty: null, is_misc: true, note: "", roll_id: null });
+    cart.push({ fabric_id: "", code: "", name: "", unit: "ชิ้น", baseUnit: "", qty: 1, unit_price: 0, cost_price: 0, stock_qty: null, roll_id: null, is_misc: true, note: "" });
     renderPosItemsTable();
     updatePosTotals();
   }
@@ -5244,7 +5379,7 @@ function buildDataTable(columns, dataRows, opts) {
         }
       }
     } else {
-      cart[idx] = { fabric_id: "", code: "", name: "", unit: cart[idx].unit || "หลา", baseUnit: "", qty: cart[idx].qty, unit_price: 0, stock_qty: null, note: cart[idx].note || "", roll_id: null };
+      cart[idx] = { fabric_id: "", code: "", name: "", unit: cart[idx].unit || "หลา", baseUnit: "", qty: cart[idx].qty, unit_price: 0, stock_qty: null, roll_id: null, note: cart[idx].note || "" };
     }
     renderPosItemsTable();
     updatePosTotals();
@@ -5300,7 +5435,7 @@ function buildDataTable(columns, dataRows, opts) {
     const tbody = el("tbody", {});
 
     if (cart.length === 0) {
-      tbody.appendChild(el("tr", {}, el("td", { colspan: 10, class: "empty", text: 'ยังไม่มีรายการ กด "+ เพิ่มรายการ"' })));
+      tbody.appendChild(el("tr", {}, el("td", { colspan: 9, class: "empty", text: 'ยังไม่มีรายการ กด "+ เพิ่มรายการ"' })));
     }
 
     cart.forEach((row, idx) => {
@@ -5558,6 +5693,7 @@ function buildDataTable(columns, dataRows, opts) {
       return;
     }
 
+    // ถ้าเลือกชำระโดย "เช็ค" และบิลนี้ยังไม่เคยมีเช็คผูกไว้ (กันไม่ให้สร้างเช็คซ้ำตอนแก้ไขบิลเช็คเดิมซ้ำๆ) ให้บันทึกเช็คเข้าระบบเตือนทันที
     if (paymentMethod === "เช็ค" && DB.getChecksForSale(sale.id).length === 0) {
       DB.receiveCheck(sale.id, sale.total, refs.posCheckNoInput.value.trim(), refs.posCheckBankInput.value.trim(), refs.posCheckDueDateInput.value);
     }
@@ -5874,8 +6010,10 @@ function buildDataTable(columns, dataRows, opts) {
         ? `<tr><td style="padding:2px 0;color:#444;">${L.payAccount}</td><td style="padding:2px 0;text-align:right;">${esc(payAccountLabel)}</td></tr>`
         : "";
 
+    // ท้ายใบเสร็จรับเงิน/ใบส่งของ (เฉพาะแบบไม่มี VAT) แนบ QR ต่อรหัสผ้าที่ขายไปในบิลนี้ สแกนแล้วเช็คสต็อกรวมของรหัสผ้านั้นได้เลย (เลิกผูกกับม้วนแล้ว)
     let qrFooterHtml = "";
     if (showQr && !sale.is_vat && (docType === "normal" || docType === "delivery") && typeof global.QRious === "undefined") {
+      // ไลบรารีสร้าง QR โหลดไม่สำเร็จ (เช่น เน็ตกระตุกตอนโหลดหน้า) - แจ้งเตือนแทนที่จะปล่อยให้ขึ้นเป็นกล่องโล่งๆ
       qrFooterHtml = `<div class="qr-footer" style="margin-top:18px;padding-top:10px;border-top:1px dashed #999;text-align:center;background:#fff;"><div style="font-size:11px;color:#c00;">⚠ โหลด QR ไม่สำเร็จ กรุณาโหลดหน้าเว็บใหม่แล้วลองพิมพ์อีกครั้ง</div></div>`;
     } else if (showQr && !sale.is_vat && (docType === "normal" || docType === "delivery")) {
       const seenFabricIds = new Set();
@@ -5886,7 +6024,9 @@ function buildDataTable(columns, dataRows, opts) {
           if (!fab) return "";
           const url = rollQrUrl(fab.code);
           const img = qrDataUrl(url, 140);
-          return `<div style="display:inline-block;text-align:center;padding:8px;border:1px dashed #999;margin:4px;vertical-align:top;"><img src="${img}" width="70" height="70"/><div style="font-size:10px;font-weight:bold;margin-top:3px;">${esc(fab.code)}</div></div>`;
+          return `<div style="display:inline-block;text-align:center;padding:8px;border:1px dashed #999;margin:4px;vertical-align:top;"><img src="${img}" width="70" height="70"/><div style="font-size:10px;font-weight:bold;margin-top:3px;">${esc(
+            fab.code
+          )}</div></div>`;
         })
         .join("");
       if (fabricTags) {
@@ -5933,7 +6073,7 @@ function buildDataTable(columns, dataRows, opts) {
           <div style="width:30%;border-top:1px solid #000;padding-top:4px;">${L.receivedPaymentBy}</div>
         </div>
         ${sale.note ? `<div style="text-align:left;font-size:12px;color:#111;margin-top:16px;padding-top:8px;border-top:1px dashed #999;">${L.note}: ${esc(sale.note)}</div>` : ""}
-      ${qrFooterHtml}
+        ${qrFooterHtml}
       </div>`;
 
     return { docTitle, text, textForCopy, html };
@@ -6040,7 +6180,13 @@ function buildDataTable(columns, dataRows, opts) {
     );
     const closeBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
 
-    const body = el("div", {}, formField("บัญชีรับเงินค่าส่ง (ถ้ามี)", accountSelect), previewBox, el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn));
+    const body = el(
+      "div",
+      {},
+      formField("บัญชีรับเงินค่าส่ง (ถ้ามี)", accountSelect),
+      previewBox,
+      el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn)
+    );
     openModal("ใบเสร็จค่าจัดส่ง", body, { wide: true });
   }
 
@@ -6128,7 +6274,12 @@ function buildDataTable(columns, dataRows, opts) {
       langSelect
     );
     const qrCheckbox = el("input", { type: "checkbox", checked: showQr, onChange: (e) => { showQr = e.target.checked; refresh(); } });
-    const qrRow = el("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" } }, qrCheckbox, el("span", { text: "พิมพ์ QR เช็คสต็อกท้ายใบเสร็จ/ใบส่งของ" }));
+    const qrRow = el(
+      "div",
+      { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" } },
+      qrCheckbox,
+      el("span", { text: "พิมพ์ QR เช็คสต็อกท้ายใบเสร็จ/ใบส่งของ" })
+    );
     const accountRow = hasShippingAccountSplit
       ? el(
           "div",
@@ -6307,9 +6458,10 @@ function buildDataTable(columns, dataRows, opts) {
     noteInput.setAttribute("placeholder", "หมายเหตุ (จะพิมพ์ท้ายใบวางบิล)");
 
     // มีบิลแว็ดที่แยกค่าส่งไหม: ถ้ามี ค่าผ้าจะโอนเข้าบัญชีคงที่ของร้าน ส่วนค่าส่งให้เลือกบัญชีเอง
-    // ถ้าไม่มี�("ใบวางบิลที่ไม่แว็ด/ไม่มีค่อยใช้บัญชีแยก) ยอดทั้งหมดให้เลือกบัญชีเอง
+    // ถ้าไม่มี (ใบวางบิลที่ไม่แว็ด/ไม่มีค่าส่งแยก) ยอดทั้งหมดให้เลือกบัญชีเอง
     const hasShipping = sales.some((s) => !!s.is_vat && (s.shipping_fee || 0) > 0);
-    // ค่าเริ่มต้นของบัญชีรับค่าส่งในบิล,แวไ บัญชีที่ๅลงแลง็ด ติดตามชื่อบัญชีกสิกรไวย - ฒิทิเจริญ โดยนายสิริปานพชร (ถ้ามีในระ!บบ)
+    // ค่าเริ่มต้นของบัญชีรับค่าส่งในบิลแว็ด: ถ้าเปิดดูใบวางบิลเดิม ใช้บัญชีที่เคยเลือกไว้ตอนสร้าง
+    // ถ้าเป็นใบใหม่ ใช้บัญชีที่ลูกค้ารายนี้เลือกไว้ล่าสุด ถ้าไม่มีค่อยใช้บัญชีกสิกรไทย - ศิริเจริญ โดยนายสิริปานพชร (ถ้ามีในระบบ)
     const preferredAcctId = getCustomerPreferredAccountId(cust);
     const defaultShipAcct = hasShipping
       ? DB.getBankAccounts().find((a) => {
@@ -6331,6 +6483,7 @@ function buildDataTable(columns, dataRows, opts) {
       return opt ? opt.textContent : "";
     }
 
+    // บันทึกใบวางบิลนี้ไว้ทันที (ถ้ายังไม่เคยมี) เพื่อให้กดเรียกดูย้อนหลังได้ทีหลัง
     const record =
       existing ||
       DB.addBillingNote({
@@ -6428,6 +6581,7 @@ function buildDataTable(columns, dataRows, opts) {
   let stockSearch = "";
   let stockLowOnly = false;
   let fabricSelectedIds = new Set();
+
   function updateFabricBulkButtons() {
     const n = fabricSelectedIds.size;
     const delBtn = refs.deleteSelectedFabricsBtn;
@@ -6442,6 +6596,7 @@ function buildDataTable(columns, dataRows, opts) {
     }
   }
 
+  // สร้าง QR แบบรูปภาพ (data URL) จากข้อความที่กำหนด ใช้ฝังในหน้าพิมพ์โดยไม่ต้องพึ่ง QR ในหน้าต่างใหม่
   function qrDataUrl(text, size) {
     try {
       return new global.QRious({ value: text, size: size || 200 }).toDataURL();
@@ -6449,7 +6604,7 @@ function buildDataTable(columns, dataRows, opts) {
       return "";
     }
   }
-
+  // ลิงก์ที่ QR แต่ละม้วนจะเก็บไว้ สแกนแล้วเปิดหน้าเช็คสต็อกแยกต่างหาก (ไม่ต้องล็อกอินเข้าโปรแกรมหลัก)
   const STOCK_CHECK_BASE_URL = "https://siricharoen-fabric-shop.pages.dev/stock.html";
   function rollQrUrl(fabricCode, rollNo) {
     const base = `${STOCK_CHECK_BASE_URL}?code=${encodeURIComponent(fabricCode)}`;
@@ -6458,6 +6613,8 @@ function buildDataTable(columns, dataRows, opts) {
   function escapeHtmlText(s) {
     return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   }
+  // เปิดหน้าต่างพิมพ์ QR หลายม้วนพร้อมกันเป็นแผ่นเดียว ใช้ทั้งตอนรับผ้าเข้าใหม่และพิมพ์ย้อนหลังผ้าเก่า
+  // (หมายเหตุ: sync กับโค้ดจริงบน production แล้ว ตัด "ม้วนที่ N" ออกจากป้ายที่พิมพ์ตามที่ขอ)
   function printRollQrSheet(items) {
     if (!items || !items.length) return;
     if (typeof global.QRious === "undefined") {
@@ -6499,6 +6656,9 @@ function buildDataTable(columns, dataRows, opts) {
     `);
     w.document.close();
   }
+  // พิมพ์ QR ของรหัสผ้าที่เลือกไว้ (checkbox) ทุกม้วนที่ยังมีของ (active) จำนวนแผ่นต่อรายการ (refs.printQrQtyInput)
+  // ให้พิมพ์ QR ซ้ำกันหลายแผ่นในรายการเดียวกันได้ (เช่น ต้องการป้ายสำรอง/แปะหลายจุดของผ้าโค้ดเดียวกัน)
+  // โดยไม่ต้องไปสร้างม้วนปลอมเพิ่มผ่านฟอร์มรับผ้าเข้า
   function printQrForSelectedFabrics() {
     const qtyInput = refs.printQrQtyInput;
     let copies = qtyInput ? parseInt(qtyInput.value, 10) : 1;
@@ -6518,75 +6678,72 @@ function buildDataTable(columns, dataRows, opts) {
     }
     printRollQrSheet(items);
   }
+  // เปิดฟอร์มแบ่งผ้าที่มีอยู่แล้วออกเป็นรายม้วนเพื่อผูก QR: ใส่ความยาวทีละม้วน ระบบรันเลขม้วนต่อจากของเดิมอัตโนมัติ
+  // ไม่บวกสต็อกรวมซ้ำ (สต็อกต้องถูกบวกไปแล้วตอนรับผ้าเข้า เช่น จากใบสั่งซื้อ หรือปรับสต็อก) แค่สร้างม้วน+พิมพ์ QR ให้เท่านั้น
   function openReceiveRollsModal(fabricId) {
     const f = DB.getFabric(fabricId);
     if (!f) return;
     const existingRolls = DB.getRollsByFabric(fabricId);
-    const startNo = existingRolls.length ? Math.max(...existingRolls.map((r) => r.roll_no)) + 1 : 1;
-    const rowsContainer = el("div", { class: "roll-rows-container" });
-    const totalText = el("div", { class: "roll-total-text" });
+    const maxRollNo = existingRolls.length ? Math.max(...existingRolls.map((r) => r.roll_no)) : 0;
+    let rowValues = [""];
+    const rowsContainer = el("div", {});
+    const totalEl = el("div", { style: { marginTop: "8px", fontWeight: "600", fontSize: "14px" } });
     function updateTotal() {
-      const total = rows.reduce((s, r) => s + (Number(r.qty.value) || 0), 0);
-      totalText.textContent = `รวม ${rows.length} ม้วน, ${total} ${f.unit || ""} (ไม่กระทบสต็อกรวม)`;
+      const sum = rowValues.reduce((a, v) => a + (Number(v) || 0), 0);
+      totalEl.textContent = `รวมแบ่งเป็นม้วน: ${sum} ${f.unit} (${rowValues.length} ม้วน) — ไม่กระทบสต็อกรวม`;
     }
-    function makeQtyInput() {
-      const inp = numberInput(0);
-      inp.addEventListener("input", updateTotal);
-      return inp;
-    }
-    let rows = [{ qty: makeQtyInput() }];
     function renderRows() {
       clear(rowsContainer);
-      rows.forEach((row, idx) => {
-        const rowEl = el(
-          "div",
-          { class: "roll-row", style: "display:flex;align-items:center;gap:8px;margin-bottom:6px;" },
-          el("span", { text: `ม้วนที่ ${startNo + idx}`, style: "min-width:80px;" }),
-          row.qty,
-          el(
-            "button",
-            {
-              class: "btn btn-sm",
-              onClick: () => {
-                if (rows.length <= 1) return;
-                rows.splice(idx, 1);
-                renderRows();
-              },
+      rowValues.forEach((v, i) => {
+        const rollNo = maxRollNo + i + 1;
+        const input = numberInput(v);
+        input.placeholder = f.unit;
+        input.style.flex = "1";
+        input.addEventListener("input", () => {
+          rowValues[i] = input.value;
+          updateTotal();
+        });
+        const removeBtn = el(
+          "button",
+          {
+            class: "btn btn-ghost",
+            onClick: () => {
+              rowValues.splice(i, 1);
+              if (!rowValues.length) rowValues = [""];
+              renderRows();
+              updateTotal();
             },
-            "ลบ"
+          },
+          "✕"
+        );
+        rowsContainer.appendChild(
+          el(
+            "div",
+            { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" } },
+            el("span", { text: `ม้วนที่ ${rollNo}`, style: { width: "80px", flexShrink: "0", fontSize: "13px", color: "var(--text-muted)" } }),
+            input,
+            removeBtn
           )
         );
-        rowsContainer.appendChild(rowEl);
       });
-      updateTotal();
     }
+    const addRowBtn = el("button", { class: "btn", onClick: () => { rowValues.push(""); renderRows(); updateTotal(); } }, "+ เพิ่มม้วน");
     renderRows();
-    const addRowBtn = el(
-      "button",
-      {
-        class: "btn btn-sm",
-        onClick: () => {
-          rows.push({ qty: makeQtyInput() });
-          renderRows();
-        },
-      },
-      "+ เพิ่มม้วน"
-    );
-    const noteInput = textInput("");
+    updateTotal();
     const saveBtn = el(
       "button",
       {
         class: "btn btn-primary",
         onClick: () => {
-          const validRows = rows.filter((r) => Number(r.qty.value) > 0);
-          if (!validRows.length) {
-            global.alert("กรุณาระบุจำนวนอย่างน้อย 1 ม้วน");
+          const validValues = rowValues.map((v) => Number(v)).filter((v) => v > 0);
+          if (!validValues.length) {
+            global.alert("กรุณาใส่ความยาวอย่างน้อย 1 ม้วน");
             return;
           }
-          const newRolls = validRows.map((r) => DB.addRoll(fabricId, Number(r.qty.value), noteInput.value.trim()));
+          const createdRolls = validValues.map((qty) => DB.addRoll(fabricId, qty, "รับผ้าเข้า"));
           closeModal();
           renderStockTable();
-          printRollQrSheet(newRolls.filter(Boolean).map((roll) => ({ fabric: f, roll })));
+          printRollQrSheet(createdRolls.map((r) => ({ fabric: f, roll: r })));
         },
       },
       "บันทึกและสร้าง QR"
@@ -6594,14 +6751,18 @@ function buildDataTable(columns, dataRows, opts) {
     const body = el(
       "div",
       {},
-      el("div", { style: "margin-bottom:8px;color:#666;font-size:13px;", text: `${f.code} - ${f.name} (มีอยู่แล้ว ${existingRolls.length} ม้วน)` }),
+      el("p", { text: `${f.code} - ${f.name}`, style: { fontWeight: "600", marginBottom: "2px" } }),
+      el("p", {
+        text: existingRolls.length ? `ตอนนี้มีอยู่แล้ว ${existingRolls.length} ม้วน` : "ยังไม่มีม้วน",
+        style: { color: "var(--text-muted)", fontSize: "13px", marginBottom: "10px" },
+      }),
+      el("p", { text: "รับเข้าใหม่ (ใส่ความยาวทีละม้วน)", style: { fontSize: "13px", marginBottom: "6px" } }),
       rowsContainer,
       addRowBtn,
-      el("div", { style: "margin:10px 0;" }, totalText),
-      formField("หมายเหตุ", noteInput),
-      saveBtn
+      totalEl,
+      el("div", { class: "modal-actions" }, saveBtn)
     );
-    openModal(`แบ่งม้วน/ผูก QR - ${f.name}`, body);
+    openModal("แบ่งม้วน/ผูก QR", body);
   }
 
   // จัดการม้วนผ้าที่มีอยู่แล้ว: ดูรายการม้วนทั้งหมดของรหัสผ้านี้ และแก้ไขจำนวนหลาคงเหลือของแต่ละม้วนได้
@@ -6672,7 +6833,7 @@ function buildDataTable(columns, dataRows, opts) {
     openModal(`จัดการม้วนผ้า - ${f.name}`, body, { wide: true });
   }
 
-    function renderStock() {
+  function renderStock() {
     const sec = sections.stock;
     clear(sec);
     fabricSelectedIds = new Set();
@@ -6711,6 +6872,8 @@ function buildDataTable(columns, dataRows, opts) {
       "ลบรายการที่เลือก"
     );
     refs.deleteSelectedFabricsBtn = deleteSelectedBtn;
+    // พิมพ์ QR ของรหัสผ้าที่เลือกไว้หลายแถวพร้อมกัน (ใช้กับผ้าเก่าที่ยังไม่เคยมีป้าย QR แปะ)
+    // ใส่จำนวนแผ่นต่อรายการได้ (ค่าเริ่มต้น 1) เผื่อต้องการพิมพ์ QR ซ้ำหลายแผ่นของโค้ดผ้าเดียวกันในครั้งเดียว
     const printQtyInput = el("input", { type: "number", min: "1", step: "1", value: "1", style: { width: "56px" } });
     refs.printQrQtyInput = printQtyInput;
     const printSelectedBtn = el(
@@ -6739,7 +6902,6 @@ function buildDataTable(columns, dataRows, opts) {
     const container = refs.stockTableContainer;
     clear(container);
     const fabrics = DB.getFabrics(stockSearch, { onlyLowStock: stockLowOnly });
-    
     const rows = fabrics.map((f) => {
       const sup = f.supplier_id ? DB.getSupplier(f.supplier_id) : null;
       return [
@@ -6749,7 +6911,7 @@ function buildDataTable(columns, dataRows, opts) {
       ];
     });
     const table = buildDataTable(
-      ["รหัส", "ชื่อผ้า", "ประเภท", "สี", "หน่วย", "ราคาทุน", "ราคาขาย", "คงเหลือ", "จุดสั่งซื้อ", "ซัพෞลายเออร์"],
+      ["รหัส", "ชื่อผ้า", "ประเภท", "สี", "หน่วย", "ราคาทุน", "ราคาขาย", "คงเหลือ", "จุดสั่งซื้อ", "ซัพพลายเออร์"],
       rows,
       {
         checkbox: {
@@ -6774,7 +6936,6 @@ function buildDataTable(columns, dataRows, opts) {
             { label: "แก้ไข", onClick: () => openFabricModal(f.id) },
             { label: "ปรับสต็อก", onClick: () => openAdjustStockModal(f.id) },
             { label: "ประวัติ", onClick: () => openMovementsModal(f.id) },
-            
             {
               label: "ลบ",
               onClick: () => {
@@ -6791,7 +6952,6 @@ function buildDataTable(columns, dataRows, opts) {
     container.appendChild(table);
     updateFabricBulkButtons();
   }
-
 
 
   function openFabricModal(fid) {
@@ -7354,6 +7514,7 @@ function buildDataTable(columns, dataRows, opts) {
       billingNotes.map((n) => {
         const foundSales = (n.sale_ids || []).map((id) => DB.getSale(id)).filter(Boolean);
         const total = foundSales.reduce((sum, s) => sum + (s.total || 0), 0);
+        // สถานะรวมของใบวางบิลนี้: เช็คจากยอดที่จ่ายมาแล้วจริงของบิลทั้งหมดที่อยู่ในใบวางบิลนี้ ถ้ายังไม่ครบให้โชว์ยอดที่ยังค้างอยู่ด้วยเลย
         const paidTotal = foundSales.reduce((sum, s) => sum + (s.paid || 0), 0);
         const remain = Math.round((total - paidTotal) * 100) / 100;
         const statusText = remain > 0 ? `ค้างชำระ ${money(remain)} บาท` : "ชำระแล้ว";
@@ -7487,7 +7648,6 @@ function buildDataTable(columns, dataRows, opts) {
     );
     container.appendChild(itemsTable);
   }
-
 
   function openCustomerPayModal(cid) {
     const cust = DB.getCustomer(cid);
@@ -8067,7 +8227,8 @@ function buildDataTable(columns, dataRows, opts) {
     paymentSelect.addEventListener("change", () => {
       if (items.length > 0) syncPurchase();
     });
-        const fabricOptions = [{ value: "", label: "-- เลือกผ้า --" }].concat(
+
+    const fabricOptions = [{ value: "", label: "-- เลือกผ้า --" }].concat(
       fabrics.map((f) => ({ value: String(f.id), label: `${f.code} - ${f.name}` }))
     );
     // บันทึกรายการอัตโนมัติเมื่อออกจากช่องส่วนลด (ไม่ว่าจะกรอกหรือข้าม) แทนการหน่วงเวลา
@@ -8456,8 +8617,9 @@ function buildDataTable(columns, dataRows, opts) {
     const accountSplit = buildAccountSplitRows(remain);
     const accountSplitRow = formField("จ่ายจากบัญชี (แบ่งหลายบัญชีได้)", el("div", {}, accountSplit.container, accountSplit.addBtn));
     function updateAccountRowVisibility() {
-      accountSplitRow.style.display = methodSelect.value === "โอนเงิน" ? "" : "none";
-      if (methodSelect.value === "โอนเงิน") accountSplit.reset(Number(amountInput.value) || remain);
+      const isTransfer = methodSelect.value === "โอนเงิน";
+      accountSplitRow.style.display = isTransfer ? "" : "none";
+      if (isTransfer) accountSplit.reset(Number(amountInput.value) || remain);
     }
     methodSelect.addEventListener("change", updateAccountRowVisibility);
     updateAccountRowVisibility();
@@ -8476,7 +8638,7 @@ function buildDataTable(columns, dataRows, opts) {
             return;
           }
           const method = methodSelect.value;
-          let accountSplits = [];
+          let accountSplits = null;
           if (method === "โอนเงิน") {
             accountSplits = accountSplit.getSplits();
             if (accountSplits.length === 0) {
@@ -8485,7 +8647,7 @@ function buildDataTable(columns, dataRows, opts) {
             }
             const splitTotal = accountSplit.getTotal();
             if (splitTotal !== amt) {
-              global.alert(`ยอดรวมที่แบ่งเข้าบัญชี (${money(splitTotal)}) ไม่เท่ากับยอดที่จ่าย (${money(amt)}) กรุณาตรวจสอบ`);
+              global.alert(`ยอดรวมที่แบ่งจากบัญชี (${money(splitTotal)}) ไม่เท่ากับจำนวนที่จ่าย (${money(amt)}) กรุณาตรวจสอบ`);
               return;
             }
           }
@@ -8519,8 +8681,15 @@ function buildDataTable(columns, dataRows, opts) {
   function renderBackorders() {
     const sec = sections.backorders;
     clear(sec);
-    const searchInput = el("input", { type: "text", placeholder: "ค้นหา (ชื่อลูกค้า/ชื่อผ้า)", value: backorderSearch,
-      onInput: (e) => { backorderSearch = e.target.value; renderBackorderTable(); } });
+    const searchInput = el("input", {
+      type: "text",
+      placeholder: "ค้นหา (ชื่อลูกค้า/ชื่อผ้า)",
+      value: backorderSearch,
+      onInput: (e) => {
+        backorderSearch = e.target.value;
+        renderBackorderTable();
+      },
+    });
     const statusFilterSelect = selectInput(
       [
         { value: "", label: "สถานะ: ทั้งหมด" },
@@ -8572,11 +8741,15 @@ function buildDataTable(columns, dataRows, opts) {
         const name = c ? c.name : b.customer_name || "";
         const code = c ? c.code : "";
         const phone = c ? c.phone : b.customer_phone || "";
+        const itemsText = DB.getBackorderItems(b)
+          .map((it) => it.fabric_name)
+          .join(" ")
+          .toLowerCase();
         return (
           name.toLowerCase().includes(q) ||
           code.toLowerCase().includes(q) ||
           (phone || "").includes(q) ||
-          DB.getBackorderItems(b).map((it) => it.fabric_name).join(" ").toLowerCase().includes(q)
+          itemsText.includes(q)
         );
       });
     }
@@ -8587,7 +8760,9 @@ function buildDataTable(columns, dataRows, opts) {
         fmtDate(b.date),
         c ? `${c.code} - ${c.name}` : b.customer_name || "-",
         c ? c.phone || "-" : b.customer_phone || "-",
-        DB.getBackorderItems(b).map((it) => `${it.done ? "✓ " : ""}${it.fabric_name} x${it.qty || 0} ${it.unit || ""}`).join(", ") || "-",
+        DB.getBackorderItems(b)
+          .map((it) => `${it.done ? "✓ " : ""}${it.fabric_name} x${it.qty || 0} ${it.unit || ""}`)
+          .join(", ") || "-",
         b.done ? "เสร็จแล้ว" : b.status,
         b.sale_no ? { __cellLink: true, text: b.sale_no, onClick: () => openSaleFromBackorder(b.sale_no) } : "-",
         b.note || "",
@@ -8601,37 +8776,56 @@ function buildDataTable(columns, dataRows, opts) {
         actions: (idx) => {
           const b = rows[idx];
           const actions = [{ label: "แก้ไข", onClick: () => openBackorderModal(b.id) }];
+          // ถ้ารายการรอนี้มีผ้าหลายรายการ และยังไม่ได้ปิดทั้งรายการรอ ให้มาร์คเฉพาะผ้าที่มาถึงแล้วทีละรายการได้
+          // (เช่น สั่ง 3 ผ้า มาถึงก่อน 1 ผ้า ก็มาร์คได้เลยโดยไม่ต้องรอให้มาครบ)
           if (!b.done) {
-            const bitems = DB.getBackorderItems(b);
-            if (bitems.length > 1) {
-              bitems.forEach((it, itemIdx) => {
+            const items = DB.getBackorderItems(b);
+            if (items.length > 1) {
+              items.forEach((it, itemIdx) => {
                 const shortLabel = (it.fabric_name.split(" - ")[0] || it.fabric_name).slice(0, 20);
                 actions.push({
                   label: it.done ? `ยกเลิกมาแล้ว: ${shortLabel}` : `มาแล้ว: ${shortLabel}`,
-                  onClick: () => { DB.setBackorderItemDone(b.id, itemIdx, !it.done); renderBackorderTable(); },
+                  onClick: () => {
+                    DB.setBackorderItemDone(b.id, itemIdx, !it.done);
+                    renderBackorderTable();
+                  },
                 });
               });
             }
           }
           if (b.done) {
-            actions.push({ label: "ยกเลิกเสร็จแล้ว", onClick: () => { DB.markBackorderUndone(b.id); renderBackorderTable(); updateBackordersBadge(); } });
+            actions.push({
+              label: "ยกเลิกเสร็จแล้ว",
+              onClick: () => {
+                DB.markBackorderUndone(b.id);
+                renderBackorderTable();
+                updateBackordersBadge();
+              },
+            });
           } else {
             actions.push({
               label: "เสร็จแล้ว",
               onClick: () => {
+                // ถามเลขที่บิลที่ขายให้ลูกค้าคนนี้จริงๆ (ถ้ามี) ไว้อ้างอิงย้อนหลังได้ว่ารายการรอนี้ปิดจากบิลไหน
+                // เว้นว่างได้ถ้ายังไม่ทราบเลขบิล หรือจะพิมพ์ระบุทีหลังผ่านปุ่ม "แก้ไข" ก็ได้
                 const saleNo = global.prompt(`ขายให้ "${b.customer_name || "-"}" แล้วใช่มั้ย? ถ้าทราบ ระบุเลขที่บิลไว้อ้างอิง (เว้นว่างได้)`, b.sale_no || "");
-                if (saleNo === null) return;
+                if (saleNo === null) return; // กดยกเลิก ไม่ทำเครื่องหมายเสร็จ
                 DB.markBackorderDone(b.id, saleNo.trim());
                 renderBackorderTable();
                 updateBackordersBadge();
               },
             });
           }
-          actions.push({ label: "ลบ", onClick: () => {
-            if (global.confirm(`ต้องการลบรายการของ "${b.customer_name || "-"}" หรือไม่?`)) {
-              DB.deleteBackorder(b.id); renderBackorderTable(); updateBackordersBadge();
-            }
-          }});
+          actions.push({
+            label: "ลบ",
+            onClick: () => {
+              if (global.confirm(`ต้องการลบรายการของ "${b.customer_name || "-"}" หรือไม่?`)) {
+                DB.deleteBackorder(b.id);
+                renderBackorderTable();
+                updateBackordersBadge();
+              }
+            },
+          });
           return actions;
         },
       }
@@ -8649,29 +8843,60 @@ function buildDataTable(columns, dataRows, opts) {
     }
     const fabrics = DB.getFabrics();
     const fabricListId = "dl_backorder_fabric";
-    const fabricDatalist = el("datalist", { id: fabricListId },
-      ...fabrics.map((f) => el("option", { value: `${f.code} - ${f.name}` })));
+    const fabricDatalist = el(
+      "datalist",
+      { id: fabricListId },
+      ...fabrics.map((f) => el("option", { value: `${f.code} - ${f.name}` }))
+    );
     // แต่ละรายการผ้าที่ลูกค้าต้องการ เก็บเป็นแถวในลิสต์นี้ เพิ่ม/ลบได้หลายรายการในรายการรอสินค้าเดียวกัน
     const itemRows = [];
     const itemsContainer = el("div", { class: "backorder-items" });
     function addItemRow(data) {
-      const fabricNameInput = el("input", { type: "text", value: (data && data.fabric_name) || "",
-        list: fabricListId, placeholder: "ชื่อ/รหัสผ้าที่ลูกค้าต้องการ", style: { flex: "2", minWidth: "0" } });
+      const fabricNameInput = el("input", {
+        type: "text",
+        value: (data && data.fabric_name) || "",
+        list: fabricListId,
+        placeholder: "ชื่อ/รหัสผ้าที่ลูกค้าต้องการ",
+        style: { flex: "2", minWidth: "0" },
+      });
       const qtyInput = numberInput((data && data.qty) || 1);
-      qtyInput.style.flex = "1"; qtyInput.style.minWidth = "0";
+      qtyInput.style.flex = "1";
+      qtyInput.style.minWidth = "0";
       const unitInput = textInput((data && data.unit) || "หลา");
-      unitInput.style.flex = "1"; unitInput.style.minWidth = "0";
+      unitInput.style.flex = "1";
+      unitInput.style.minWidth = "0";
+      // มาร์คได้ว่าผ้ารายการนี้มาถึงร้านแล้วหรือยัง แยกเป็นรายชิ้น ไม่ต้องรอให้มาครบทุกผ้าก่อนถึงจะมาร์คได้
       const doneCheckbox = el("input", { type: "checkbox", checked: !!(data && data.done), title: "มาแล้ว" });
       const rowEntry = { fabricNameInput, qtyInput, unitInput, doneCheckbox };
-      const removeBtn = el("button", { class: "btn btn-sm", title: "ลบผ้ารายการนี้", onClick: () => {
-        if (itemRows.length <= 1) return;
-        const idx2 = itemRows.indexOf(rowEntry);
-        if (idx2 !== -1) itemRows.splice(idx2, 1);
-        rowEntry.row.remove();
-      } }, "ลบ");
-      const doneLabel = el("label", { class: "chk-label", style: { flexShrink: "0", fontSize: "12px", display: "flex", alignItems: "center", gap: "3px", whiteSpace: "nowrap" } }, doneCheckbox, "มาแล้ว");
-      const rowEl = el("div", { class: "backorder-item-row", style: { display: "flex", gap: "6px", marginBottom: "6px", alignItems: "center" } },
-        fabricNameInput, qtyInput, unitInput, doneLabel, removeBtn);
+      const removeBtn = el(
+        "button",
+        {
+          class: "btn btn-sm",
+          title: "ลบผ้ารายการนี้",
+          onClick: () => {
+            if (itemRows.length <= 1) return; // ต้องเหลืออย่างน้อย 1 รายการเสมอ
+            const idx = itemRows.indexOf(rowEntry);
+            if (idx !== -1) itemRows.splice(idx, 1);
+            rowEntry.row.remove();
+          },
+        },
+        "ลบ"
+      );
+      const doneLabel = el(
+        "label",
+        { class: "chk-label", style: { flexShrink: "0", fontSize: "12px", display: "flex", alignItems: "center", gap: "3px", whiteSpace: "nowrap" } },
+        doneCheckbox,
+        "มาแล้ว"
+      );
+      const rowEl = el(
+        "div",
+        { class: "backorder-item-row", style: { display: "flex", gap: "6px", marginBottom: "6px", alignItems: "center" } },
+        fabricNameInput,
+        qtyInput,
+        unitInput,
+        doneLabel,
+        removeBtn
+      );
       rowEntry.row = rowEl;
       itemRows.push(rowEntry);
       itemsContainer.appendChild(rowEl);
@@ -8681,38 +8906,95 @@ function buildDataTable(columns, dataRows, opts) {
     else addItemRow(null);
     const addItemBtn = el("button", { class: "btn btn-sm", onClick: () => addItemRow(null) }, "+ เพิ่มผ้าอีกรายการ");
     const statusSelect = selectInput(
-      [{ value: "สินค้าหมด", label: "สินค้าหมด" }, { value: "อื่นๆ", label: "อื่นๆ" }],
-      existing ? existing.status : "สินค้าหมด");
+      [
+        { value: "สินค้าหมด", label: "สินค้าหมด" },
+        { value: "อื่นๆ", label: "อื่นๆ" },
+      ],
+      existing ? existing.status : "สินค้าหมด"
+    );
     const noteInput = textInput(existing ? existing.note : "");
-    const recentSales = DB.getSales().slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 300);
+    // เลขที่บิลที่ขายให้ลูกค้าคนนี้จริงๆ (ถ้ามี) ไว้อ้างอิงย้อนหลังว่ารายการรอนี้ปิดจากบิลไหน กรอก/แก้ทีหลังได้เสมอ
+    // ให้เลือกจากบิลที่มีอยู่แล้วได้เลยผ่าน datalist (พิมพ์ค้นหาหรือกดเลือกจากลิสต์) แทนที่จะต้องพิมพ์เลขที่บิลเอง
+    const recentSales = DB.getSales()
+      .slice()
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+      .slice(0, 300);
     const saleListId = "dl_backorder_sale";
-    const saleDatalist = el("datalist", { id: saleListId }, ...recentSales.map((s) => { const c = s.customer_id ? DB.getCustomer(s.customer_id) : null; return el("option", { value: s.sale_no, label: `${s.sale_no} - ${c ? c.name : "ลูกค้าทั่วไป"} (${fmtDate(s.date)})` }); }));
-    const saleNoInput = el("input", { type: "text", value: existing ? existing.sale_no : "", list: saleListId, placeholder: "เลือกจากบิลที่มี หรือพิมพ์เลขที่บิลเอง" });
-    const form = el("div", { class: "form-panel" },
+    const saleDatalist = el(
+      "datalist",
+      { id: saleListId },
+      ...recentSales.map((s) => {
+        const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
+        return el("option", { value: s.sale_no, label: `${s.sale_no} - ${c ? c.name : "ลูกค้าทั่วไป"} (${fmtDate(s.date)})` });
+      })
+    );
+    const saleNoInput = el("input", {
+      type: "text",
+      value: existing ? existing.sale_no : "",
+      list: saleListId,
+      placeholder: "เลือกจากบิลที่มี หรือพิมพ์เลขที่บิลเอง",
+    });
+    const form = el(
+      "div",
+      { class: "form-panel" },
       formField("ลูกค้า", customerSelect),
-      fabricDatalist, formField("ผ้าที่ต้องการ", el("div", { style: { flex: "1", minWidth: "0" } }, itemsContainer, addItemBtn)),
-      formField("สถานะ", statusSelect), formField("เลขที่บิลที่ขาย (ถ้ามี)", el("div", {}, saleNoInput, saleDatalist)), formField("หมายเหตุ", noteInput));
-    const saveBtn = el("button", { class: "btn btn-primary", onClick: () => {
-      const customerId = customerSelect.getCustomerId();
-      const items = itemRows.map((r) => ({
-        fabric_name: r.fabricNameInput.value.trim(), qty: Number(r.qtyInput.value) || 0, unit: r.unitInput.value.trim() || "หลา", done: r.doneCheckbox.checked,
-      })).filter((it) => it.fabric_name);
-      if (!customerId) { global.alert("กรุณาเลือกลูกค้า"); return; }
-      if (!items.length) { global.alert("กรุณาระบุผ้าที่ต้องการอย่างน้อย 1 รายการ"); return; }
-      const customer = DB.getCustomer(customerId);
-      const data = {
-        customer_id: customerId, customer_name: customer ? customer.name : "", customer_phone: customer ? customer.phone : "",
-        items, status: statusSelect.value, sale_no: saleNoInput.value.trim(), note: noteInput.value.trim(),
-      };
-      if (existing) DB.updateBackorder(existing.id, data);
-      else DB.addBackorder(data);
-      closeModal();
-      renderBackorderTable();
-      updateBackordersBadge();
-    }}, "บันทึก");
-    exposeTestRefs("backorderForm", { customerSelect, itemRows, statusSelect, saleNoInput, noteInput, saveBtn });
+      fabricDatalist,
+      formField("ผ้าที่ต้องการ", el("div", { style: { flex: "1", minWidth: "0" } }, itemsContainer, addItemBtn)),
+      formField("สถานะ", statusSelect),
+      formField("เลขที่บิลที่ขาย (ถ้ามี)", el("div", {}, saleNoInput, saleDatalist)),
+      formField("หมายเหตุ", noteInput)
+    );
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          const customerId = customerSelect.getCustomerId();
+          const items = itemRows
+            .map((r) => ({
+              fabric_name: r.fabricNameInput.value.trim(),
+              qty: Number(r.qtyInput.value) || 0,
+              unit: r.unitInput.value.trim() || "หลา",
+              done: r.doneCheckbox.checked,
+            }))
+            .filter((it) => it.fabric_name);
+          if (!customerId) {
+            global.alert("กรุณาเลือกลูกค้า");
+            return;
+          }
+          if (!items.length) {
+            global.alert("กรุณาระบุผ้าที่ต้องการอย่างน้อย 1 รายการ");
+            return;
+          }
+          const customer = DB.getCustomer(customerId);
+          const data = {
+            customer_id: customerId,
+            customer_name: customer ? customer.name : "",
+            customer_phone: customer ? customer.phone : "",
+            items,
+            status: statusSelect.value,
+            sale_no: saleNoInput.value.trim(),
+            note: noteInput.value.trim(),
+          };
+          if (existing) DB.updateBackorder(existing.id, data);
+          else DB.addBackorder(data);
+          closeModal();
+          renderBackorderTable();
+          updateBackordersBadge();
+        },
+      },
+      "บันทึก"
+    );
+    exposeTestRefs("backorderForm", {
+      customerSelect,
+      itemRows,
+      statusSelect,
+      saleNoInput,
+      noteInput,
+      saveBtn,
+    });
     openModal(existing ? "แก้ไขรายการรอสินค้า" : "เพิ่มรายการรอสินค้า", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
-      }
+  }
 
   // =================================================================== ลูกค้าสั่งผ้า (จากลิงก์ออนไลน์)
   let customerOrderSearch = "";
@@ -9580,7 +9862,13 @@ function buildDataTable(columns, dataRows, opts) {
       "คัดลอกข้อความใบเสนอราคา"
     );
     const closeBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
-    const body = el("div", {}, formField("บัญชีสำหรับโอนเงิน (ถ้ามี)", accountSelect), previewBox, el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn));
+    const body = el(
+      "div",
+      {},
+      formField("บัญชีสำหรับโอนเงิน (ถ้ามี)", accountSelect),
+      previewBox,
+      el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn)
+    );
     openModal("ใบเสนอราคา", body, { wide: true });
   }
 
@@ -9610,6 +9898,7 @@ function buildDataTable(columns, dataRows, opts) {
     );
     const expenseTableContainer = el("div", { class: "table-container" });
     refs.acctExpenseContainer = expenseTableContainer;
+    // สรุปสัดส่วนรายจ่ายแยกตามหมวดหมู่ (กราฟวงกลม + ตัวเลขแต่ละหมวด) ของช่วงวันที่เดียวกับที่เลือกไว้ด้านบน
     const expenseChartContainer = el("div", { style: { marginBottom: "14px" } });
     refs.acctExpenseChartContainer = expenseChartContainer;
 
@@ -9662,7 +9951,7 @@ function buildDataTable(columns, dataRows, opts) {
     }
     const palette = ["#2c6e9b", "#e08e45", "#4caf7d", "#c25b5b", "#8a6fc2", "#d4b74a", "#5aa7c2", "#c27ba0", "#7b9e3f", "#b5651d", "#5f6caf", "#c0392b"];
     const cx = 90, cy = 90, r = 80;
-    let angleStart = -90;
+    let angleStart = -90; // เริ่มวาดจากด้านบนสุด (12 นาฬิกา) ตามเข็มนาฬิกา
     const toXY = (deg) => {
       const rad = (deg * Math.PI) / 180;
       return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
@@ -9711,6 +10000,7 @@ function buildDataTable(columns, dataRows, opts) {
       <div style="flex:1;min-width:220px;">${legendHtml}</div>
     </div>`;
   }
+  // ผูก event คลิกให้แถวหมวดหมู่ในกราฟวงกลม (ต้องเรียกทุกครั้งหลัง set innerHTML ใหม่ เพราะ element ถูกสร้างใหม่)
   function wireExpenseCategoryChartToggles(container) {
     if (!container) return;
     container.querySelectorAll(".exp-cat-row").forEach((row) => {
@@ -9832,53 +10122,11 @@ function buildDataTable(columns, dataRows, opts) {
       formField("ธนาคาร", bankNameInput),
       formField("ชื่อบัญชี", accountNameInput),
       formField("เลขที่บัญชี", accountNoInput),
-      existing ? el("div", {}) : formField("ยอดเริ่มต้น", initialBalanceInput),
+      existing ? null : formField("ยอดเริ่มต้น", initialBalanceInput),
       el("div", { class: "modal-actions" }, saveBtn)
     );
     exposeTestRefs("bankAccountForm", { bankNameInput, accountNameInput, accountNoInput, saveBtn });
     openModal(existing ? "แก้ไขบัญชีธนาคาร" : "เพิ่มบัญชีธนาคาร", body);
-  }
-
-  function openAdjustBalanceModal(account) {
-    const balanceInput = numberInput(account.balance || 0);
-    const noteInput = textInput("");
-    noteInput.setAttribute("placeholder", "เช่น แก้ไขยอดผิดพลาด, นับเงินสดใหม่ ฯลฯ");
-    const saveBtn = el(
-      "button",
-      {
-        class: "btn btn-primary",
-        onClick: () => {
-          const newBalance = Number(balanceInput.value);
-          if (isNaN(newBalance)) {
-            global.alert("กรุณาระบุยอดให้ถูกต้อง");
-            return;
-          }
-          const note = noteInput.value.trim() || "ปรับปรุงยอดบัญชี";
-          DB.adjustBankAccountBalance(account.id, newBalance, note);
-          closeModal();
-          refreshBankAccountsTable();
-        },
-      },
-      "บันทึก"
-    );
-    const body = el(
-      "div",
-      {},
-      el(
-        "p",
-        {},
-        el("span", {
-          text: `${account.bank_name} - ${account.account_name}`,
-          style: bankBrandColor(account.bank_name) ? { color: bankBrandColor(account.bank_name), fontWeight: "600" } : {},
-        }),
-        ` ยอดปัจจุบัน ${money(account.balance || 0)} บาท`
-      ),
-      formField("ยอดใหม่", balanceInput),
-      formField("โน้ต (สาเหตุที่ปรับยอด)", noteInput),
-      el("div", { class: "modal-actions" }, saveBtn)
-    );
-    exposeTestRefs("adjustBalanceForm", { balanceInput, noteInput, saveBtn });
-    openModal("ปรับยอดบัญชี", body);
   }
 
   function openTransferAccountModal() {
@@ -9961,6 +10209,49 @@ function buildDataTable(columns, dataRows, opts) {
       el("div", { class: "table-container" }, table)
     );
     openModal("รายการเคลื่อนไหวบัญชี", body);
+  }
+
+  // ปรับยอดบัญชี (ตั้งยอดเริ่มต้น หรือแก้ไขยอดให้ตรงกับความเป็นจริง) ใช้ได้ทั้งบัญชีธนาคารและบัญชีเงินสด
+  function openAdjustBalanceModal(account) {
+    const balanceInput = numberInput(account.balance || 0);
+    const noteInput = textInput("");
+    noteInput.setAttribute("placeholder", "เช่น แก้ไขยอดผิดพลาด, นับเงินสดใหม่ ฯลฯ");
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          const newBalance = Number(balanceInput.value);
+          if (isNaN(newBalance)) {
+            global.alert("กรุณาระบุยอดให้ถูกต้อง");
+            return;
+          }
+          const note = noteInput.value.trim() || "ปรับปรุงยอดบัญชี";
+          DB.adjustBankAccountBalance(account.id, newBalance, note);
+          closeModal();
+          refreshBankAccountsTable();
+        },
+      },
+      "บันทึก"
+    );
+    const body = el(
+      "div",
+      {},
+      el(
+        "p",
+        {},
+        el("span", {
+          text: `${account.bank_name} - ${account.account_name}`,
+          style: bankBrandColor(account.bank_name) ? { color: bankBrandColor(account.bank_name), fontWeight: "600" } : {},
+        }),
+        ` ยอดปัจจุบัน ${money(account.balance || 0)} บาท`
+      ),
+      formField("ยอดใหม่", balanceInput),
+      formField("โน้ต (สาเหตุที่ปรับยอด)", noteInput),
+      el("div", { class: "modal-actions" }, saveBtn)
+    );
+    exposeTestRefs("adjustBalanceForm", { balanceInput, noteInput, saveBtn });
+    openModal("ปรับยอดบัญชี", body);
   }
 
   function refreshAcctSummary() {
@@ -10243,7 +10534,9 @@ function buildDataTable(columns, dataRows, opts) {
       container.appendChild(
         buildDataTable(["เลขที่บิล", "วันที่", "ลูกค้า", "ก่อนภาษี", "VAT", "ยอดรวม", "สถานะ"], rows, {
           cellStyle: (row, ci, colName) =>
-            colName === "สถานะ" && (row[ci] === "ค้างชำระ" || row[ci] === "เงินสดแต่ค้างชำระ" || row[ci] === "รอเช็คขึ้นเงิน") ? { color: "var(--danger)", fontWeight: "600" } : null,
+            colName === "สถานะ" && (row[ci] === "ค้างชำระ" || row[ci] === "เงินสดแต่ค้างชำระ" || row[ci] === "รอเช็คขึ้นเงิน")
+              ? { color: "var(--danger)", fontWeight: "600" }
+              : null,
         })
       );
     } else if (reportSubTab === "best") {
@@ -10471,93 +10764,6 @@ function buildDataTable(columns, dataRows, opts) {
     openModal("สำรอง / กู้คืนข้อมูล", body, { wide: true });
   }
 
-  // ==================================================================== init
-  function init() {
-    const layoutRoot = buildLayout();
-    global.document.body.appendChild(layoutRoot);
-    global.document.body.appendChild(buildModal());
-
-    renderers.dashboard = renderDashboard;
-    renderers.pos = renderPOS;
-    renderers.stock = renderStock;
-    renderers.customers = renderCustomers;
-    renderers.suppliers = renderSuppliers;
-    renderers.purchases = renderPurchases;
-    renderers.backorders = renderBackorders;
-    renderers.customerOrders = renderCustomerOrders;
-    renderers.quotations = renderQuotations;
-    renderers.accounting = renderAccounting;
-    renderers.reports = renderReports;
-
-    switchTab("dashboard");
-
-    function runBulkImportFabrics() {
-      // นำเข้ารายการผ้าที่เตรียมไว้ (BULK_IMPORT_FABRICS) อัตโนมัติทุกครั้งที่เปิดโปรแกรม ไม่ต้องกดปุ่มเอง
-      // ทำหลังจากดึงข้อมูลคลาวด์เสร็จแล้วเท่านั้น กันไม่ให้แข่งกับการซิงค์คลาวด์แล้วอัปโหลดข้อมูลไม่ครบขึ้นไปทับของจริง
-      if (BULK_IMPORT_FABRICS.length) {
-        try {
-          importBulkFabrics({ silent: true });
-        } catch (e) {
-          // ไม่ให้การนำเข้าล้มเหลวไปกระทบการเปิดแอปหลัก
-        }
-      }
-    }
-
-    // ===== ซิงค์ข้อมูลกับคลาวด์ (Supabase) =====
-    // แสดงข้อมูลจาก localStorage ก่อนทันที (โหลดเร็ว/ใช้งานได้แม้ออฟไลน์)
-    // แล้วดึงข้อมูลล่าสุดจากคลาวด์มาซ้อนทับ + รีเฟรชหน้าจอเมื่อโหลดเสร็จ
-    function updateCloudBadge() {
-      if (!refs.cloudBadge) return;
-      const status = DB.getCloudStatus ? DB.getCloudStatus() : "offline";
-      const labels = {
-        connecting: "คลาวด์: กำลังเชื่อมต่อ...",
-        synced: "คลาวด์: ซิงค์แล้ว ✓",
-        error: "คลาวด์: ผิดพลาด",
-        conflict: "คลาวด์: ข้อมูลไม่ตรงกัน กู้คืนแล้ว",
-        offline: "คลาวด์: ออฟไลน์",
-      };
-      refs.cloudBadge.textContent = labels[status] || "คลาวด์: ไม่ทราบสถานะ";
-    }
-    if (DB.setCloudSyncListener) {
-      DB.setCloudSyncListener(() => {
-        switchTab(currentTab);
-        updateCloudBadge();
-      });
-    }
-    updateCloudBadge();
-    if (DB.pullFromCloud) {
-      DB.pullFromCloud().then(() => {
-        runBulkImportFabrics();
-        switchTab(currentTab);
-        updateCloudBadge();
-      });
-    } else {
-      runBulkImportFabrics();
-    }
-    global.setInterval(updateCloudBadge, 2000);
-  }
-
-  const api = {
-    init, DB, VAT_ENABLED, VAT_RATE,
-    switchTab,
-    refs,
-    getCart: () => cart,
-    openFabricModal, openAdjustStockModal, openMovementsModal,
-    openCustomerModal, openCustomerHistoryModal, openCustomerPayModal,
-    openSupplierModal, openSupplierPayModal,
-    openPurchaseModal, openPurchaseItemsModal, openPurchasePayModal,
-    openExpenseModal, openSettingsModal, openBackupModal,
-    checkout, addPosRow, posRowSetFabric,
-    editSalePOS, cancelEditSalePOS, reprintSalePOS, deleteSalePOS, openMarkSalePaidModal,
-    renderStockTable, renderCustomerTable, renderSupplierTable, renderPurchaseTable,
-    renderPosItemsTable, renderPosSalesHistory, refreshAcctSummary, refreshReports,
-    closeModal,
-  };
-
-  if (typeof module !== "undefined" && module.exports) {
-    module.exports = api;
-  }
-
   // ============================================================ เข้าสู่ระบบ
   // ป้องกันไม่ให้คนแปลกหน้าที่มี anon key เข้าถึงข้อมูลร้านได้โดยไม่ล็อกอิน (RLS บน Supabase บังคับให้ต้องล็อกอินก่อนถึงจะอ่าน/แก้ไขข้อมูลได้)
   // เช็คว่าเครื่องนี้เคยล็อกอินไว้แล้วหรือไม่ (มี session ของ Supabase เก็บอยู่ใน localStorage) แบบไม่ต้องรอเน็ตเวิร์ก
@@ -10662,7 +10868,94 @@ function buildDataTable(columns, dataRows, opts) {
       });
     } catch (e) {}
   }
-if (typeof global.window !== "undefined") {
+
+  // ==================================================================== init
+  function init() {
+    const layoutRoot = buildLayout();
+    global.document.body.appendChild(layoutRoot);
+    global.document.body.appendChild(buildModal());
+
+    renderers.dashboard = renderDashboard;
+    renderers.pos = renderPOS;
+    renderers.stock = renderStock;
+    renderers.customers = renderCustomers;
+    renderers.suppliers = renderSuppliers;
+    renderers.purchases = renderPurchases;
+    renderers.backorders = renderBackorders;
+    renderers.customerOrders = renderCustomerOrders;
+    renderers.quotations = renderQuotations;
+    renderers.accounting = renderAccounting;
+    renderers.reports = renderReports;
+
+    switchTab("dashboard");
+
+    function runBulkImportFabrics() {
+      // นำเข้ารายการผ้าที่เตรียมไว้ (BULK_IMPORT_FABRICS) อัตโนมัติทุกครั้งที่เปิดโปรแกรม ไม่ต้องกดปุ่มเอง
+      // ทำหลังจากดึงข้อมูลคลาวด์เสร็จแล้วเท่านั้น กันไม่ให้แข่งกับการซิงค์คลาวด์แล้วอัปโหลดข้อมูลไม่ครบขึ้นไปทับของจริง
+      if (BULK_IMPORT_FABRICS.length) {
+        try {
+          importBulkFabrics({ silent: true });
+        } catch (e) {
+          // ไม่ให้การนำเข้าล้มเหลวไปกระทบการเปิดแอปหลัก
+        }
+      }
+    }
+
+    // ===== ซิงค์ข้อมูลกับคลาวด์ (Supabase) =====
+    // แสดงข้อมูลจาก localStorage ก่อนทันที (โหลดเร็ว/ใช้งานได้แม้ออฟไลน์)
+    // แล้วดึงข้อมูลล่าสุดจากคลาวด์มาซ้อนทับ + รีเฟรชหน้าจอเมื่อโหลดเสร็จ
+    function updateCloudBadge() {
+      if (!refs.cloudBadge) return;
+      const status = DB.getCloudStatus ? DB.getCloudStatus() : "offline";
+      const labels = {
+        connecting: "คลาวด์: กำลังเชื่อมต่อ...",
+        synced: "คลาวด์: ซิงค์แล้ว ✓",
+        error: "คลาวด์: ผิดพลาด",
+        conflict: "คลาวด์: ข้อมูลไม่ตรงกัน กู้คืนแล้ว",
+        offline: "คลาวด์: ออฟไลน์",
+      };
+      refs.cloudBadge.textContent = labels[status] || "คลาวด์: ไม่ทราบสถานะ";
+    }
+    if (DB.setCloudSyncListener) {
+      DB.setCloudSyncListener(() => {
+        switchTab(currentTab);
+        updateCloudBadge();
+      });
+    }
+    updateCloudBadge();
+    if (DB.pullFromCloud) {
+      DB.pullFromCloud().then(() => {
+        runBulkImportFabrics();
+        switchTab(currentTab);
+        updateCloudBadge();
+      });
+    } else {
+      runBulkImportFabrics();
+    }
+    global.setInterval(updateCloudBadge, 2000);
+  }
+
+  const api = {
+    init, DB, VAT_ENABLED, VAT_RATE,
+    switchTab,
+    refs,
+    getCart: () => cart,
+    openFabricModal, openAdjustStockModal, openMovementsModal,
+    openCustomerModal, openCustomerHistoryModal, openCustomerPayModal,
+    openSupplierModal, openSupplierPayModal,
+    openPurchaseModal, openPurchaseItemsModal, openPurchasePayModal,
+    openExpenseModal, openSettingsModal, openBackupModal,
+    checkout, addPosRow, posRowSetFabric,
+    editSalePOS, cancelEditSalePOS, reprintSalePOS, deleteSalePOS, openMarkSalePaidModal,
+    renderStockTable, renderCustomerTable, renderSupplierTable, renderPurchaseTable,
+    renderPosItemsTable, renderPosSalesHistory, refreshAcctSummary, refreshReports,
+    closeModal,
+  };
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = api;
+  }
+  if (typeof global.window !== "undefined") {
     global.window.SiriCharoenApp = api;
     // ไลบรารีสร้าง QR (QRious) บางทีโหลดจาก CDN ไม่สำเร็จ (เน็ตกระตุกตอนเปิดหน้า) ทำให้ QR ที่พิมพ์ออกมาเป็นกล่องโล่งๆ ไม่มีรูป
     // ลองโหลดซ้ำอัตโนมัติตั้งแต่ตอนเปิดหน้า (สลับ CDN สำรอง) เผื่อจะทันก่อนผู้ใช้กดพิมพ์จริง
