@@ -5668,7 +5668,15 @@ if (typeof module !== "undefined") {
       "button",
       {
         class: "btn",
-        style: { display: "block", width: "100%", padding: "14px", fontSize: "15px" },
+        style: {
+          display: "block",
+          width: "100%",
+          padding: "14px",
+          fontSize: "15px",
+          background: "var(--danger)",
+          color: "#fff",
+          border: "none",
+        },
         onClick: () => {
           closeModal();
           runCheckout();
