@@ -5271,51 +5271,7 @@ if (typeof module !== "undefined") {
       const f = DB.getFabric(it.fabric_id);
       return { code: f ? f.code : "", name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)", qty: it.qty, unit_price: it.unit_price, unit: it.unit, roll_id: it.roll_id || null, fabric_id: it.fabric_id || null, note: it.note || "" };
     });
-    // บิล "เงินสดแต่ค้างชำระ" เลือกได้ว่าจะพิมพ์เป็นใบเสร็จรับเงินหรือใบส่งของ (ทั้งบิลแว็ดและไม่แว็ด)
-    // ให้เลือกก่อนเปิดหน้าตัวอย่างเลย กันพลาดกดพิมพ์ผิดแบบโดยไม่ทันสังเกต
-    if (sale.status === "เงินสดแต่ค้างชำระ") {
-      openPrintTypeChoiceModal(sale, cartItems);
-    } else {
-      showReceiptModal(sale, sale.customer_id, cartItems);
-    }
-  }
-
-  function openPrintTypeChoiceModal(sale, cartItems) {
-    const receiptBtn = el(
-      "button",
-      {
-        class: "btn btn-primary",
-        style: { display: "block", width: "100%", padding: "14px", fontSize: "15px", marginBottom: "10px" },
-        onClick: () => showReceiptModal(sale, sale.customer_id, cartItems, "normal"),
-      },
-      "ใบเสร็จรับเงิน"
-    );
-    const deliveryBtn = el(
-      "button",
-      {
-        class: "btn",
-        style: {
-          display: "block",
-          width: "100%",
-          padding: "14px",
-          fontSize: "15px",
-          background: "var(--danger)",
-          color: "#fff",
-          border: "none",
-        },
-        onClick: () => showReceiptModal(sale, sale.customer_id, cartItems, "delivery"),
-      },
-      "ใบส่งของ"
-    );
-    const body = el(
-      "div",
-      { style: { textAlign: "center" } },
-      el("p", { text: `${sale.sale_no} · เงินสดแต่ค้างชำระ`, style: { color: "#777", marginBottom: "16px" } }),
-      receiptBtn,
-      deliveryBtn,
-      el("p", { text: "เลือกแล้วจะเปิดตัวอย่างเอกสารทันที", style: { fontSize: "12px", color: "#999", marginTop: "16px" } })
-    );
-    openModal("เลือกเอกสารที่จะพิมพ์", body);
+    showReceiptModal(sale, sale.customer_id, cartItems);
   }
 
   function buildCustomerSelectOptions() {
@@ -6326,7 +6282,7 @@ if (typeof module !== "undefined") {
       { class: "btn btn-info", onClick: () => downloadTextFile(`${sale.sale_no}.txt`, current.text) },
       "บันทึกเป็นไฟล์ .txt"
     );
-    const printBtn = el("button", { class: "btn btn-accent", onClick: () => printReceiptHtml(current.html) }, `พิมพ์${current.docTitle}`);
+    const printBtn = el("button", { class: "btn btn-accent", onClick: () => handlePrintClick() }, `พิมพ์${current.docTitle}`);
     const pdfBtn = el(
       "button",
       { class: "btn btn-info", onClick: () => downloadReceiptPdf(current.html, `${sale.sale_no}.pdf`) },
@@ -6360,6 +6316,61 @@ if (typeof module !== "undefined") {
       printBtn.textContent = `พิมพ์${current.docTitle}`;
       modalTitleEl.textContent = current.docTitle;
     }
+
+    // บิล "เงินสดแต่ค้างชำระ" กดพิมพ์แล้วให้ถามอีกทีก่อนพิมพ์จริงว่าจะเอาใบเสร็จรับเงินหรือใบส่งของ (ทั้งบิลแว็ดและไม่แว็ด)
+    // กันพนักงานพิมพ์ผิดแบบเพราะเผลอไม่ได้สังเกตว่าตอนเปิดพรีวิวมันเลือกแบบไหนไว้ก่อนแล้ว
+    function handlePrintClick() {
+      if (sale.status !== "เงินสดแต่ค้างชำระ") {
+        printReceiptHtml(current.html);
+        return;
+      }
+      openPrintNowChoiceModal();
+    }
+
+    function openPrintNowChoiceModal() {
+      function pickAndPrint(chosenDocType) {
+        docType = chosenDocType;
+        refresh();
+        printReceiptHtml(current.html);
+        openModal(current.docTitle, body);
+      }
+      const receiptBtn = el(
+        "button",
+        {
+          class: "btn btn-primary",
+          style: { display: "block", width: "100%", padding: "14px", fontSize: "15px", marginBottom: "10px" },
+          onClick: () => pickAndPrint("normal"),
+        },
+        "ใบเสร็จรับเงิน"
+      );
+      const deliveryBtn = el(
+        "button",
+        {
+          class: "btn",
+          style: {
+            display: "block",
+            width: "100%",
+            padding: "14px",
+            fontSize: "15px",
+            background: "var(--danger)",
+            color: "#fff",
+            border: "none",
+          },
+          onClick: () => pickAndPrint("delivery"),
+        },
+        "ใบส่งของ"
+      );
+      const choiceBody = el(
+        "div",
+        { style: { textAlign: "center" } },
+        el("p", { text: `${sale.sale_no} · เงินสดแต่ค้างชำระ`, style: { color: "#777", marginBottom: "16px" } }),
+        receiptBtn,
+        deliveryBtn,
+        el("p", { text: "เลือกแล้วจะพิมพ์เอกสารนั้นทันที", style: { fontSize: "12px", color: "#999", marginTop: "16px" } })
+      );
+      openModal("พิมพ์เป็นเอกสารไหน", choiceBody);
+    }
+
     accountSelect.addEventListener("change", () => {
       rememberCustomerAccount(cust, accountSelect.value);
       refresh();
