@@ -5650,20 +5650,6 @@ if (typeof module !== "undefined") {
   }
 
   function openCashOrCreditConfirmModal(customerName) {
-    const creditBtn = el(
-      "button",
-      {
-        class: "btn btn-primary",
-        style: { display: "block", width: "100%", padding: "14px", fontSize: "15px", marginBottom: "10px" },
-        onClick: () => {
-          refs.posPaymentSelect.value = "เงินเชื่อ";
-          refs.posPaymentSelect.dispatchEvent(new Event("change"));
-          closeModal();
-          runCheckout();
-        },
-      },
-      "เปลี่ยนเป็นเครดิต"
-    );
     const cashBtn = el(
       "button",
       {
@@ -5673,6 +5659,7 @@ if (typeof module !== "undefined") {
           width: "100%",
           padding: "14px",
           fontSize: "15px",
+          marginBottom: "10px",
           background: "var(--danger)",
           color: "#fff",
           border: "none",
@@ -5684,6 +5671,20 @@ if (typeof module !== "undefined") {
       },
       "ยืนยันเป็นเงินสดแต่ยังไม่จ่าย"
     );
+    const creditBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        style: { display: "block", width: "100%", padding: "14px", fontSize: "15px" },
+        onClick: () => {
+          refs.posPaymentSelect.value = "เงินเชื่อ";
+          refs.posPaymentSelect.dispatchEvent(new Event("change"));
+          closeModal();
+          runCheckout();
+        },
+      },
+      "เปลี่ยนเป็นเครดิต"
+    );
     const body = el(
       "div",
       { style: { textAlign: "center" } },
@@ -5691,8 +5692,8 @@ if (typeof module !== "undefined") {
         text: `${customerName} · เลือกวิธีชำระเป็น "เงินสดแต่ยังไม่จ่าย"`,
         style: { color: "#777", marginBottom: "16px" },
       }),
-      creditBtn,
       cashBtn,
+      creditBtn,
       el("p", {
         text: "ถ้าลูกค้ารายนี้ควรเป็นยอดค้างชำระ (เครดิต) แทน ให้กดเปลี่ยนเป็นเครดิต",
         style: { fontSize: "12px", color: "#999", marginTop: "16px" },
