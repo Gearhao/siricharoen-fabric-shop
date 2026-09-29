@@ -5636,7 +5636,64 @@ if (typeof module !== "undefined") {
     refs.posChangeLbl.style.display = change ? "" : "none";
   }
 
+  // ป้องกันพนักงานลืมเปลี่ยนเป็น "เครดิต" ตอนขายให้ลูกค้าประจำที่จริงๆ ควรเป็นยอดค้างชำระ (ไม่ใช่แค่เงินสดที่ยังไม่ได้จ่าย)
+  // ถ้าเลือกลูกค้า (ไม่ใช่ลูกค้าทั่วไป) และวิธีชำระเป็น "เงินสดแต่ยังไม่จ่าย" ให้ถามยืนยันก่อนบันทึกบิลจริง
   function checkout() {
+    const custId = refs.posCustomerSelect.getCustomerId();
+    const paymentMethod = refs.posPaymentSelect.value;
+    if (custId && paymentMethod === "เงินสดแต่ยังไม่จ่าย") {
+      const customer = DB.getCustomer(custId);
+      openCashOrCreditConfirmModal(customer ? customer.name : "ลูกค้ารายนี้");
+      return;
+    }
+    runCheckout();
+  }
+
+  function openCashOrCreditConfirmModal(customerName) {
+    const creditBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        style: { display: "block", width: "100%", padding: "14px", fontSize: "15px", marginBottom: "10px" },
+        onClick: () => {
+          refs.posPaymentSelect.value = "เงินเชื่อ";
+          refs.posPaymentSelect.dispatchEvent(new Event("change"));
+          closeModal();
+          runCheckout();
+        },
+      },
+      "เปลี่ยนเป็นเครดิต"
+    );
+    const cashBtn = el(
+      "button",
+      {
+        class: "btn",
+        style: { display: "block", width: "100%", padding: "14px", fontSize: "15px" },
+        onClick: () => {
+          closeModal();
+          runCheckout();
+        },
+      },
+      "ยืนยันเป็นเงินสดแต่ยังไม่จ่าย"
+    );
+    const body = el(
+      "div",
+      { style: { textAlign: "center" } },
+      el("p", {
+        text: `${customerName} · เลือกวิธีชำระเป็น "เงินสดแต่ยังไม่จ่าย"`,
+        style: { color: "#777", marginBottom: "16px" },
+      }),
+      creditBtn,
+      cashBtn,
+      el("p", {
+        text: "ถ้าลูกค้ารายนี้ควรเป็นยอดค้างชำระ (เครดิต) แทน ให้กดเปลี่ยนเป็นเครดิต",
+        style: { fontSize: "12px", color: "#999", marginTop: "16px" },
+      })
+    );
+    openModal("ลูกค้ารายนี้ควรเป็นเครดิตไหม", body);
+  }
+
+  function runCheckout() {
     const validItems = cart.filter((it) => it.qty > 0 && (it.is_misc ? (it.name || "").trim() : it.fabric_id));
     if (validItems.length === 0) {
       global.alert("กรุณาเลือกสินค้าและระบุจำนวนอย่างน้อย 1 รายการ");
