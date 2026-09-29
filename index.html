@@ -5294,7 +5294,15 @@ if (typeof module !== "undefined") {
       "button",
       {
         class: "btn",
-        style: { display: "block", width: "100%", padding: "14px", fontSize: "15px" },
+        style: {
+          display: "block",
+          width: "100%",
+          padding: "14px",
+          fontSize: "15px",
+          background: "var(--danger)",
+          color: "#fff",
+          border: "none",
+        },
         onClick: () => showReceiptModal(sale, sale.customer_id, cartItems, "delivery"),
       },
       "ใบส่งของ"
