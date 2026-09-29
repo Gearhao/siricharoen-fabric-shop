@@ -5271,7 +5271,43 @@ if (typeof module !== "undefined") {
       const f = DB.getFabric(it.fabric_id);
       return { code: f ? f.code : "", name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)", qty: it.qty, unit_price: it.unit_price, unit: it.unit, roll_id: it.roll_id || null, fabric_id: it.fabric_id || null, note: it.note || "" };
     });
-    showReceiptModal(sale, sale.customer_id, cartItems);
+    // บิล "เงินสดแต่ค้างชำระ" เลือกได้ว่าจะพิมพ์เป็นใบเสร็จรับเงินหรือใบส่งของ (ทั้งบิลแว็ดและไม่แว็ด)
+    // ให้เลือกก่อนเปิดหน้าตัวอย่างเลย กันพลาดกดพิมพ์ผิดแบบโดยไม่ทันสังเกต
+    if (sale.status === "เงินสดแต่ค้างชำระ") {
+      openPrintTypeChoiceModal(sale, cartItems);
+    } else {
+      showReceiptModal(sale, sale.customer_id, cartItems);
+    }
+  }
+
+  function openPrintTypeChoiceModal(sale, cartItems) {
+    const receiptBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        style: { display: "block", width: "100%", padding: "14px", fontSize: "15px", marginBottom: "10px" },
+        onClick: () => showReceiptModal(sale, sale.customer_id, cartItems, "normal"),
+      },
+      "ใบเสร็จรับเงิน"
+    );
+    const deliveryBtn = el(
+      "button",
+      {
+        class: "btn",
+        style: { display: "block", width: "100%", padding: "14px", fontSize: "15px" },
+        onClick: () => showReceiptModal(sale, sale.customer_id, cartItems, "delivery"),
+      },
+      "ใบส่งของ"
+    );
+    const body = el(
+      "div",
+      { style: { textAlign: "center" } },
+      el("p", { text: `${sale.sale_no} · เงินสดแต่ค้างชำระ`, style: { color: "#777", marginBottom: "16px" } }),
+      receiptBtn,
+      deliveryBtn,
+      el("p", { text: "เลือกแล้วจะเปิดตัวอย่างเอกสารทันที", style: { fontSize: "12px", color: "#999", marginTop: "16px" } })
+    );
+    openModal("เลือกเอกสารที่จะพิมพ์", body);
   }
 
   function buildCustomerSelectOptions() {
@@ -6190,11 +6226,11 @@ if (typeof module !== "undefined") {
     openModal("ใบเสร็จค่าจัดส่ง", body, { wide: true });
   }
 
-  function showReceiptModal(sale, custId, cartItems) {
+  function showReceiptModal(sale, custId, cartItems, forcedDocType) {
     const cust = custId ? DB.getCustomer(custId) : null;
     const shop = DB.getShopInfo();
     const isCredit = sale.payment_method === "เงินเชื่อ";
-    let docType = isCredit ? "delivery" : "normal";
+    let docType = forcedDocType || (isCredit ? "delivery" : "normal");
     let lang = "th";
     let showQr = false;
     // บิลแว็ดที่ไม่มีค่าส่งแยก: ยอดทั้งบิลคือค่าผ้าล้วนๆ ให้ default บัญชีเป็นบัญชี หจก. นิวศิริเจริญ เสมอ (บัญชีที่ใช้รับเงินค่าผ้าของบิลแว็ดทุกกรณี เหมือนกรณีมีค่าส่งแยกที่ค่าผ้าเข้าบัญชีนี้ตายตัวอยู่แล้ว)
