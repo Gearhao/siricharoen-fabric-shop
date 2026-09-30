@@ -1138,7 +1138,7 @@ function createDB(storageKey) {
     let rows = store.fabrics;
     if (opts.onlyActive !== false) rows = rows.filter((f) => f.active);
     if (search) {
-      const terms = search.toLowerCase().split(/\s+/).filter(Boolean);
+      const terms = search.toLowerCase().split(/[\s\-]+/).filter(Boolean);
       rows = rows.filter((f) => {
         const haystack = [f.name, f.code, f.color || "", f.category || ""]
           .join(" ")
