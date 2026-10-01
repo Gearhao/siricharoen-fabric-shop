@@ -4466,8 +4466,8 @@ if (typeof module !== "undefined") {
       ],
       "เงินสด"
     );
-    const accountSelect = buildBankAccountSelect();
-    const accountRow = formField("บัญชีที่รับโอน (ใช้บัญชีเดียวกันทุกบิลที่เลือก)", accountSelect);
+    const accountSplit = buildAccountSplitRows(totalRemain);
+    const accountRow = formField("บัญชีที่รับโอน (แบ่งหลายบัญชีได้)", el("div", {}, accountSplit.container, accountSplit.addBtn));
     // รับเช็คหลายบิลพร้อมกัน - ใช้เลขที่เช็คเดียวกันกับทุกบิลที่เลือก เหมาะกรณีลูกค้าจ่ายหลายบิลด้วยเช็คใบเดียว บิลจะขึ้นสถานะ "รอเช็คขึ้นเงิน" ไม่ใช่ "ชำระแล้ว" ทันที
     const checkNoInput = textInput("");
     const checkBankInput = textInput("");
@@ -4496,15 +4496,46 @@ if (typeof module !== "undefined") {
     methodSelect.addEventListener("change", updateVis);
     updateVis();
     const form = el("div", { class: "form-panel" }, summaryLbl, formField("ชำระโดย", methodSelect), accountRow, checkFieldsRow);
+    function allocateAccountSplits(overallSplits, salesWithRemain) {
+      const queue = overallSplits.map((s) => ({ account_id: s.account_id, amount: s.amount }));
+      let qi = 0;
+      return salesWithRemain.map((s) => {
+        let need = s.remain;
+        const sSplits = [];
+        while (need > 0.004 && qi < queue.length) {
+          const take = Math.min(need, queue[qi].amount);
+          if (take > 0) {
+            sSplits.push({ account_id: queue[qi].account_id, amount: Math.round(take * 100) / 100 });
+            queue[qi].amount -= take;
+            need -= take;
+          }
+          if (queue[qi].amount <= 0.004) qi++;
+        }
+        return { id: s.id, splits: sSplits };
+      });
+    }
     const saveBtn = el(
       "button",
       {
         class: "btn btn-primary",
         onClick: () => {
           const method = methodSelect.value;
-          if (method === "โอนเงิน" && !accountSelect.value) {
-            global.alert("กรุณาเลือกบัญชีที่รับโอน");
-            return;
+          let allocations = null;
+          if (method === "โอนเงิน") {
+            const splits = accountSplit.getSplits();
+            if (splits.length === 0) {
+              global.alert("กรุณาเลือกบัญชีที่รับโอน");
+              return;
+            }
+            const splitTotal = accountSplit.getTotal();
+            if (Math.abs(splitTotal - totalRemain) > 0.01) {
+              global.alert(`ยอดรวมที่แบ่งเข้าบัญชี (${money(splitTotal)}) ไม่เท่ากับยอดค้างชำระรวม (${money(totalRemain)}) กรุณาตรวจสอบ`);
+              return;
+            }
+            allocations = allocateAccountSplits(
+              splits,
+              unpaidSales.map((s) => ({ id: s.id, remain: s.total - s.paid }))
+            );
           }
           if (method === "เช็ค") {
             if (!checkNoInput.value.trim() || !checkDueDateInput.value) {
@@ -4522,8 +4553,7 @@ if (typeof module !== "undefined") {
             return;
           }
           unpaidSales.forEach((s) => {
-            const remain = s.total - s.paid;
-            const splits = method === "โอนเงิน" && remain > 0 ? [{ account_id: Number(accountSelect.value), amount: remain }] : null;
+            const splits = allocations ? allocations.find((a) => a.id === s.id).splits : null;
             DB.markSalePaid(s.id, method, splits);
           });
           closeModal();
