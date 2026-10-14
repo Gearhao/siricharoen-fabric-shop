@@ -3101,7 +3101,13 @@ if (typeof module !== "undefined") {
         renderDropdown();
         return;
       }
-      filtered = options.filter((o) => o.value && o.label.toLowerCase().includes(q));
+      // แยกคำค้นด้วยช่องว่างหรือขีด (เช่น "6800-ดำ") แล้วต้องเจอครบทุกคำ ไม่ต้องเรียงติดกัน
+      const qTerms = q.split(/[\s\-]+/).filter(Boolean);
+      filtered = options.filter((o) => {
+        if (!o.value) return false;
+        const hay = (o.label + " " + (o.search || "")).toLowerCase();
+        return qTerms.every((t) => hay.includes(t));
+      });
       highlightIdx = filtered.length > 0 ? 0 : -1;
       renderDropdown();
     }
@@ -5343,7 +5349,7 @@ if (typeof module !== "undefined") {
   function fabricSelectOptions(selectedId) {
     const fabrics = DB.getFabrics("");
     const opts = [{ value: "", label: "-- เลือกผ้า --" }].concat(
-      fabrics.map((f) => ({ value: String(f.id), label: `${f.code} - ${f.name} (คงเหลือ ${round3(f.stock_qty)} ${f.unit})` }))
+      fabrics.map((f) => ({ value: String(f.id), label: `${f.code} - ${f.name} (คงเหลือ ${round3(f.stock_qty)} ${f.unit})`, search: `${f.color || ""} ${f.category || ""}` }))
     );
     return { opts, fabrics };
   }
@@ -8380,7 +8386,7 @@ if (typeof module !== "undefined") {
     });
 
     const fabricOptions = [{ value: "", label: "-- เลือกผ้า --" }].concat(
-      fabrics.map((f) => ({ value: String(f.id), label: `${f.code} - ${f.name}` }))
+      fabrics.map((f) => ({ value: String(f.id), label: `${f.code} - ${f.name}`, search: `${f.color || ""} ${f.category || ""}` }))
     );
     // บันทึกรายการอัตโนมัติเมื่อออกจากช่องส่วนลด (ไม่ว่าจะกรอกหรือข้าม) แทนการหน่วงเวลา
     // เพื่อไม่ให้บันทึกไปก่อนที่จะกรอกส่วนลดเสร็จ ไม่ว่าจะพิมพ์ช้าหรือเร็วแค่ไหน
