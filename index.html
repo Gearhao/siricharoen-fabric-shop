@@ -3013,6 +3013,8 @@ if (typeof module !== "undefined") {
     // โดนตารางด้านหลังแทน) - นี่คือสาเหตุของปัญหาที่กดเลือกผ้าจากรายการที่ปรากฏไม่ได้
     const dropdown = el("div", { class: "search-select-dropdown", style: { display: "none", position: "fixed" } });
     const wrap = el("span", { class: "search-select" }, input);
+    // กดหรือลากแถบเลื่อนของดรอปดาวน์ต้องไม่ทำให้ช่องค้นหาเสียโฟกัส (ไม่งั้น blur จะปิดดรอปดาวน์)
+    dropdown.addEventListener("mousedown", (e) => e.preventDefault());
 
     const MAX_RESULTS = 50;
     let filtered = [];
@@ -3025,8 +3027,16 @@ if (typeof module !== "undefined") {
       dropdown.style.width = r.width + "px";
     }
 
-    function onScrollOrResize() {
-      closeDropdown();
+    function onScrollOrResize(e) {
+      // เลื่อนดูรายการในดรอปดาวน์เอง ต้องไม่ปิดดรอปดาวน์ (เดิมปิดทันทีทำให้เลื่อนดูผลลัพธ์ไม่ได้)
+      if (e && e.target && (e.target === dropdown || dropdown.contains(e.target))) return;
+      // หน้า/ตารางเลื่อน: ย้ายตำแหน่งดรอปดาวน์ตามช่อง ถ้าช่องหลุดจากจอแล้วค่อยปิด
+      const r = input.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > global.innerHeight || r.width === 0) {
+        closeDropdown();
+        return;
+      }
+      positionDropdown();
     }
 
     function closeDropdown() {
