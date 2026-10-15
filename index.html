@@ -3118,8 +3118,31 @@ if (typeof module !== "undefined") {
         const hay = (o.label + " " + (o.search || "")).toLowerCase();
         return qTerms.every((t) => hay.includes(t));
       });
+      // เรียงผลลัพธ์ให้ตัวที่ตรงกับที่พิมพ์มากที่สุดขึ้นก่อน (เดิมเรียงตามชื่อผ้า ทำให้ตัวที่ตรง
+      // จริงๆ อยู่ลึกลงไป ต้องเลื่อนหาเอง) เช่น พิมพ์ "6800-31" → 001-6800-31 ขึ้นบนสุด
+      const scoreOf = (o) => {
+        const lbl = o.label.toLowerCase();
+        const code = lbl.split(" - ")[0];
+        const segs = code.split("-");
+        let s = 0;
+        if (code === q) s += 1000;
+        else if (code.endsWith("-" + q) || code.startsWith(q + "-")) s += 500;
+        else if (code.includes(q)) s += 200;
+        else if (lbl.includes(q)) s += 100;
+        qTerms.forEach((t) => {
+          if (segs.includes(t)) s += 20; // ตรงทั้งท่อนของรหัส เช่น "31" ตรงกับ -31- ไม่ใช่ -310
+          else if (code.includes(t)) s += 5;
+        });
+        return s;
+      };
+      const codeOf = (o) => o.label.split(" - ")[0];
+      filtered = filtered
+        .map((o) => ({ o, s: scoreOf(o) }))
+        .sort((a, b) => b.s - a.s || codeOf(a.o).localeCompare(codeOf(b.o), "th", { numeric: true }))
+        .map((x) => x.o);
       highlightIdx = filtered.length > 0 ? 0 : -1;
       renderDropdown();
+      dropdown.scrollTop = 0; // ค้นใหม่ทุกครั้งให้กลับไปบนสุด ไม่ค้างตำแหน่งเลื่อนของครั้งก่อน
     }
 
     input.addEventListener("input", updateFilter);
@@ -3133,10 +3156,14 @@ if (typeof module !== "undefined") {
         e.preventDefault();
         highlightIdx = Math.min(highlightIdx + 1, shown - 1);
         renderDropdown();
+        const act = dropdown.children[highlightIdx];
+        if (act && act.scrollIntoView) act.scrollIntoView({ block: "nearest" });
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         highlightIdx = Math.max(highlightIdx - 1, 0);
         renderDropdown();
+        const act = dropdown.children[highlightIdx];
+        if (act && act.scrollIntoView) act.scrollIntoView({ block: "nearest" });
       } else if (e.key === "Enter") {
         e.preventDefault();
         if (highlightIdx >= 0 && filtered[highlightIdx]) selectOption(filtered[highlightIdx]);
