@@ -8908,7 +8908,7 @@ if (typeof module !== "undefined") {
 
   // =================================================================== รายการรอสินค้า
   let backorderSearch = "";
-  let backorderStatusFilter = "";
+  let backorderStatusFilter = []; // สถานะที่ติ๊กไว้ เช่น ["สินค้าหมด","เสร็จแล้ว"] ว่าง = ทั้งหมด
 
   function renderBackorders() {
     const sec = sections.backorders;
@@ -8922,18 +8922,29 @@ if (typeof module !== "undefined") {
         renderBackorderTable();
       },
     });
-    const statusFilterSelect = selectInput(
-      [
-        { value: "", label: "สถานะ: ทั้งหมด" },
-        { value: "สินค้าหมด", label: "เฉพาะสินค้าหมด" },
-        { value: "เสร็จแล้ว", label: "เฉพาะเสร็จแล้ว" },
-      ],
-      backorderStatusFilter
+    // กรองสถานะแบบติ๊ก (เลือกได้หลายอัน) แทนดรอปดาวน์ ไม่ติ๊กเลย = แสดงทั้งหมด
+    const statusFilterSelect = el(
+      "div",
+      { style: { display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" } },
+      el("span", { text: "สถานะ:", style: { color: "var(--text-muted)" } }),
+      ...["สินค้าหมด", "อื่นๆ", "เสร็จแล้ว"].map((st) =>
+        el(
+          "label",
+          { style: { display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", whiteSpace: "nowrap" } },
+          el("input", {
+            type: "checkbox",
+            checked: backorderStatusFilter.includes(st),
+            onChange: (e) => {
+              backorderStatusFilter = e.target.checked
+                ? backorderStatusFilter.concat(st)
+                : backorderStatusFilter.filter((x) => x !== st);
+              renderBackorderTable();
+            },
+          }),
+          st
+        )
+      )
     );
-    statusFilterSelect.addEventListener("change", () => {
-      backorderStatusFilter = statusFilterSelect.value;
-      renderBackorderTable();
-    });
     const toolbar = el(
       "div",
       { class: "toolbar" },
@@ -8963,8 +8974,12 @@ if (typeof module !== "undefined") {
     if (!container) return;
     clear(container);
     let rows = DB.getBackorders();
-    if (backorderStatusFilter === "เสร็จแล้ว") rows = rows.filter((b) => b.done);
-    else if (backorderStatusFilter === "สินค้าหมด") rows = rows.filter((b) => !b.done && b.status === "สินค้าหมด");
+    if (backorderStatusFilter.length) {
+      rows = rows.filter((b) => {
+        const st = b.done ? "เสร็จแล้ว" : b.status === "สินค้าหมด" ? "สินค้าหมด" : "อื่นๆ"; // รอย้อม/อื่นๆ รวมเป็น "อื่นๆ"
+        return backorderStatusFilter.includes(st);
+      });
+    }
     const withCustomer = rows.map((b) => ({ b, c: b.customer_id ? DB.getCustomer(b.customer_id) : null }));
     const q = backorderSearch.trim().toLowerCase();
     let filtered = withCustomer;
@@ -8986,80 +9001,68 @@ if (typeof module !== "undefined") {
       });
     }
     rows = filtered.map((x) => x.b);
-    // ช่องติ๊กแทนการกดปุ่มเลือก: ติ๊กผ้าแต่ละรายการว่า "มาแล้ว" และติ๊กสถานะว่า "เสร็จแล้ว" ได้จากตารางเลย
-    const itemsCell = (b) => {
-      const items = DB.getBackorderItems(b);
-      if (!items.length) return "-";
-      return {
-        __cellNode: el(
-          "div",
-          { style: { display: "flex", flexDirection: "column", gap: "2px" } },
-          ...items.map((it, itemIdx) => {
-            const text = `${it.fabric_name} x${it.qty || 0} ${it.unit || ""}`;
-            // ผ้ารายการเดียว: ใช้ช่องติ๊ก "เสร็จแล้ว" ในคอลัมน์สถานะแทน ไม่ต้องมีติ๊กซ้ำตรงนี้
-            if (items.length === 1) return el("span", { text });
-            const chk = el("input", {
-              type: "checkbox",
-              checked: !!it.done,
-              disabled: !!b.done,
-              title: "ติ๊กเมื่อผ้ารายการนี้มาถึงร้านแล้ว",
-              onChange: (e) => {
-                DB.setBackorderItemDone(b.id, itemIdx, e.target.checked);
-                renderBackorderTable();
-              },
-            });
-            return el(
-              "label",
-              { style: { display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", color: it.done ? "var(--text-muted)" : "" } },
-              chk,
-              text
-            );
-          })
-        ),
-      };
-    };
-    const statusCell = (b) => {
-      const chk = el("input", {
-        type: "checkbox",
-        checked: !!b.done,
-        title: "ติ๊กเมื่อจัดการรายการนี้เสร็จแล้ว",
-        onChange: (e) => {
-          if (e.target.checked) DB.markBackorderDone(b.id, "");
-          else DB.markBackorderUndone(b.id);
-          renderBackorderTable();
-          updateBackordersBadge();
-        },
-      });
-      const isRed = !b.done && (b.status === "สินค้าหมด" || b.status === "รอย้อม" || b.status === "อื่นๆ");
-      return {
-        __cellNode: el(
-          "label",
-          { style: { display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", whiteSpace: "nowrap" } },
-          chk,
-          el("span", {
-            text: b.done ? "เสร็จแล้ว" : b.status,
-            style: b.done ? { color: "var(--text-muted)" } : isRed ? { color: "var(--danger)", fontWeight: "600" } : {},
-          })
-        ),
-      };
-    };
     const table = buildDataTable(
       ["วันที่", "ลูกค้า", "เบอร์โทร", "ผ้าที่ต้องการ", "สถานะ", "บิลที่ขาย", "หมายเหตุ"],
       filtered.map(({ b, c }) => [
         fmtDate(b.date),
         c ? `${c.code} - ${c.name}` : b.customer_name || "-",
         c ? c.phone || "-" : b.customer_phone || "-",
-        itemsCell(b),
-        statusCell(b),
+        DB.getBackorderItems(b)
+          .map((it) => `${it.done ? "✓ " : ""}${it.fabric_name} x${it.qty || 0} ${it.unit || ""}`)
+          .join(", ") || "-",
+        b.done ? "เสร็จแล้ว" : b.status,
         b.sale_no ? { __cellLink: true, text: b.sale_no, onClick: () => openSaleFromBackorder(b.sale_no) } : "-",
         b.note || "",
       ]),
       {
+        cellStyle: (row, ci, colName) => {
+          if (colName === "สถานะ" && (row[ci] === "สินค้าหมด" || row[ci] === "รอย้อม" || row[ci] === "อื่นๆ")) return { color: "var(--danger)", fontWeight: "600" };
+          if (colName === "สถานะ" && row[ci] === "เสร็จแล้ว") return { color: "var(--text-muted)" };
+          return null;
+        },
         actions: (idx) => {
           const b = rows[idx];
-          // ปุ่ม "เสร็จแล้ว"/"มาแล้ว" ย้ายไปเป็นช่องติ๊กในตารางแล้ว เหลือแค่แก้ไข/ลบ
-          // (เลขที่บิลที่ขาย ใส่ได้ผ่านปุ่ม "แก้ไข")
           const actions = [{ label: "แก้ไข", onClick: () => openBackorderModal(b.id) }];
+          // ถ้ารายการรอนี้มีผ้าหลายรายการ และยังไม่ได้ปิดทั้งรายการรอ ให้มาร์คเฉพาะผ้าที่มาถึงแล้วทีละรายการได้
+          // (เช่น สั่ง 3 ผ้า มาถึงก่อน 1 ผ้า ก็มาร์คได้เลยโดยไม่ต้องรอให้มาครบ)
+          if (!b.done) {
+            const items = DB.getBackorderItems(b);
+            if (items.length > 1) {
+              items.forEach((it, itemIdx) => {
+                const shortLabel = (it.fabric_name.split(" - ")[0] || it.fabric_name).slice(0, 20);
+                actions.push({
+                  label: it.done ? `ยกเลิกมาแล้ว: ${shortLabel}` : `มาแล้ว: ${shortLabel}`,
+                  onClick: () => {
+                    DB.setBackorderItemDone(b.id, itemIdx, !it.done);
+                    renderBackorderTable();
+                  },
+                });
+              });
+            }
+          }
+          if (b.done) {
+            actions.push({
+              label: "ยกเลิกเสร็จแล้ว",
+              onClick: () => {
+                DB.markBackorderUndone(b.id);
+                renderBackorderTable();
+                updateBackordersBadge();
+              },
+            });
+          } else {
+            actions.push({
+              label: "เสร็จแล้ว",
+              onClick: () => {
+                // ถามเลขที่บิลที่ขายให้ลูกค้าคนนี้จริงๆ (ถ้ามี) ไว้อ้างอิงย้อนหลังได้ว่ารายการรอนี้ปิดจากบิลไหน
+                // เว้นว่างได้ถ้ายังไม่ทราบเลขบิล หรือจะพิมพ์ระบุทีหลังผ่านปุ่ม "แก้ไข" ก็ได้
+                const saleNo = global.prompt(`ขายให้ "${b.customer_name || "-"}" แล้วใช่มั้ย? ถ้าทราบ ระบุเลขที่บิลไว้อ้างอิง (เว้นว่างได้)`, b.sale_no || "");
+                if (saleNo === null) return; // กดยกเลิก ไม่ทำเครื่องหมายเสร็จ
+                DB.markBackorderDone(b.id, saleNo.trim());
+                renderBackorderTable();
+                updateBackordersBadge();
+              },
+            });
+          }
           actions.push({
             label: "ลบ",
             onClick: () => {
