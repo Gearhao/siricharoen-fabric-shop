@@ -4723,7 +4723,76 @@ if (typeof module !== "undefined") {
     amountInput.addEventListener("input", () => {
       // ถ้าเป็นโอนเงินและยังไม่ได้แบ่งหลายบัญชี ก็อปยอดมาใส่ให้เลยไม่ต้องพิมพ์ซ้ำ
       if (methodSelect.value === "โอนเงิน") accountSplit.syncAmountIfSingle(amountInput.value);
+      updatePaySummary();
     });
+
+    // ---- กล่องสรุปยอด: ยอดค้าง / รับครั้งนี้ / คงเหลือหลังรับ (อัปเดตทันทีที่พิมพ์ยอดหรือแบ่งบัญชี)
+    const round2 = (n) => Math.round(n * 100) / 100;
+    const sumBox = (label) => {
+      const v = el("div", { style: { fontSize: "18px", fontWeight: "600" } });
+      const box = el(
+        "div",
+        { style: { background: "var(--bg, #f4f5f7)", border: "1px solid var(--border)", borderRadius: "6px", padding: "6px 10px" } },
+        el("div", { text: label, style: { fontSize: "12px", color: "var(--text-muted)" } }),
+        v
+      );
+      return { box, v };
+    };
+    const oweBox = sumBox("ยอดค้างชำระ");
+    const payBox = sumBox("รับครั้งนี้");
+    const remBox = sumBox("คงเหลือหลังรับ");
+    oweBox.v.textContent = money(remain);
+    const summaryGrid = el(
+      "div",
+      { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "8px", margin: "4px 0 10px" } },
+      oweBox.box,
+      payBox.box,
+      remBox.box
+    );
+    const payMsg = el("div", { style: { fontSize: "13px", padding: "6px 10px", borderRadius: "6px", margin: "4px 0 8px" } });
+    // ยอดรวมที่ใส่ในแถวบัญชีทั้งหมด (นับทุกแถว แม้ยังไม่ได้เลือกบัญชี เพื่อให้เห็นตัวเลขทันทีที่พิมพ์)
+    const splitRowsTotal = () =>
+      round2(
+        Array.from(accountSplit.container.querySelectorAll(".account-split-row")).reduce(
+          (s, r) => s + (Number(r.__amtInput && r.__amtInput.value) || 0),
+          0
+        )
+      );
+    const isMultiSplit = () => accountSplit.container.querySelectorAll(".account-split-row").length > 1;
+    function updatePaySummary() {
+      let pay = Number(amountInput.value) || 0;
+      if (methodSelect.value === "โอนเงิน" && isMultiSplit()) pay = splitRowsTotal();
+      pay = round2(pay);
+      const rem = round2(remain - pay);
+      payBox.v.textContent = money(pay);
+      payBox.v.style.color = "var(--primary)";
+      if (rem > 0.004) {
+        remBox.v.textContent = money(rem);
+        remBox.v.style.color = "var(--danger)";
+        Object.assign(payMsg.style, { background: "#fff6e0", color: "#8a5a00" });
+        payMsg.textContent = `รับบางส่วน: หลังบันทึก บิลนี้จะยังค้างอยู่ ${money(rem)} บาท`;
+      } else if (rem < -0.004) {
+        remBox.v.textContent = `เกิน ${money(-rem)}`;
+        remBox.v.style.color = "var(--danger)";
+        Object.assign(payMsg.style, { background: "#fdecec", color: "var(--danger)" });
+        payMsg.textContent = `ยอดที่รับเกินยอดค้างชำระ ${money(-rem)} บาท`;
+      } else {
+        remBox.v.textContent = money(0);
+        remBox.v.style.color = "var(--success, #1a7f37)";
+        Object.assign(payMsg.style, { background: "#e8f5ec", color: "var(--success, #1a7f37)" });
+        payMsg.textContent = 'รับครบ บิลนี้จะเป็น "ชำระแล้ว"';
+      }
+    }
+    // แบ่งหลายบัญชี: พิมพ์ยอดในแต่ละบัญชีแล้วให้ช่อง "จำนวนเงินที่รับชำระ" เป็นยอดรวมอัตโนมัติ ไม่ต้องคิดเลขเอง
+    function onSplitChanged() {
+      if (methodSelect.value === "โอนเงิน" && isMultiSplit()) amountInput.value = splitRowsTotal();
+      updatePaySummary();
+    }
+    accountSplit.container.addEventListener("input", onSplitChanged);
+    accountSplit.container.addEventListener("click", () => setTimeout(onSplitChanged, 0)); // ปุ่มลบแถว
+    accountSplit.addBtn.addEventListener("click", () => setTimeout(onSplitChanged, 0));
+    methodSelect.addEventListener("change", updatePaySummary);
+    updatePaySummary();
 
     const form = el(
       "div",
@@ -4732,14 +4801,16 @@ if (typeof module !== "undefined") {
         "p",
         {
           text:
-            `บิลเลขที่ ${sale.sale_no} ยอดค้างชำระ ${money(remain)} บาท` +
+            `บิลเลขที่ ${sale.sale_no}` +
             (pendingCheckTotal > 0 ? ` (มีเช็ครอขึ้นเงินคุมไว้แล้ว ${money(pendingCheckTotal)} บาท)` : ""),
         }
       ),
+      summaryGrid,
       formField("จำนวนเงินที่รับชำระ", amountInput),
       formField("ชำระโดย", methodSelect),
       accountSplitRow,
-      checkFieldsRow
+      checkFieldsRow,
+      payMsg
     );
     const saveBtn = el(
       "button",
@@ -4777,7 +4848,7 @@ if (typeof module !== "undefined") {
               return;
             }
             const splitTotal = accountSplit.getTotal();
-            if (splitTotal !== amt) {
+            if (Math.abs(splitTotal - amt) > 0.004) {
               global.alert(`ยอดรวมที่แบ่งเข้าบัญชี (${money(splitTotal)}) ไม่เท่ากับจำนวนที่รับชำระ (${money(amt)}) กรุณาตรวจสอบ`);
               return;
             }
