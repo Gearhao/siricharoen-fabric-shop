@@ -6619,7 +6619,7 @@ if (typeof module !== "undefined") {
     lines.push("-".repeat(40));
     rowsData.forEach(({ sale: s, lineAmt, paidLine, remainLine }) => {
       lines.push(`${String(s.sale_no).padEnd(18)}${fmtDate(s.date).padStart(12)}${money(lineAmt).padStart(12)}`);
-      if (paidLine > 0.004) lines.push(`   ชำระแล้ว ${money(paidLine)} คงค้าง ${money(remainLine)}`);
+      if (paidLine > 0.004) lines.push(remainLine > 0.004 ? `   ชำระแล้ว ${money(paidLine)} คงค้าง ${money(remainLine)}` : `   ชำระครบแล้ว คงค้าง ${money(0)}`);
     });
     lines.push("-".repeat(40));
     if (hasPaid) {
@@ -6662,9 +6662,7 @@ if (typeof module !== "undefined") {
             ? `<tr style="background:#f3f3f3;"><td style="padding:5px 4px;">${esc(s.sale_no)}</td><td style="padding:5px 4px;">${esc(
                 fmtDate(s.date)
               )}</td><td style="padding:5px 4px;text-align:right;">${money(lineAmt)}</td></tr>` +
-              `<tr style="border-bottom:1px solid #ddd;background:#f3f3f3;"><td colspan="2" style="padding:2px 4px 5px 14px;color:#555;">ชำระแล้ว ${money(
-                paidLine
-              )} · คงค้าง</td><td style="padding:2px 4px 5px;text-align:right;">${money(remainLine)}</td></tr>`
+              `<tr style="border-bottom:1px solid #ddd;background:#f3f3f3;"><td colspan="2" style="padding:2px 4px 5px 14px;color:#555;">${remainLine > 0.004 ? `ชำระแล้ว ${money(paidLine)} · คงค้าง` : "ชำระครบแล้ว"}</td><td style="padding:2px 4px 5px;text-align:right;">${money(remainLine)}</td></tr>`
             : `<tr style="border-bottom:1px solid #ddd;"><td style="padding:5px 4px;">${esc(s.sale_no)}</td><td style="padding:5px 4px;">${esc(
                 fmtDate(s.date)
               )}</td><td style="padding:5px 4px;text-align:right;">${money(lineAmt)}</td></tr>`
