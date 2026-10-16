@@ -6590,10 +6590,20 @@ if (typeof module !== "undefined") {
       const isVatShip = !!s.is_vat && (s.shipping_fee || 0) > 0;
       const shipAmt = isVatShip ? s.shipping_fee : 0;
       const lineAmt = (s.total || 0) - shipAmt;
-      return { sale: s, lineAmt, shipAmt };
+      // บิลที่จ่ายมาแล้วบางส่วน: หักยอดที่จ่ายแล้วจากค่าผ้าก่อน ถ้าเกินค่าผ้าค่อยหักจากค่าส่ง
+      const paid = Math.min(Math.max(Number(s.paid) || 0, 0), s.total || 0);
+      const paidLine = Math.min(paid, lineAmt);
+      const paidShip = Math.min(Math.max(paid - paidLine, 0), shipAmt);
+      return { sale: s, lineAmt, shipAmt, paidLine, paidShip, remainLine: Math.round((lineAmt - paidLine) * 100) / 100 };
     });
     const grandTotal = rowsData.reduce((sum, r) => sum + r.lineAmt, 0);
     const shippingTotal = rowsData.reduce((sum, r) => sum + r.shipAmt, 0);
+    const paidLineTotal = Math.round(rowsData.reduce((sum, r) => sum + r.paidLine, 0) * 100) / 100;
+    const paidShipTotal = Math.round(rowsData.reduce((sum, r) => sum + r.paidShip, 0) * 100) / 100;
+    const hasPaid = paidLineTotal > 0.004;
+    const remainTotal = Math.round((grandTotal - paidLineTotal) * 100) / 100;
+    const shippingRemain = Math.round((shippingTotal - paidShipTotal) * 100) / 100;
+    const shipLabel = paidShipTotal > 0.004 ? "ค่าจัดส่งคงค้าง (ชำระแยกต่างหาก)" : "ค่าจัดส่งรวม (ชำระแยกต่างหาก)";
     const todayDisplay = fmtDate(DB.todayStr());
     const dueDateDisplay = dueDateStr ? fmtDate(dueDateStr) : "";
     const noteTrimmed = note ? String(note).trim() : "";
@@ -6607,15 +6617,22 @@ if (typeof module !== "undefined") {
     lines.push(`ลูกค้า: ${custName}`);
     if (custAddress) lines.push(`ที่อยู่: ${custAddress}`);
     lines.push("-".repeat(40));
-    rowsData.forEach(({ sale: s, lineAmt }) => {
+    rowsData.forEach(({ sale: s, lineAmt, paidLine, remainLine }) => {
       lines.push(`${String(s.sale_no).padEnd(18)}${fmtDate(s.date).padStart(12)}${money(lineAmt).padStart(12)}`);
+      if (paidLine > 0.004) lines.push(`   ชำระแล้ว ${money(paidLine)} คงค้าง ${money(remainLine)}`);
     });
     lines.push("-".repeat(40));
-    lines.push(`${"รวมเป็นเงินทั้งสิ้น".padEnd(24)}${money(grandTotal).padStart(14)}`);
+    if (hasPaid) {
+      lines.push(`${"รวมยอดบิล".padEnd(24)}${money(grandTotal).padStart(14)}`);
+      lines.push(`${"หัก ชำระแล้ว".padEnd(24)}${("-" + money(paidLineTotal)).padStart(14)}`);
+      lines.push(`${"คงค้างชำระทั้งสิ้น".padEnd(24)}${money(remainTotal).padStart(14)}`);
+    } else {
+      lines.push(`${"รวมเป็นเงินทั้งสิ้น".padEnd(24)}${money(grandTotal).padStart(14)}`);
+    }
     if (shippingTotal > 0) {
       lines.push(`  โอนเข้าบัญชี ${BILLING_FABRIC_ACCOUNT_TEXT}`);
       lines.push("-".repeat(40));
-      lines.push(`${"ค่าจัดส่งรวม (ชำระแยกต่างหาก)".padEnd(24)}${money(shippingTotal).padStart(14)}`);
+      lines.push(`${shipLabel.padEnd(24)}${money(shippingRemain).padStart(14)}`);
       if (shipAccountLabel) lines.push(`  โอนเข้าบัญชี ${shipAccountLabel}`);
     } else if (wholeAccountLabel) {
       lines.push(`  โอนเข้าบัญชี ${wholeAccountLabel}`);
@@ -6640,10 +6657,17 @@ if (typeof module !== "undefined") {
     const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const rows = rowsData
       .map(
-        ({ sale: s, lineAmt }) =>
-          `<tr style="border-bottom:1px solid #ddd;"><td style="padding:5px 4px;">${esc(s.sale_no)}</td><td style="padding:5px 4px;">${esc(
-            fmtDate(s.date)
-          )}</td><td style="padding:5px 4px;text-align:right;">${money(lineAmt)}</td></tr>`
+        ({ sale: s, lineAmt, paidLine, remainLine }) =>
+          paidLine > 0.004
+            ? `<tr style="background:#f3f3f3;"><td style="padding:5px 4px;">${esc(s.sale_no)}</td><td style="padding:5px 4px;">${esc(
+                fmtDate(s.date)
+              )}</td><td style="padding:5px 4px;text-align:right;">${money(lineAmt)}</td></tr>` +
+              `<tr style="border-bottom:1px solid #ddd;background:#f3f3f3;"><td colspan="2" style="padding:2px 4px 5px 14px;color:#555;">ชำระแล้ว ${money(
+                paidLine
+              )} · คงค้าง</td><td style="padding:2px 4px 5px;text-align:right;">${money(remainLine)}</td></tr>`
+            : `<tr style="border-bottom:1px solid #ddd;"><td style="padding:5px 4px;">${esc(s.sale_no)}</td><td style="padding:5px 4px;">${esc(
+                fmtDate(s.date)
+              )}</td><td style="padding:5px 4px;text-align:right;">${money(lineAmt)}</td></tr>`
       )
       .join("");
     const taxIdLine = shop.tax_id
@@ -6661,8 +6685,8 @@ if (typeof module !== "undefined") {
         : "";
     const shippingRow =
       shippingTotal > 0
-        ? `<tr style="border-top:1px dashed #999;"><td style="padding:6px 0 2px;color:#555;">ค่าจัดส่งรวม (ชำระแยกต่างหาก)</td><td style="padding:6px 0 2px;text-align:right;">${money(
-            shippingTotal
+        ? `<tr style="border-top:1px dashed #999;"><td style="padding:6px 0 2px;color:#555;">${esc(shipLabel)}</td><td style="padding:6px 0 2px;text-align:right;">${money(
+            shippingRemain
           )} บาท</td></tr>`
         : "";
     const shippingAcctRow =
@@ -6698,9 +6722,13 @@ if (typeof module !== "undefined") {
           ${rows}
         </table>
         <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:16px;">
-          <tr style="border-top:1px solid #000;"><td style="padding:6px 0 2px;font-weight:bold;">รวมเป็นเงินทั้งสิ้น</td><td style="padding:6px 0 2px;text-align:right;font-weight:bold;">${money(
-            grandTotal
-          )} บาท</td></tr>
+          ${
+            hasPaid
+              ? `<tr style="border-top:1px solid #000;"><td style="padding:6px 0 2px;">รวมยอดบิล</td><td style="padding:6px 0 2px;text-align:right;">${money(grandTotal)}</td></tr>` +
+                `<tr><td style="padding:2px 0;color:#555;">หัก ชำระแล้ว</td><td style="padding:2px 0;text-align:right;color:#555;">-${money(paidLineTotal)}</td></tr>` +
+                `<tr style="border-top:1px solid #000;"><td style="padding:6px 0 2px;font-weight:bold;">คงค้างชำระทั้งสิ้น</td><td style="padding:6px 0 2px;text-align:right;font-weight:bold;">${money(remainTotal)} บาท</td></tr>`
+              : `<tr style="border-top:1px solid #000;"><td style="padding:6px 0 2px;font-weight:bold;">รวมเป็นเงินทั้งสิ้น</td><td style="padding:6px 0 2px;text-align:right;font-weight:bold;">${money(grandTotal)} บาท</td></tr>`
+          }
           ${fabricAcctRow}
           ${wholeAcctRow}
           ${shippingRow}
