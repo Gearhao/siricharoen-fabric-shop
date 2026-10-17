@@ -4605,7 +4605,6 @@ if (typeof module !== "undefined") {
           closeModal();
           posHistorySelectedIds.clear();
           renderPosSalesHistory();
-          global.alert(`บันทึกสถานะชำระเงินให้ ${unpaidSales.length} บิลเรียบร้อยแล้ว`);
         },
       },
       "บันทึก"
@@ -4858,8 +4857,6 @@ if (typeof module !== "undefined") {
           DB.paySale(saleId, amt, method, accountSplits);
           closeModal();
           refresh();
-          const stillRemain = amt < remain;
-          global.alert(stillRemain ? `บันทึกรับชำระ ${money(amt)} บาท เรียบร้อย (ยังค้างอยู่ ${money(remain - amt)} บาท)` : "บันทึกรับชำระเรียบร้อย");
         },
       },
       "บันทึกการชำระเงิน"
@@ -7972,7 +7969,6 @@ if (typeof module !== "undefined") {
           DB.payCustomerCredit(cid, amt, methodSelect.value, noteInput.value.trim());
           closeModal();
           renderCustomerTable();
-          global.alert(`บันทึกรับชำระหนี้ ${money(amt)} บาท เรียบร้อย`);
         },
       },
       "บันทึกรับชำระ"
