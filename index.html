@@ -9041,7 +9041,7 @@ if (typeof module !== "undefined") {
 
   // =================================================================== รายการรอสินค้า
   let backorderSearch = "";
-  let backorderStatusFilter = []; // สถานะที่ติ๊กไว้ เช่น ["สินค้าหมด","เสร็จแล้ว"] ว่าง = ทั้งหมด
+  let backorderStatusFilter = ["สินค้าหมด", "อื่นๆ"]; // สถานะที่ติ๊กไว้ ว่าง = ทั้งหมด (ค่าเริ่มต้น: เฉพาะที่ยังไม่เสร็จ)
 
   function renderBackorders() {
     const sec = sections.backorders;
