@@ -3473,8 +3473,10 @@ if (typeof module !== "undefined") {
   let editingSaleId = null;
   // เครดิตแลกเปลี่ยนที่กดใช้ไว้ในบิลนี้ (มาจากการรับคืนสินค้าแบบ "เปลี่ยนของ" ครั้งก่อน) - หักออกจากลูกค้าจริงตอนกดขายสำเร็จ
   let pendingExchangeCredit = null; // { customerId, amount }
-  let posHistoryUnpaidOnly = false; // ค้างชำระ
-  let posHistoryUnpaidOnlyCash = false; // เงินสดแต่ค้างชำระ
+  // สถานะบิลที่ติ๊กกรองไว้ในประวัติการขาย (ไม่ติ๊กเลย = แสดงทุกสถานะ)
+  // ค่าเริ่มต้น: ค้างชำระ + เงินสดแต่ค้างชำระ เพื่อเลือกบิลไปเปิดใบวางบิลได้เลย
+  const POS_HISTORY_STATUSES = ["ค้างชำระ", "เงินสดแต่ค้างชำระ", "รอเช็คขึ้นเงิน", "ชำระแล้ว"];
+  const posHistoryStatusFilter = new Set(["ค้างชำระ", "เงินสดแต่ค้างชำระ"]);
   let posHistorySearch = "";
   let posHistoryDate = "";
   let posHistoryDateTo = "";
@@ -4086,25 +4088,20 @@ if (typeof module !== "undefined") {
 
     const historyTableContainer = el("div", { class: "table-container" });
     refs.posHistoryTableContainer = historyTableContainer;
-    const unpaidChk = el("input", {
-      type: "checkbox",
-      checked: posHistoryUnpaidOnly,
-      style: posHistoryUnpaidOnly ? { accentColor: "var(--danger)" } : {},
-      onChange: (e) => {
-        posHistoryUnpaidOnly = e.target.checked;
-        unpaidChk.style.accentColor = posHistoryUnpaidOnly ? "var(--danger)" : "";
-        renderPosSalesHistory();
-      },
-    });
-    const unpaidCashChk = el("input", {
-      type: "checkbox",
-      checked: posHistoryUnpaidOnlyCash,
-      style: posHistoryUnpaidOnlyCash ? { accentColor: "var(--danger)" } : {},
-      onChange: (e) => {
-        posHistoryUnpaidOnlyCash = e.target.checked;
-        unpaidCashChk.style.accentColor = posHistoryUnpaidOnlyCash ? "var(--danger)" : "";
-        renderPosSalesHistory();
-      },
+    const statusChks = POS_HISTORY_STATUSES.map((st) => {
+      const isRed = st === "ค้างชำระ" || st === "เงินสดแต่ค้างชำระ";
+      const chk = el("input", {
+        type: "checkbox",
+        checked: posHistoryStatusFilter.has(st),
+        style: isRed && posHistoryStatusFilter.has(st) ? { accentColor: "var(--danger)" } : {},
+        onChange: (e) => {
+          if (e.target.checked) posHistoryStatusFilter.add(st);
+          else posHistoryStatusFilter.delete(st);
+          chk.style.accentColor = isRed && e.target.checked ? "var(--danger)" : "";
+          renderPosSalesHistory();
+        },
+      });
+      return el("label", { class: "chk-label" }, chk, " " + st);
     });
     const historySearchInput = el("input", {
       type: "text",
@@ -4179,8 +4176,8 @@ if (typeof module !== "undefined") {
       historyDateToInput,
       todayBtn,
       el("label", { class: "chk-label" }, showAllChk, " แสดงทั้งหมดทุกวัน"),
-      el("label", { class: "chk-label" }, unpaidChk, " ค้างชำระ"),
-      el("label", { class: "chk-label" }, unpaidCashChk, " เงินสดแต่ค้างชำระ")
+      el("span", { text: "สถานะ:", style: { color: "var(--text-muted)", marginLeft: "6px" } }),
+      ...statusChks
     );
     const historySummary = el("div", { class: "totals-line" });
     refs.posHistorySummary = historySummary;
@@ -4316,12 +4313,12 @@ if (typeof module !== "undefined") {
         return d >= fromDate && d <= toDate;
       });
     }
-    if (posHistoryUnpaidOnly || posHistoryUnpaidOnlyCash) {
-      sales = sales.filter(
-        (s) =>
-          (posHistoryUnpaidOnly && s.status === "ค้างชำระ") ||
-          (posHistoryUnpaidOnlyCash && s.status === "เงินสดแต่ค้างชำระ")
-      );
+    if (posHistoryStatusFilter.size) {
+      // สถานะอื่นที่ไม่อยู่ในรายการติ๊ก (ถ้ามี) ให้นับรวมกับ "ค้างชำระ"
+      sales = sales.filter((s) => {
+        const st = POS_HISTORY_STATUSES.includes(s.status) ? s.status : "ค้างชำระ";
+        return posHistoryStatusFilter.has(st);
+      });
     }
     const historyQ = posHistorySearch.trim().toLowerCase();
     if (historyQ) {
