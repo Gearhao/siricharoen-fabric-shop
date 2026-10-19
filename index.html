@@ -8228,7 +8228,9 @@ if (typeof module !== "undefined") {
   let purchaseDate = "";
   let purchaseDateTo = "";
   let purchaseShowAll = false;
-  let purchasePaymentFilter = "";
+  // สถานะชำระเงินที่ติ๊กกรองไว้ในประวัติรับสินค้าเข้า (ไม่ติ๊กเลย = แสดงทั้งหมด)
+  const PURCHASE_PAY_STATUSES = ["ค้างชำระ", "ชำระบางส่วน", "ชำระแล้ว"];
+  const purchasePaymentFilter = new Set();
   // ใบที่ติ๊กเลือกไว้ในตารางรับสินค้าเข้า (สำหรับบันทึกจ่ายเงินหลายใบพร้อมกัน)
   let purchaseSelectedIds = new Set();
 
@@ -8299,19 +8301,26 @@ if (typeof module !== "undefined") {
       },
     });
     refs.purchaseShowAllChk = showAllChk;
-    const paymentFilterSelect = selectInput(
-      [
-        { value: "", label: "สถานะชำระเงิน: ทั้งหมด" },
-        { value: "ค้างชำระ", label: "เฉพาะค้างชำระ" },
-        { value: "ชำระบางส่วน", label: "เฉพาะชำระบางส่วน" },
-        { value: "ชำระแล้ว", label: "เฉพาะชำระแล้ว" },
-      ],
-      purchasePaymentFilter
+    const paymentFilterSelect = el(
+      "span",
+      { style: { display: "inline-flex", alignItems: "center", gap: "8px", flexWrap: "wrap" } },
+      el("span", { text: "สถานะชำระเงิน:", style: { color: "var(--text-muted)" } }),
+      ...PURCHASE_PAY_STATUSES.map((st) => {
+        const isRed = st !== "ชำระแล้ว";
+        const chk = el("input", {
+          type: "checkbox",
+          checked: purchasePaymentFilter.has(st),
+          style: isRed && purchasePaymentFilter.has(st) ? { accentColor: "var(--danger)" } : {},
+          onChange: (e) => {
+            if (e.target.checked) purchasePaymentFilter.add(st);
+            else purchasePaymentFilter.delete(st);
+            chk.style.accentColor = isRed && e.target.checked ? "var(--danger)" : "";
+            renderPurchaseTable();
+          },
+        });
+        return el("label", { class: "chk-label" }, chk, " " + st);
+      })
     );
-    paymentFilterSelect.addEventListener("change", () => {
-      purchasePaymentFilter = paymentFilterSelect.value;
-      renderPurchaseTable();
-    });
     refs.purchasePaymentFilterSelect = paymentFilterSelect;
     const toolbar = el(
       "div",
@@ -8377,8 +8386,8 @@ if (typeof module !== "undefined") {
         return (p.po_no || "").toLowerCase().includes(pq) || supName.toLowerCase().includes(pq);
       });
     }
-    if (purchasePaymentFilter) {
-      purchases = purchases.filter((p) => p.payment_status === purchasePaymentFilter);
+    if (purchasePaymentFilter.size) {
+      purchases = purchases.filter((p) => purchasePaymentFilter.has(PURCHASE_PAY_STATUSES.includes(p.payment_status) ? p.payment_status : "ค้างชำระ"));
     }
     if (refs.purchaseSummary) {
       const totalAmount = purchases.reduce((sum, p) => sum + p.total, 0);
