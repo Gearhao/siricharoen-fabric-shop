@@ -2900,6 +2900,7 @@ if (typeof module !== "undefined") {
             class: "btn btn-sm",
             onClick: () => {
               if (rows.length <= 1) return;
+              if (!global.confirm("ยืนยันลบบัญชีนี้ออก?")) return;
               const idx = rows.indexOf(rowEl);
               if (idx !== -1) rows.splice(idx, 1);
               if (rowEl.parentNode) rowEl.parentNode.removeChild(rowEl);
@@ -5075,6 +5076,7 @@ if (typeof module !== "undefined") {
                     {
                       class: "btn btn-sm",
                       onClick: () => {
+                        if (!global.confirm("ยืนยันลบรายการนี้?")) return;
                         exchangeCart.splice(idx, 1);
                         renderExchangeList();
                         updatePreview();
@@ -5666,6 +5668,7 @@ if (typeof module !== "undefined") {
         {
           class: "btn btn-sm",
           onClick: () => {
+            if (!global.confirm("ยืนยันลบรายการนี้?")) return;
             cart.splice(idx, 1);
             renderPosItemsTable();
             updatePosTotals();
@@ -6995,6 +6998,7 @@ if (typeof module !== "undefined") {
           {
             class: "btn btn-ghost",
             onClick: () => {
+              if (!global.confirm("ยืนยันลบรายการนี้?")) return;
               rowValues.splice(i, 1);
               if (!rowValues.length) rowValues = [""];
               renderRows();
@@ -8715,6 +8719,7 @@ if (typeof module !== "undefined") {
             {
               label: "ลบ",
               onClick: () => {
+                if (!(items.length === 1 && currentPo && currentPo.status === "รับสินค้าแล้ว") && !global.confirm("ยืนยันลบรายการนี้?")) return;
                 if (items.length === 1 && currentPo && currentPo.status === "รับสินค้าแล้ว") {
                   if (
                     !global.confirm(
@@ -9264,6 +9269,7 @@ if (typeof module !== "undefined") {
           title: "ลบผ้ารายการนี้",
           onClick: () => {
             if (itemRows.length <= 1) return; // ต้องเหลืออย่างน้อย 1 รายการเสมอ
+            if (!global.confirm("ยืนยันลบรายการนี้?")) return;
             const idx = itemRows.indexOf(rowEntry);
             if (idx !== -1) itemRows.splice(idx, 1);
             rowEntry.row.remove();
@@ -9649,6 +9655,7 @@ if (typeof module !== "undefined") {
             class: "btn btn-sm",
             onClick: () => {
               if (modalItems.length > 1) {
+                if (!global.confirm("ยืนยันลบรายการนี้?")) return;
                 modalItems.splice(idx, 1);
                 renderItemsRows();
               }
@@ -9979,6 +9986,7 @@ if (typeof module !== "undefined") {
             class: "btn btn-sm",
             onClick: () => {
               if (modalItems.length > 1) {
+                if (!global.confirm("ยืนยันลบรายการนี้?")) return;
                 modalItems.splice(idx, 1);
                 renderItemsRows();
               }
