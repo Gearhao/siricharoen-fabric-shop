@@ -7709,9 +7709,13 @@ if (typeof module !== "undefined") {
     openModal(cust ? "แก้ไขลูกค้า" : "เพิ่มลูกค้าใหม่", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
   }
 
+  // สถานะบิลที่ติ๊กกรองในหน้าประวัติการซื้อของลูกค้า (ใช้เลือกบิลไปทำใบวางบิล) ไม่ติ๊กเลย = แสดงทั้งหมด
+  const CUST_BILL_STATUSES = ["ค้างชำระ", "เงินสดแต่ค้างชำระ", "รอเช็คขึ้นเงิน", "ชำระแล้ว"];
+  let custBillStatusFilter = new Set(["ค้างชำระ", "เงินสดแต่ค้างชำระ"]);
   function openCustomerHistoryModal(cid) {
     customerHistorySearch = "";
     billingStatementSelectedIds = new Set();
+    custBillStatusFilter = new Set(["ค้างชำระ", "เงินสดแต่ค้างชำระ"]); // เปิดใหม่ทุกครั้งกลับเป็นค่าเริ่มต้น
     renderCustomerHistoryModalBody(cid);
   }
 
@@ -7738,62 +7742,101 @@ if (typeof module !== "undefined") {
       billingBtn.textContent = n > 0 ? `สร้างใบวางบิล (${n} ใบ)` : "สร้างใบวางบิล";
     }
 
-    const billsTable = el(
-      "table",
-      { class: "data-table" },
-      el(
-        "thead",
-        {},
+    const billStatusOf = (s) => (CUST_BILL_STATUSES.includes(s.status) ? s.status : "ค้างชำระ");
+    const billsContainer = el("div", {});
+    function renderBillsTable() {
+      clear(billsContainer);
+      const shown = custBillStatusFilter.size ? sales.filter((s) => custBillStatusFilter.has(billStatusOf(s))) : sales;
+      // บิลที่ติ๊กไว้แต่ถูกกรองออกไปแล้ว (มองไม่เห็น) ให้เอาออกจากที่เลือก กันเผลอรวมเข้าใบวางบิล
+      const shownIds = new Set(shown.map((s) => s.id));
+      Array.from(billingStatementSelectedIds).forEach((id) => {
+        if (!shownIds.has(id)) billingStatementSelectedIds.delete(id);
+      });
+      const selectAll = el("input", {
+        type: "checkbox",
+        title: "เลือกทั้งหมดที่แสดงอยู่",
+        checked: shown.length > 0 && shown.every((s) => billingStatementSelectedIds.has(s.id)),
+        onChange: (e) => {
+          shown.forEach((s) => (e.target.checked ? billingStatementSelectedIds.add(s.id) : billingStatementSelectedIds.delete(s.id)));
+          renderBillsTable();
+        },
+      });
+      const table = el(
+        "table",
+        { class: "data-table" },
         el(
-          "tr",
+          "thead",
           {},
-          el("th", { text: "" }),
-          el("th", { text: "เลขที่บิล" }),
-          el("th", { text: "วันที่" }),
-          el("th", { text: "ยอดรวม" }),
-          el("th", { text: "ชำระแล้ว" }),
-          el("th", { text: "สถานะ" })
-        )
-      ),
-      el(
-        "tbody",
-        {},
-        ...(sales.length
-          ? sales.map((s) => {
-              const chk = el("input", {
-                type: "checkbox",
-                checked: billingStatementSelectedIds.has(s.id),
-                onChange: (e) => {
-                  if (e.target.checked) billingStatementSelectedIds.add(s.id);
-                  else billingStatementSelectedIds.delete(s.id);
-                  updateBillingBtn();
-                },
-              });
-              return el(
-                "tr",
-                {},
-                el("td", {}, chk),
-                el(
-                  "td",
+          el(
+            "tr",
+            {},
+            el("th", {}, selectAll),
+            el("th", { text: "เลขที่บิล" }),
+            el("th", { text: "วันที่" }),
+            el("th", { text: "ยอดรวม" }),
+            el("th", { text: "ชำระแล้ว" }),
+            el("th", { text: "สถานะ" })
+          )
+        ),
+        el(
+          "tbody",
+          {},
+          ...(shown.length
+            ? shown.map((s) => {
+                const chk = el("input", {
+                  type: "checkbox",
+                  checked: billingStatementSelectedIds.has(s.id),
+                  onChange: (e) => {
+                    if (e.target.checked) billingStatementSelectedIds.add(s.id);
+                    else billingStatementSelectedIds.delete(s.id);
+                    selectAll.checked = shown.every((x) => billingStatementSelectedIds.has(x.id));
+                    updateBillingBtn();
+                  },
+                });
+                return el(
+                  "tr",
                   {},
-                  el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, s.sale_no)
-                ),
-                el("td", { text: fmtDate(s.date) }),
-                el("td", { text: money(s.total) }),
-                el("td", { text: money(s.paid) }),
-                el("td", {
-                  text: s.status,
-                  style:
-                    s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" || s.status === "รอเช็คขึ้นเงิน"
-                      ? { color: "var(--danger)", fontWeight: "600" }
-                      : {},
-                })
-              );
-            })
-          : [el("tr", {}, el("td", { colspan: 6, class: "empty", text: "ไม่มีข้อมูล" }))])
-      )
+                  el("td", {}, chk),
+                  el("td", {}, el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, s.sale_no)),
+                  el("td", { text: fmtDate(s.date) }),
+                  el("td", { text: money(s.total) }),
+                  el("td", { text: money(s.paid) }),
+                  el("td", {
+                    text: s.status,
+                    style:
+                      s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" || s.status === "รอเช็คขึ้นเงิน"
+                        ? { color: "var(--danger)", fontWeight: "600" }
+                        : {},
+                  })
+                );
+              })
+            : [el("tr", {}, el("td", { colspan: 6, class: "empty", text: "ไม่มีข้อมูล" }))])
+        )
+      );
+      billsContainer.appendChild(table);
+      updateBillingBtn();
+    }
+    const billStatusBar = el(
+      "div",
+      { style: { display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap", margin: "0 0 8px" } },
+      el("span", { text: "สถานะ:", style: { color: "var(--text-muted)" } }),
+      ...CUST_BILL_STATUSES.map((st) => {
+        const isRed = st !== "ชำระแล้ว";
+        const chk = el("input", {
+          type: "checkbox",
+          checked: custBillStatusFilter.has(st),
+          style: isRed && custBillStatusFilter.has(st) ? { accentColor: "var(--danger)" } : {},
+          onChange: (e) => {
+            if (e.target.checked) custBillStatusFilter.add(st);
+            else custBillStatusFilter.delete(st);
+            chk.style.accentColor = isRed && e.target.checked ? "var(--danger)" : "";
+            renderBillsTable();
+          },
+        });
+        return el("label", { class: "chk-label", style: { display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" } }, chk, st);
+      })
     );
-    updateBillingBtn();
+    renderBillsTable();
 
     const billingNotes = DB.getBillingNotesForCustomer(cid);
     const billingHistoryTable = buildDataTable(
@@ -7868,7 +7911,8 @@ if (typeof module !== "undefined") {
       "div",
       {},
       el("h4", { text: "รายการบิลทั้งหมด (คลิกเลขที่บิลเพื่อดูรายละเอียด)", style: { marginTop: "0" } }),
-      billsTable,
+      billStatusBar,
+      billsContainer,
       el("div", { class: "modal-actions", style: { justifyContent: "flex-start", margin: "4px 0 16px" } }, billingBtn),
       el("h4", { text: "ประวัติใบวางบิล", style: { marginTop: "0" } }),
       billingHistoryTable,
@@ -8184,9 +8228,7 @@ if (typeof module !== "undefined") {
   let purchaseDate = "";
   let purchaseDateTo = "";
   let purchaseShowAll = false;
-  // สถานะชำระเงินที่ติ๊กกรองไว้ในประวัติการซื้อ (ไม่ติ๊กเลย = ทั้งหมด) ค่าเริ่มต้น: ค้างชำระ + ชำระบางส่วน
-  const PURCHASE_PAY_STATUSES = ["ค้างชำระ", "ชำระบางส่วน", "ชำระแล้ว"];
-  const purchasePaymentFilter = new Set(["ค้างชำระ", "ชำระบางส่วน"]);
+  let purchasePaymentFilter = "";
   // ใบที่ติ๊กเลือกไว้ในตารางรับสินค้าเข้า (สำหรับบันทึกจ่ายเงินหลายใบพร้อมกัน)
   let purchaseSelectedIds = new Set();
 
@@ -8257,26 +8299,19 @@ if (typeof module !== "undefined") {
       },
     });
     refs.purchaseShowAllChk = showAllChk;
-    const paymentFilterSelect = el(
-      "span",
-      { style: { display: "inline-flex", alignItems: "center", gap: "8px", flexWrap: "wrap" } },
-      el("span", { text: "สถานะชำระเงิน:", style: { color: "var(--text-muted)" } }),
-      ...PURCHASE_PAY_STATUSES.map((st) => {
-        const isRed = st !== "ชำระแล้ว";
-        const chk = el("input", {
-          type: "checkbox",
-          checked: purchasePaymentFilter.has(st),
-          style: isRed && purchasePaymentFilter.has(st) ? { accentColor: "var(--danger)" } : {},
-          onChange: (e) => {
-            if (e.target.checked) purchasePaymentFilter.add(st);
-            else purchasePaymentFilter.delete(st);
-            chk.style.accentColor = isRed && e.target.checked ? "var(--danger)" : "";
-            renderPurchaseTable();
-          },
-        });
-        return el("label", { class: "chk-label" }, chk, " " + st);
-      })
+    const paymentFilterSelect = selectInput(
+      [
+        { value: "", label: "สถานะชำระเงิน: ทั้งหมด" },
+        { value: "ค้างชำระ", label: "เฉพาะค้างชำระ" },
+        { value: "ชำระบางส่วน", label: "เฉพาะชำระบางส่วน" },
+        { value: "ชำระแล้ว", label: "เฉพาะชำระแล้ว" },
+      ],
+      purchasePaymentFilter
     );
+    paymentFilterSelect.addEventListener("change", () => {
+      purchasePaymentFilter = paymentFilterSelect.value;
+      renderPurchaseTable();
+    });
     refs.purchasePaymentFilterSelect = paymentFilterSelect;
     const toolbar = el(
       "div",
@@ -8342,8 +8377,8 @@ if (typeof module !== "undefined") {
         return (p.po_no || "").toLowerCase().includes(pq) || supName.toLowerCase().includes(pq);
       });
     }
-    if (purchasePaymentFilter.size) {
-      purchases = purchases.filter((p) => purchasePaymentFilter.has(PURCHASE_PAY_STATUSES.includes(p.payment_status) ? p.payment_status : "ค้างชำระ"));
+    if (purchasePaymentFilter) {
+      purchases = purchases.filter((p) => p.payment_status === purchasePaymentFilter);
     }
     if (refs.purchaseSummary) {
       const totalAmount = purchases.reduce((sum, p) => sum + p.total, 0);
