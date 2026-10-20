@@ -1099,6 +1099,8 @@ function createDB(storageKey) {
       pattern: data.pattern || "",
       unit: data.unit || "หลา",
       cost_price: Number(data.cost_price) || 0,
+      // ราคาทุนยกไม้ (ซื้อทั้งม้วน/ไม้) แยกจากราคาทุนปลีก (cost_price) ใช้ดูอ้างอิงเท่านั้น
+      cost_price_roll: Number(data.cost_price_roll) || 0,
       sell_price: Number(data.sell_price) || 0,
       stock_qty: Number(data.stock_qty) || 0,
       reorder_point: Number(data.reorder_point) || 0,
@@ -7197,12 +7199,12 @@ if (typeof module !== "undefined") {
       const sup = f.supplier_id ? DB.getSupplier(f.supplier_id) : null;
       return [
         f.code, f.name, f.category, f.color, f.unit,
-        money(f.cost_price), money(f.sell_price), f.stock_qty, f.reorder_point,
+        money(f.cost_price), f.cost_price_roll ? money(f.cost_price_roll) : "-", money(f.sell_price), f.stock_qty, f.reorder_point,
         sup ? sup.name : "",
       ];
     });
     const table = buildDataTable(
-      ["รหัส", "ชื่อผ้า", "ประเภท", "สี", "หน่วย", "ราคาทุน", "ราคาขาย", "คงเหลือ", "จุดสั่งซื้อ", "ซัพพลายเออร์"],
+      ["รหัส", "ชื่อผ้า", "ประเภท", "สี", "หน่วย", "ทุนปลีก", "ทุนยกไม้", "ราคาขาย", "คงเหลือ", "จุดสั่งซื้อ", "ซัพพลายเออร์"],
       rows,
       {
         checkbox: {
@@ -7262,6 +7264,7 @@ if (typeof module !== "undefined") {
       fabric ? fabric.unit : "หลา"
     );
     const costInput = numberInput(fabric ? fabric.cost_price : 0);
+    const costRollInput = numberInput(fabric ? fabric.cost_price_roll || 0 : 0);
     const sellInput = numberInput(fabric ? fabric.sell_price : 0);
     const stockInput = numberInput(fabric ? fabric.stock_qty : 0);
     if (fabric) stockInput.disabled = true;
@@ -7297,7 +7300,8 @@ if (typeof module !== "undefined") {
       formField("สี", colorInput),
       formField("ลวดลาย", patternInput),
       formField("หน่วย", unitInput),
-      formField("ราคาทุน", costInput),
+      formField("ราคาทุนปลีก", costInput),
+      formField("ราคาทุนยกไม้", costRollInput),
       formField("ราคาขาย", sellInput),
       formField(fabric ? 'จำนวนคงเหลือ (แก้ไขผ่าน "ปรับสต็อก")' : "จำนวนคงเหลือเริ่มต้น", stockInput),
       formField("จุดสั่งซื้อขั้นต่ำ", reorderInput),
@@ -7333,6 +7337,7 @@ if (typeof module !== "undefined") {
             pattern: patternInput.value.trim(),
             unit: unitInput.value || "หลา",
             cost_price: Number(costInput.value) || 0,
+            cost_price_roll: Number(costRollInput.value) || 0,
             sell_price: Number(sellInput.value) || 0,
             reorder_point: Number(reorderInput.value) || 0,
             note: noteInput.value.trim(),
