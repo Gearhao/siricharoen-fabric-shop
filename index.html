@@ -5510,8 +5510,7 @@ if (typeof module !== "undefined") {
         // ถ้าไม่มีค้างชำระเลย (due = 0) ไม่ต้องโชว์อะไรเลย
         if (due < 0) parts.push(`เครดิต ${money(due)}`);
         else if (due > 0) parts.push(`ค้างชำระ ${money(due)}`);
-        // เครดิตแลกเปลี่ยนสินค้า (จากการรับคืนผ้าแบบเปลี่ยนของ) เป็นคนละยอดกับค้างชำระ โชว์เฉพาะตอนมียอดเท่านั้น
-        if (c.exchange_credit > 0) parts.push(`เครดิตแลกเปลี่ยน ${money(c.exchange_credit)}`);
+        // เครดิตแลกเปลี่ยนไม่โชว์ในช่องเลือกลูกค้าแล้ว (ดูได้จากข้อความใต้ช่องลูกค้าที่หน้าขายสินค้าแทน)
         const suffix = parts.length > 0 ? ` (${parts.join(", ")})` : "";
         return { value: String(c.id), label: `${c.code} - ${c.name}${suffix}` };
       })
