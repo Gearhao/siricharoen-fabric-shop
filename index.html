@@ -116,17 +116,18 @@ html, body {
   background: #fff;
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* ให้แท็บทั้งหมด รวม "ออกบิลใหม่/ประวัติการขาย" อยู่บรรทัดเดียวเสมอ (จอแคบจะเลื่อนซ้ายขวาแทน) */
 }
-.tabs-right-group { display: flex; align-items: center; gap: 6px; margin-left: auto; padding: 0 10px; }
-.tabs-right-group .tab-btn { border: 1px solid var(--border); border-radius: 6px; background: #fff; padding: 6px 14px; font-size: 14px; }
+.tabs-right-group { display: flex; align-items: center; gap: 6px; margin-left: auto; padding: 0 8px; flex-shrink: 0; }
+.tabs-right-group .tab-btn { border: 1px solid var(--border); border-radius: 6px; background: #fff; padding: 6px 12px; font-size: 14px; }
 .tabs-right-group .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 .tab-btn {
   background: transparent;
   border: none;
-  padding: 12px 18px;
+  padding: 12px 13px;
   cursor: pointer;
   font-size: 15px;
+  flex-shrink: 0;
   color: var(--text-muted);
   border-bottom: 3px solid transparent;
   white-space: nowrap;
