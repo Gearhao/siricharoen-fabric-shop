@@ -9043,12 +9043,12 @@ if (typeof module !== "undefined") {
     accountSplit.container.addEventListener("input", updateSplitSummary);
     accountSplit.container.addEventListener("click", () => setTimeout(updateSplitSummary, 0)); // ปุ่มลบแถว
     accountSplit.addBtn.addEventListener("click", () => setTimeout(updateSplitSummary, 0));
-    const accountRow = formField(
-      "จ่ายจากบัญชี (แบ่งหลายบัญชีได้)",
-      el("div", {}, splitSummary, accountSplit.container, accountSplit.addBtn, splitMsg)
-    );
+    const accountRow = formField("จ่ายจากบัญชี (แบ่งหลายบัญชีได้)", el("div", {}, accountSplit.container, accountSplit.addBtn));
     function updateVis() {
-      accountRow.style.display = methodSelect.value === "โอนเงิน" ? "" : "none";
+      const isTransfer = methodSelect.value === "โอนเงิน";
+      accountRow.style.display = isTransfer ? "" : "none";
+      splitSummary.style.display = isTransfer ? "grid" : "none";
+      splitMsg.style.display = isTransfer ? "" : "none";
       updateSplitSummary();
     }
     methodSelect.addEventListener("change", updateVis);
@@ -9060,7 +9060,9 @@ if (typeof module !== "undefined") {
       { class: "form-panel" },
       el("p", { text: `บันทึกจ่ายเงินให้ ${unpaidPurchases.length} ใบ ยอดค้างชำระรวม ${money(totalRemain)} บาท${skipNote}` }),
       formField("จ่ายโดย", methodSelect),
-      accountRow
+      splitSummary,
+      accountRow,
+      splitMsg
     );
     // ไล่หักยอดจากรายการบัญชีที่แบ่งไว้ (เรียงตามลำดับที่กรอก) ให้แต่ละใบตามยอดค้างชำระของใบนั้น
     // จนกว่าจะครบทุกใบ (ใบหนึ่งอาจต้องหักจากหลายบัญชีถ้าบัญชีแรกไม่พอ)
