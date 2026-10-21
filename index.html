@@ -384,6 +384,8 @@ html, body {
   margin-bottom: 8px;
 }
 .form-row label { width: 110px; flex-shrink: 0; font-size: 13.5px; color: var(--text-muted); }
+/* กล่องที่ห่อช่องกรอกหลายอัน (เช่น แถวแบ่งบัญชี) ให้หดตามความกว้างหน้าต่าง ไม่ดันจนล้นขอบ */
+.form-row > div { flex: 1 1 auto; min-width: 0; }
 .form-row input, .form-row select {
   flex: 1;
   min-width: 0;
