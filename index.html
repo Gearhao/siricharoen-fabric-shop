@@ -121,6 +121,13 @@ html, body {
 .tabs-right-group { display: flex; align-items: center; gap: 6px; margin-left: auto; padding: 0 8px; flex-shrink: 0; }
 .tabs-right-group .tab-btn { border: 1px solid var(--border); border-radius: 6px; background: #fff; padding: 6px 12px; font-size: 14px; }
 .tabs-right-group .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+/* ปุ่ม "ออกบิลใหม่" (เขียว) กับ "ประวัติการขาย" (ส้ม) ใช้สีทึบแยกจากแท็บอื่นให้เห็นชัด ไม่กลืนกับเมนู */
+.tabs-right-group .tab-btn.pos-new-btn { background: #2e8b57; border-color: #2e8b57; color: #fff; font-weight: 600; }
+.tabs-right-group .tab-btn.pos-new-btn:hover { background: #256f46; color: #fff; }
+.tabs-right-group .tab-btn.pos-hist-btn { background: #d9822b; border-color: #d9822b; color: #fff; font-weight: 600; }
+.tabs-right-group .tab-btn.pos-hist-btn:hover { background: #b96b1f; color: #fff; }
+.tabs-right-group .tab-btn.pos-new-btn.active,
+.tabs-right-group .tab-btn.pos-hist-btn.active { box-shadow: inset 0 -3px 0 rgba(0,0,0,0.35); text-decoration: underline; text-underline-offset: 3px; }
 .tab-btn {
   background: transparent;
   border: none;
@@ -3694,7 +3701,7 @@ if (typeof module !== "undefined") {
       const b = el(
         "button",
         {
-          class: "tab-btn",
+          class: "tab-btn " + (key === "new" ? "pos-new-btn" : "pos-hist-btn"),
           onClick: () => {
             posSubTab = key;
             if (currentTab !== "pos") switchTab("pos");
@@ -7713,9 +7720,8 @@ if (typeof module !== "undefined") {
       c.address,
       money(c.credit_limit),
       money(DB.getCustomerTotalDue(c)),
-      c.exchange_credit ? money(c.exchange_credit) : "-",
     ]);
-    const table = buildDataTable(["รหัสลูกค้า", "ชื่อลูกค้า", "เบอร์โทร", "ที่อยู่", "วงเงินเครดิต", "ยอดค้างชำระ", "เครดิตแลกเปลี่ยน"], rows, {
+    const table = buildDataTable(["รหัสลูกค้า", "ชื่อลูกค้า", "เบอร์โทร", "ที่อยู่", "วงเงินเครดิต", "ยอดค้างชำระ"], rows, {
       actions: (idx) => {
         const c = customers[idx];
         return [
