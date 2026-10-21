@@ -2972,6 +2972,11 @@ if (typeof module !== "undefined") {
       const accSel = buildBankAccountSelect(presetAccountId);
       const amtInput = numberInput(presetAmount !== undefined && presetAmount !== null ? presetAmount : "");
       amtInput.setAttribute("placeholder", "จำนวนเงิน");
+      // จัดขนาดให้แถวไม่ล้นกรอบหน้าต่าง (ปุ่มลบเคยถูกดันตกขอบจนต้องเลื่อนซ้ายขวา)
+      accSel.style.flex = "1 1 auto";
+      accSel.style.minWidth = "0";
+      amtInput.style.flex = "0 0 110px";
+      amtInput.style.width = "110px";
       const rowEl = el(
         "div",
         { class: "account-split-row", style: { display: "flex", gap: "6px", marginBottom: "4px", alignItems: "center" } },
