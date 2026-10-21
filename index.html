@@ -2320,7 +2320,10 @@ function createDB(storageKey) {
   }
   function genFlashNo(dateStr) {
     const d = String(dateStr || todayStr()).slice(0, 10).replace(/-/g, "");
-    const n = ensureFlashStore().filter((r) => String(r.receipt_no || "").startsWith("FL" + d)).length;
+    // ใช้เลขลำดับสูงสุดของวันนั้น +1 (ไม่ใช่นับจำนวน) กันเลขซ้ำหลังลบบิลกลางวัน
+    const n = ensureFlashStore()
+      .filter((r) => String(r.receipt_no || "").startsWith("FL" + d))
+      .reduce((m, r) => Math.max(m, Number(String(r.receipt_no).slice(10)) || 0), 0);
     return "FL" + d + pad(n + 1, 3);
   }
   function normalizeFlashParcels(list) {
