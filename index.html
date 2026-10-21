@@ -8990,9 +8990,66 @@ if (typeof module !== "undefined") {
     // แบ่งจ่ายจากหลายบัญชีได้ (เช่น ยอดรวม 10,000 บาท จ่ายจากบัญชี A 6,000 + บัญชี B 4,000)
     // ระบบจะไล่หักจากบัญชีตามลำดับที่กรอกไปเติมให้แต่ละใบจนครบยอดค้างชำระของใบนั้นๆ
     const accountSplit = buildAccountSplitRows(totalRemain);
-    const accountRow = formField("จ่ายจากบัญชี (แบ่งหลายบัญชีได้)", el("div", {}, accountSplit.container, accountSplit.addBtn));
+    // ---- สรุปยอด: ค้างชำระรวม / แบ่งเข้าบัญชีแล้ว / คงเหลือที่ยังไม่ได้แบ่ง (อัปเดตทันทีตอนพิมพ์ยอดแต่ละบัญชี)
+    const r2 = (n) => Math.round(n * 100) / 100;
+    const mkBox = (label) => {
+      const v = el("div", { style: { fontSize: "18px", fontWeight: "600" } });
+      const box = el(
+        "div",
+        { style: { background: "var(--bg, #f4f5f7)", border: "1px solid var(--border)", borderRadius: "6px", padding: "6px 10px" } },
+        el("div", { text: label, style: { fontSize: "12px", color: "var(--text-muted)" } }),
+        v
+      );
+      return { box, v };
+    };
+    const oweBox = mkBox("ยอดค้างชำระรวม");
+    const paidBox = mkBox("แบ่งเข้าบัญชีแล้ว");
+    const remBox = mkBox("คงเหลือ");
+    oweBox.v.textContent = money(totalRemain);
+    const splitSummary = el(
+      "div",
+      { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "8px", margin: "4px 0 6px" } },
+      oweBox.box,
+      paidBox.box,
+      remBox.box
+    );
+    const splitMsg = el("div", { style: { fontSize: "13px", padding: "6px 10px", borderRadius: "6px", margin: "4px 0 8px" } });
+    function updateSplitSummary() {
+      const rows = Array.from(accountSplit.container.querySelectorAll(".account-split-row"));
+      // บัญชีเดียว (ยังไม่กดเพิ่มบัญชี) = จ่ายเต็มยอดจากบัญชีนั้น
+      const allocated = r2(
+        rows.length <= 1 ? totalRemain : rows.reduce((s, r) => s + (Number(r.__amtInput && r.__amtInput.value) || 0), 0)
+      );
+      const rem = r2(totalRemain - allocated);
+      paidBox.v.textContent = money(allocated);
+      paidBox.v.style.color = "var(--primary)";
+      if (rem > 0.004) {
+        remBox.v.textContent = money(rem);
+        remBox.v.style.color = "var(--danger)";
+        Object.assign(splitMsg.style, { background: "#fff6e0", color: "#8a5a00" });
+        splitMsg.textContent = `ยังต้องแบ่งเข้าบัญชีอีก ${money(rem)} บาท ถึงจะครบยอด`;
+      } else if (rem < -0.004) {
+        remBox.v.textContent = `เกิน ${money(-rem)}`;
+        remBox.v.style.color = "var(--danger)";
+        Object.assign(splitMsg.style, { background: "#fdecec", color: "var(--danger)" });
+        splitMsg.textContent = `ยอดที่แบ่งเข้าบัญชีเกินยอดค้างชำระ ${money(-rem)} บาท`;
+      } else {
+        remBox.v.textContent = money(0);
+        remBox.v.style.color = "var(--success, #1a7f37)";
+        Object.assign(splitMsg.style, { background: "#e8f5ec", color: "var(--success, #1a7f37)" });
+        splitMsg.textContent = "แบ่งครบยอดแล้ว กดบันทึกได้เลย";
+      }
+    }
+    accountSplit.container.addEventListener("input", updateSplitSummary);
+    accountSplit.container.addEventListener("click", () => setTimeout(updateSplitSummary, 0)); // ปุ่มลบแถว
+    accountSplit.addBtn.addEventListener("click", () => setTimeout(updateSplitSummary, 0));
+    const accountRow = formField(
+      "จ่ายจากบัญชี (แบ่งหลายบัญชีได้)",
+      el("div", {}, splitSummary, accountSplit.container, accountSplit.addBtn, splitMsg)
+    );
     function updateVis() {
       accountRow.style.display = methodSelect.value === "โอนเงิน" ? "" : "none";
+      updateSplitSummary();
     }
     methodSelect.addEventListener("change", updateVis);
     updateVis();
