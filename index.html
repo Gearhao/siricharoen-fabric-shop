@@ -121,11 +121,11 @@ html, body {
 .tabs-right-group { display: flex; align-items: center; gap: 6px; margin-left: auto; padding: 0 8px; flex-shrink: 0; }
 .tabs-right-group .tab-btn { border: 1px solid var(--border); border-radius: 6px; background: #fff; padding: 6px 12px; font-size: 14px; }
 .tabs-right-group .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-/* ปุ่ม "ออกบิลใหม่" (เหลือง) กับ "ประวัติการขาย" (แดง) ใช้สีทึบแยกจากแท็บอื่นให้เห็นชัด ไม่กลืนกับเมนู */
-.tabs-right-group .tab-btn.pos-new-btn { background: #f5c518; border-color: #e0b000; color: #3a2a00; font-weight: 600; }
-.tabs-right-group .tab-btn.pos-new-btn:hover { background: #e0b000; color: #3a2a00; }
-.tabs-right-group .tab-btn.pos-hist-btn { background: #c0392b; border-color: #c0392b; color: #fff; font-weight: 600; }
-.tabs-right-group .tab-btn.pos-hist-btn:hover { background: #a02d22; color: #fff; }
+/* ปุ่ม "ออกบิลใหม่" (กรมท่าเข้ม) กับ "ประวัติการขาย" (เทาอ่อน) แยกจากแท็บอื่นให้เห็นชัด โทนเดียวกับหัวโปรแกรม (แบบ G) */
+.tabs-right-group .tab-btn.pos-new-btn { background: #16324f; border-color: #16324f; color: #fff; font-weight: 600; }
+.tabs-right-group .tab-btn.pos-new-btn:hover { background: #0f2438; color: #fff; }
+.tabs-right-group .tab-btn.pos-hist-btn { background: #eef0f3; border-color: #c9ced6; color: #16324f; font-weight: 600; }
+.tabs-right-group .tab-btn.pos-hist-btn:hover { background: #e1e5ea; color: #16324f; }
 .tabs-right-group .tab-btn.pos-new-btn.active,
 .tabs-right-group .tab-btn.pos-hist-btn.active { box-shadow: inset 0 -3px 0 rgba(0,0,0,0.35); text-decoration: underline; text-underline-offset: 3px; }
 .tab-btn {
@@ -3702,7 +3702,7 @@ if (typeof module !== "undefined") {
     const posSubTabButtons = {};
     const posTabsRightGroup = el("span", { class: "tabs-right-group" });
     [
-      ["new", "ออกบิลใหม่"],
+      ["new", "+ ออกบิลใหม่"],
       ["history", "ประวัติการขาย"],
     ].forEach(([key, label]) => {
       const b = el(
