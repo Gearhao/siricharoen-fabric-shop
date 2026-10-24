@@ -287,9 +287,13 @@ html, body {
 .data-table tbody tr:hover { background: #faf7fc; }
 .data-table td.empty { text-align: center; color: var(--text-muted); padding: 20px; }
 .data-table td.actions-cell {
-  white-space: nowrap;
+  white-space: nowrap !important; /* ปุ่มจัดการทุกปุ่มอยู่บรรทัดเดียวเสมอ ไม่ตกบรรทัด */
   max-width: none;
+  width: 1%;
 }
+.data-table td.actions-cell .btn { display: inline-block; }
+.btn-copy-text { border-color: var(--primary) !important; color: var(--primary) !important; font-weight: 600; }
+.btn-copy-text.copied { background: #e8f5ec !important; border-color: #2e8b57 !important; color: #2e8b57 !important; }
 .discount-input-row {
   display: flex;
   gap: 6px;
@@ -4504,6 +4508,7 @@ if (typeof module !== "undefined") {
             )
           : null,
         el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, "พิมพ์ใบเสร็จ"),
+        el("button", { class: "btn btn-sm btn-copy-text", onClick: (e) => quickCopySaleText(s.id, e.currentTarget) }, "คัดลอกข้อความ"),
         el("button", { class: "btn btn-sm", onClick: () => openProductReturnModal(s.id) }, "รับคืนสินค้า"),
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOS(s.id) }, "ลบ")
       );
@@ -5492,6 +5497,66 @@ if (typeof module !== "undefined") {
     refs.posCustomerSelect = newCustomerSelect;
     updatePosTotals();
     updateEditBannerUI();
+  }
+
+  // คัดลอกข้อความใบเสร็จจากหน้าประวัติการขายได้ทันที ไม่ต้องเปิดหน้าพิมพ์ใบเสร็จ
+  // ใช้ค่าเริ่มต้นเดียวกับหน้าพิมพ์ (เงินเชื่อ = ใบส่งสินค้า, อื่นๆ = ใบเสร็จ, บัญชีที่ลูกค้าใช้ประจำ)
+  // บิล "เงินสดแต่ค้างชำระ" ถามก่อนว่าจะเอาใบเสร็จหรือใบส่งของ เหมือนตอนกดพิมพ์
+  function quickCopySaleText(saleId, btn) {
+    const sale = DB.getSale(saleId);
+    if (!sale) return;
+    const cust = sale.customer_id ? DB.getCustomer(sale.customer_id) : null;
+    const shop = DB.getShopInfo();
+    const cartItems = saleToReceiptItems(sale);
+    const isVatNoShipping = !!sale.is_vat && !((sale.shipping_fee || 0) > 0);
+    const vatAcc = isVatNoShipping ? DB.getBankAccounts().find((a) => !a.is_cash && String(a.account_no || "") === "0458527326") : null;
+    const accId = isVatNoShipping && vatAcc ? vatAcc.id : getCustomerPreferredAccountId(cust);
+    const accSel = buildBankAccountSelect(accId);
+    const accLabel = payAccountLabelFromSelect(accSel);
+    function doCopy(docType, feedbackBtn) {
+      const doc = buildReceiptDoc(sale, cust, shop, cartItems, docType, "th", accLabel, false);
+      copyTextToClipboard(doc.textForCopy)
+        .then(() => {
+          if (!feedbackBtn) return;
+          feedbackBtn.textContent = "คัดลอกแล้ว ✓";
+          feedbackBtn.classList.add("copied");
+          setTimeout(() => {
+            feedbackBtn.textContent = "คัดลอกข้อความ";
+            feedbackBtn.classList.remove("copied");
+          }, 1500);
+        })
+        .catch(() => global.alert("คัดลอกไม่สำเร็จ กรุณาลองใหม่"));
+    }
+    if (sale.status !== "เงินสดแต่ค้างชำระ") {
+      doCopy(sale.payment_method === "เงินเชื่อ" ? "delivery" : "normal", btn);
+      return;
+    }
+    const pick = (t) => {
+      closeModal();
+      doCopy(t, btn);
+    };
+    const bigBtn = (label, t, style) =>
+      el("button", { class: "btn", style: Object.assign({ display: "block", width: "100%", padding: "14px", fontSize: "15px", marginBottom: "10px" }, style), onClick: () => pick(t) }, label);
+    openModal(
+      "คัดลอกข้อความเป็นเอกสารไหน",
+      el(
+        "div",
+        { style: { textAlign: "center" } },
+        el("p", { text: `${sale.sale_no} · เงินสดแต่ค้างชำระ`, style: { color: "#777", marginBottom: "16px" } }),
+        bigBtn("ใบเสร็จรับเงิน", "normal", { background: "var(--primary)", color: "#fff", border: "none" }),
+        bigBtn("ใบส่งของ", "delivery", { background: "var(--danger)", color: "#fff", border: "none" })
+      )
+    );
+  }
+
+  function saleToReceiptItems(sale) {
+    return sale.items.map((it) => {
+      if (it.is_misc) {
+        return { code: "", name: `${it.name || ""} (ฝากซื้อ)`, qty: it.qty, unit_price: it.unit_price, unit: it.unit, note: it.note || "" };
+      }
+      const f = DB.getFabric(it.fabric_id);
+      return { code: f ? f.code : "", name: f ? f.name : "(สินค้านี้ถูกลบแล้ว)", qty: it.qty, unit_price: it.unit_price, unit: it.unit, roll_id: it.roll_id || null, fabric_id: it.fabric_id || null, note: it.note || "" };
+    });
   }
 
   function reprintSalePOS(saleId) {
