@@ -6439,6 +6439,81 @@ if (typeof module !== "undefined") {
         ${qrFooterHtml}
       </div>`;
 
+    // ---- บิลเงินสด/ใบเสร็จรับเงิน (ไม่มี VAT): ดีไซน์ 13P (ตารางกรอบ มีลำดับ, สรุปยอดอยู่ในตาราง, แถบยอดสุทธิสีเทาอ่อน)
+    // ขาวดำ เนื้อหาเหมือนเดิมทุกบรรทัด ส่วนใบส่งสินค้าและใบเสร็จ VAT ยังใช้หน้าตาเดิม
+    if (docType === "cash" || (docType === "normal" && !showVat)) {
+      const B = "border:1px solid #000;";
+      const TH = B + "background:#e6e6e6;font-weight:bold;padding:5px 4px;";
+      const TD = B + "padding:5px 4px;";
+      const cashItemRows = cartItems
+        .map((it, i) => {
+          const qtyUnit = `${it.qty}${it.unit ? " " + it.unit : ""}`;
+          const label = it.code || it.name || "";
+          const noteHtml = it.note ? `<div style="font-size:10.5px;color:#555;margin-top:2px;">${esc(it.note)}</div>` : "";
+          return `<tr><td style="${TD}text-align:center;">${i + 1}</td><td style="${TD}">${esc(label)}${noteHtml}</td><td style="${TD}text-align:right;">${esc(
+            qtyUnit
+          )}</td><td style="${TD}text-align:right;">${money(it.unit_price)}</td><td style="${TD}text-align:right;">${money(it.qty * it.unit_price)}</td></tr>`;
+        })
+        .join("");
+      const sumLines = [];
+      if (sale.discount) {
+        sumLines.push([L.subtotalBeforeDiscount, money(sale.subtotal)]);
+        sumLines.push([L.discount, money(sale.discount)]);
+      }
+      if (showVat) {
+        sumLines.push([L.beforeVat, money(sale.subtotal - (sale.discount || 0))]);
+        sumLines.push([L.vatLabel(Math.round(VAT_RATE * 100)), money(sale.vat_amount)]);
+      }
+      if (!excludeShippingFromTotal && sale.shipping_fee) {
+        sumLines.push([L.beforeShipping, money(displayTotal - sale.shipping_fee)]);
+        sumLines.push([L.shippingFee, money(sale.shipping_fee)]);
+      }
+      const sumRowsHtml = sumLines
+        .map((r) => `<tr><td colspan="4" style="${TD}text-align:right;">${r[0]}</td><td style="${TD}text-align:right;">${r[1]}</td></tr>`)
+        .join("");
+      const TOT = B + "background:#d9d9d9;color:#000;font-weight:bold;padding:6px 4px;text-align:right;";
+      const cashHtml = `
+      <div style="max-width:380px;margin:0;font-family:Tahoma,'Segoe UI',sans-serif;color:#000;">
+        <div style="text-align:center;margin-bottom:12px;">
+          <div style="font-size:17px;font-weight:bold;letter-spacing:0.5px;">${esc(docTitle)}</div>
+          <div style="font-size:11px;color:#555;margin-top:3px;">${isEn ? "No." : "เลขที่"} ${esc(sale.sale_no)}</div>
+          ${taxIdLine}
+        </div>
+        <table style="width:100%;font-size:12px;margin-bottom:12px;border-collapse:collapse;">
+          <tr><td style="padding:3px 0;color:#444;">${L.date}</td><td style="padding:3px 0;text-align:right;">${esc(fmtDate(sale.date))}</td></tr>
+          <tr><td style="padding:3px 0;color:#444;">${L.customer}</td><td style="padding:3px 0;text-align:right;font-weight:bold;font-size:14px;">${esc(custName)}</td></tr>
+          ${shippingMethodRow}
+          ${payAccountRow}
+        </table>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px;">
+          <thead>
+            <tr>
+              <th style="${TH}text-align:center;width:22px;">#</th>
+              <th style="${TH}text-align:left;">${L.item}</th>
+              <th style="${TH}text-align:right;">${L.qty}</th>
+              <th style="${TH}text-align:right;">${L.price}</th>
+              <th style="${TH}text-align:right;">${L.amount}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cashItemRows}
+            ${sumRowsHtml}
+            <tr><td colspan="4" style="${TOT}font-size:13px;">${L.total}</td><td style="${TOT}font-size:14px;">${money(displayTotal)}</td></tr>
+          </tbody>
+        </table>
+        ${summaryRowsBottom ? `<table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:14px;">${summaryRowsBottom}</table>` : ""}
+        <div style="font-size:12px;color:#444;text-align:center;margin:10px 0 18px;">${L.thankYou}</div>
+        <div style="display:flex;justify-content:space-between;margin-top:28px;font-size:11px;text-align:center;color:#000;">
+          <div style="width:30%;border-top:1px solid #000;padding-top:4px;">${L.deliveredBy}</div>
+          <div style="width:30%;border-top:1px solid #000;padding-top:4px;">${L.receivedGoodsBy}</div>
+          <div style="width:30%;border-top:1px solid #000;padding-top:4px;">${L.receivedPaymentBy}</div>
+        </div>
+        ${sale.note ? `<div style="text-align:left;font-size:12px;color:#000;margin-top:16px;padding-top:8px;border-top:1px dashed #999;">${L.note}: ${esc(sale.note)}</div>` : ""}
+        ${qrFooterHtml}
+      </div>`;
+      return { docTitle, text, textForCopy, html: cashHtml };
+    }
+
     return { docTitle, text, textForCopy, html };
   }
 
