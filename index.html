@@ -2100,7 +2100,7 @@ function createDB(storageKey) {
   }
 
   // -------------------------------------------------------------- expense
-  function addExpense(category, description, amount, date, accountId) {
+  function addExpense(category, description, amount, date, accountId, extra) {
     const e = {
       id: genId("expense"),
       date: date || nowStr(),
@@ -2108,7 +2108,13 @@ function createDB(storageKey) {
       description: description || "",
       amount,
       account_id: accountId || null,
+      // รายจ่ายประจำ: ติ๊กไว้แล้วระบบจะลงรายการเดิมให้อัตโนมัติในวันเดียวกันของเดือนถัดไป (ดู processRecurringExpenses)
+      recurring: !!(extra && extra.recurring),
+      series_id: (extra && extra.series_id) || null,
     };
+    if (!e.series_id) e.series_id = e.id;
+    // วันที่ของเดือนที่ต้องลงซ้ำ (เช่น 31) จำไว้แยก กันกรณีเดือนสั้นแล้ววันเลื่อนถาวร (31 -> 30 -> 30)
+    e.recurring_day = (extra && extra.recurring_day) || Number(String(e.date).slice(8, 10)) || 1;
     store.expenses.push(e);
     if (accountId) {
       recordAccountMovement(accountId, -amount, "expense", e.id, `จ่ายรายจ่าย: ${category || description || ""}`);
@@ -2129,6 +2135,50 @@ function createDB(storageKey) {
     store.expenses = store.expenses.filter((x) => x.id !== id);
     save();
   }
+  // ลงรายจ่ายประจำที่ถึงกำหนดให้อัตโนมัติ: ดูรายการล่าสุดของแต่ละชุด (series) ถ้ายังติ๊ก "รายจ่ายประจำ" อยู่
+  // และถึงวันเดียวกันของเดือนถัดไปแล้ว ให้ลงรายการใหม่ (ยอด/หมวด/รายละเอียด/บัญชีเดิม) ไล่จนถึงเดือนปัจจุบัน
+  // ไม่ลงซ้ำถ้าชุดนั้นมีรายการของเดือนนั้นอยู่แล้ว คืนค่าจำนวนรายการที่ลงให้
+  function processRecurringExpenses() {
+    const today = todayStr();
+    const bySeries = {};
+    store.expenses.forEach((e) => {
+      const sid = e.series_id || e.id;
+      (bySeries[sid] = bySeries[sid] || []).push(e);
+    });
+    const pad2 = (n) => String(n).padStart(2, "0");
+    function nextMonthDate(dateStr, anchorDay) {
+      const [y, m, d0] = String(dateStr).slice(0, 10).split("-").map(Number);
+      const d = anchorDay || d0;
+      let ny = y, nm = m + 1;
+      if (nm > 12) { nm = 1; ny++; }
+      const last = new Date(ny, nm, 0).getDate();
+      return `${ny}-${pad2(nm)}-${pad2(Math.min(d, last))}`;
+    }
+    let created = 0;
+    Object.keys(bySeries).forEach((sid) => {
+      const list = bySeries[sid].sort((a, b) => (a.date < b.date ? -1 : 1));
+      let latest = list[list.length - 1];
+      let guard = 0;
+      while (latest && latest.recurring && guard++ < 24) {
+        const nextDate = nextMonthDate(latest.date, latest.recurring_day);
+        if (nextDate > today) break;
+        const month = nextDate.slice(0, 7);
+        if (list.some((x) => String(x.date).slice(0, 7) === month)) break;
+        const time = String(latest.date).slice(11) || "09:00:00";
+        const ne = addExpense(latest.category, latest.description, latest.amount, `${nextDate} ${time}`, latest.account_id, {
+          recurring: true,
+          series_id: latest.series_id || latest.id,
+          recurring_day: latest.recurring_day,
+        });
+        latest.recurring = false; // ให้รายการล่าสุดเท่านั้นที่ถือสถานะ "ประจำ" (เอาติ๊กออกที่รายการล่าสุดเพื่อหยุด)
+        list.push(ne);
+        latest = ne;
+        created++;
+      }
+    });
+    if (created) save();
+    return created;
+  }
   function updateExpense(id, data) {
     const e = store.expenses.find((x) => x.id === id);
     if (!e) return null;
@@ -2140,6 +2190,9 @@ function createDB(storageKey) {
     e.description = (data && data.description) || "";
     e.amount = data.amount;
     e.account_id = (data && data.account_id) || null;
+    if (data && "recurring" in data) e.recurring = !!data.recurring;
+    if (data && data.date) e.recurring_day = Number(String(e.date).slice(8, 10)) || e.recurring_day || 1;
+    if (!e.series_id) e.series_id = e.id;
     if (e.account_id) {
       recordAccountMovement(e.account_id, -e.amount, "expense", id, `จ่ายรายจ่าย (แก้ไข): ${e.category || e.description || ""}`);
     }
@@ -2776,7 +2829,7 @@ function createDB(storageKey) {
     getPendingCheckTotalForSale, getChecksForSale, getCheck, getPendingChecks, receiveCheck, clearCheck, bounceCheck, deleteCheck,
     addProductReturn, getSaleReturns, getReturns, deleteReturn, getReturnedQtyForItem, useExchangeCredit,
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
-    addExpense, getExpenses, deleteExpense, updateExpense,
+    addExpense, getExpenses, deleteExpense, updateExpense, processRecurringExpenses,
     getExpenseCategories, addExpenseCategory, updateExpenseCategory, deleteExpenseCategory,
     addBackorder, updateBackorder, deleteBackorder, markBackorderDone, markBackorderUndone, getBackorders, getBackorder, getBackorderItems, setBackorderItemDone,
     addCustomerOrder, updateCustomerOrder, deleteCustomerOrder, markCustomerOrderDone, markCustomerOrderUndone, getCustomerOrders, getCustomerOrder,
@@ -11286,7 +11339,7 @@ if (typeof module !== "undefined") {
         ["วันที่", "หมวดหมู่", "รายละเอียด", "จำนวนเงิน", "จ่ายจากบัญชี"],
         expenses.map((e) => {
           const acct = e.account_id ? DB.getBankAccount(e.account_id) : null;
-          return [fmtDate(e.date), e.category, e.description, money(e.amount), acct ? `${acct.bank_name} - ${acct.account_name}` : "-"];
+          return [fmtDate(e.date), e.category, (e.description || "") + (e.recurring ? " (ประจำ)" : ""), money(e.amount), acct ? `${acct.bank_name} - ${acct.account_name}` : "-"];
         }),
         {
           cellStyle: (row, ci, colName) => {
@@ -11348,6 +11401,16 @@ if (typeof module !== "undefined") {
       })),
       existingAccountId ? String(existingAccountId) : (cashAcct ? String(cashAcct.id) : "")
     );
+    // วันที่ของรายจ่าย แก้ได้ (เก็บเวลาเดิมไว้ถ้าเป็นการแก้ไข)
+    const existingDate = existing ? String(existing.date || "") : "";
+    const dateInput = dateInputEl({ value: existingDate ? existingDate.slice(0, 10) : DB.todayStr() });
+    const recurringChk = el("input", { type: "checkbox", checked: !!(existing && existing.recurring) });
+    const recurringRow = el(
+      "label",
+      { class: "chk-label", style: { display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" } },
+      recurringChk,
+      "รายจ่ายประจำ (ลงซ้ำอัตโนมัติวันเดียวกันของทุกเดือน)"
+    );
     const saveBtn = el(
       "button",
       {
@@ -11359,17 +11422,22 @@ if (typeof module !== "undefined") {
             return;
           }
           const accountId = accountSelect.value ? Number(accountSelect.value) : null;
+          const d = dateInput.value || DB.todayStr();
+          const time = existingDate.length > 10 ? existingDate.slice(11) : DB.nowStr().slice(11);
+          const dateFull = `${d} ${time}`;
           if (existing) {
             DB.updateExpense(existing.id, {
               category: catSelect.value,
               description: descInput.value.trim(),
               amount: amt,
               account_id: accountId,
-              date: existing.date,
+              date: dateFull,
+              recurring: recurringChk.checked,
             });
           } else {
-            DB.addExpense(catSelect.value, descInput.value.trim(), amt, null, accountId);
+            DB.addExpense(catSelect.value, descInput.value.trim(), amt, dateFull, accountId, { recurring: recurringChk.checked });
           }
+          if (recurringChk.checked) DB.processRecurringExpenses();
           closeModal();
           refreshAcctSummary();
           refreshBankAccountsTable();
@@ -11380,10 +11448,12 @@ if (typeof module !== "undefined") {
     const body = el(
       "div",
       {},
+      formField("วันที่", dateInput),
       formField("หมวดหมู่", el("div", { style: { display: "flex", gap: "6px", alignItems: "center" } }, catSelect, manageCatBtn)),
       formField("รายละเอียด", descInput),
       formField("จำนวนเงิน", amountInput),
       formField("จ่ายจากบัญชี", accountSelect),
+      formField("", recurringRow),
       el("div", { class: "modal-actions" }, saveBtn)
     );
     exposeTestRefs("expenseForm", { catSelect, descInput, amountInput, accountSelect, saveBtn });
@@ -11920,6 +11990,12 @@ if (typeof module !== "undefined") {
     if (DB.pullFromCloud) {
       DB.pullFromCloud().then(() => {
         runBulkImportFabrics();
+        // ลงรายจ่ายประจำที่ถึงกำหนด หลังดึงข้อมูลคลาวด์เสร็จแล้วเท่านั้น (กันลงซ้ำจากข้อมูลเก่าในเครื่อง)
+        try {
+          DB.processRecurringExpenses();
+        } catch (e) {
+          console.error("ลงรายจ่ายประจำไม่สำเร็จ", e);
+        }
         switchTab(currentTab);
         updateCloudBadge();
       });
