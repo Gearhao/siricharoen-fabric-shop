@@ -11404,12 +11404,22 @@ if (typeof module !== "undefined") {
     // วันที่ของรายจ่าย แก้ได้ (เก็บเวลาเดิมไว้ถ้าเป็นการแก้ไข)
     const existingDate = existing ? String(existing.date || "") : "";
     const dateInput = dateInputEl({ value: existingDate ? existingDate.slice(0, 10) : DB.todayStr() });
-    const recurringChk = el("input", { type: "checkbox", checked: !!(existing && existing.recurring) });
+    const recurringChk = el("input", {
+      type: "checkbox",
+      checked: !!(existing && existing.recurring),
+      style: { flex: "0 0 auto", width: "16px", height: "16px", padding: "0", margin: "0" },
+    });
+    // ห่อด้วย div (ไม่ใช่ label ตรงๆ) เพราะ .form-row label ถูกบังคับกว้าง 110px สำหรับป้ายชื่อช่อง
     const recurringRow = el(
-      "label",
-      { class: "chk-label", style: { display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" } },
+      "div",
+      {
+        style: { display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", color: "var(--text)" },
+        onClick: (e) => {
+          if (e.target !== recurringChk) recurringChk.checked = !recurringChk.checked;
+        },
+      },
       recurringChk,
-      "รายจ่ายประจำ (ลงซ้ำอัตโนมัติวันเดียวกันของทุกเดือน)"
+      el("span", { text: "รายจ่ายประจำ (ลงซ้ำอัตโนมัติวันเดียวกันของทุกเดือน)" })
     );
     const saveBtn = el(
       "button",
