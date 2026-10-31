@@ -10166,13 +10166,58 @@ if (typeof module !== "undefined") {
     const curYear = Number(today.slice(0, 4));
     if (!incomingSummaryMonth) incomingSummaryMonth = today.slice(0, 7);
     const MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-    const opts = [];
+    const monthOpts = [];
+    const yearOpts = [];
     for (let y = curYear; y >= curYear - 2; y--) {
       const maxM = y === curYear ? Number(today.slice(5, 7)) : 12;
-      for (let m = maxM; m >= 1; m--) opts.push({ value: `${y}-${String(m).padStart(2, "0")}`, label: `${MONTHS[m - 1]} ${y + 543}` });
-      opts.push({ value: String(y), label: `ทั้งปี ${y + 543}` });
+      for (let m = maxM; m >= 1; m--) monthOpts.push({ value: `${y}-${String(m).padStart(2, "0")}`, label: `${MONTHS[m - 1]} ${y + 543}` });
+      yearOpts.push({ value: String(y), label: `ปี ${y + 543}` });
     }
-    const periodSel = selectInput(opts, incomingSummaryMonth);
+    let lastMonth = incomingSummaryMonth.length === 4 ? today.slice(0, 7) : incomingSummaryMonth;
+    let lastYear = incomingSummaryMonth.slice(0, 4);
+    const periodSel = el("select", {});
+    function fillPeriodOptions() {
+      clear(periodSel);
+      const isYear = incomingSummaryMonth.length === 4;
+      (isYear ? yearOpts : monthOpts).forEach((o) => periodSel.appendChild(el("option", { value: o.value, text: o.label })));
+      periodSel.value = incomingSummaryMonth;
+    }
+    fillPeriodOptions();
+    // ปุ่มสลับ สรุปรายเดือน / สรุปทั้งปี
+    const modeBtn = (label, isYear) =>
+      el(
+        "button",
+        {
+          class: "btn btn-sm",
+          onClick: () => {
+            if (isYear) {
+              if (incomingSummaryMonth.length !== 4) lastMonth = incomingSummaryMonth;
+              incomingSummaryMonth = incomingSummaryMonth.length === 4 ? incomingSummaryMonth : incomingSummaryMonth.slice(0, 4);
+            } else {
+              if (incomingSummaryMonth.length === 4) lastYear = incomingSummaryMonth;
+              incomingSummaryMonth = lastMonth;
+            }
+            fillPeriodOptions();
+            updateModeBtns();
+            render();
+          },
+        },
+        label
+      );
+    const monthModeBtn = modeBtn("สรุปรายเดือน", false);
+    const yearModeBtn = modeBtn("สรุปทั้งปี", true);
+    function updateModeBtns() {
+      const isYear = incomingSummaryMonth.length === 4;
+      [
+        [monthModeBtn, !isYear],
+        [yearModeBtn, isYear],
+      ].forEach(([b, on]) => {
+        b.style.background = on ? "var(--primary)" : "";
+        b.style.color = on ? "#fff" : "";
+        b.style.borderColor = on ? "var(--primary)" : "";
+      });
+    }
+    updateModeBtns();
     const trChk = el("input", { type: "checkbox", checked: incomingIncludeTransfers });
     const out = el("div", {});
     const accLabel = (a) => `${a.bank_name} - ${a.account_name}`;
@@ -10258,6 +10303,39 @@ if (typeof module !== "undefined") {
           )
         );
       });
+      // สรุปทั้งปี: เพิ่มยอดรวมรายเดือนของปีนั้น (ทุกบัญชีรวมกัน) เทียบกับเดือนก่อนหน้า
+      if (period.length === 4) {
+        const y = Number(period);
+        const yd = yearData(y);
+        const prevDec = yearData(y - 1).reduce((s2, r) => s2 + r.months[11].amount, 0);
+        const lastIdx = y === curYear ? Number(today.slice(5, 7)) - 1 : 11;
+        const mt = MONTHS.map((_, i) => yd.reduce((s2, r) => ({ amount: s2.amount + r.months[i].amount, count: s2.count + r.months[i].count }), { amount: 0, count: 0 }));
+        const mmax = Math.max(...mt.map((x) => x.amount), 1);
+        out.appendChild(el("div", { text: `ยอดโอนเข้ารวมทุกบัญชี รายเดือน ปี ${y + 543}`, style: { fontWeight: "700", fontSize: "14px", margin: "18px 0 8px", paddingTop: "10px", borderTop: "1px solid var(--border)" } }));
+        mt.forEach((x, i) => {
+          if (i > lastIdx) return;
+          const ch = changeText(x.amount, i === 0 ? prevDec : mt[i - 1].amount);
+          out.appendChild(
+            el(
+              "div",
+              { style: { display: "grid", gridTemplateColumns: "minmax(0,190px) minmax(0,1fr) 150px 64px", gap: "10px", alignItems: "center", marginBottom: "7px", fontSize: "13px" } },
+              el("span", { text: `${MONTHS[i]} ${y + 543}`, style: { fontWeight: "600" } }),
+              el(
+                "div",
+                { style: { background: "#eef0f3", borderRadius: "3px", height: "12px" } },
+                el("div", { style: { width: `${(x.amount / mmax) * 100}%`, height: "100%", borderRadius: "3px", background: "#5f8fbf" } })
+              ),
+              el(
+                "span",
+                { style: { textAlign: "right", whiteSpace: "nowrap" } },
+                x.amount ? money(x.amount) : "-",
+                el("span", { text: x.count ? ` (${x.count} ครั้ง)` : "", style: { color: "var(--text-muted)", fontSize: "11.5px" } })
+              ),
+              el("span", { text: x.amount || (i === 0 ? prevDec : mt[i - 1].amount) ? ch.t : "-", style: { textAlign: "right", color: ch.color, fontSize: "12px", fontWeight: "600" } })
+            )
+          );
+        });
+      }
     }
     periodSel.addEventListener("change", () => {
       incomingSummaryMonth = periodSel.value;
@@ -10270,6 +10348,8 @@ if (typeof module !== "undefined") {
     const toolbar = el(
       "div",
       { class: "toolbar", style: { marginBottom: "4px" } },
+      monthModeBtn,
+      yearModeBtn,
       periodSel,
       el("label", { class: "chk-label" }, trChk, " รวมเงินที่โยกมาจากบัญชีอื่นของร้าน")
     );
