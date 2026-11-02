@@ -556,6 +556,31 @@ function createDB(storageKey) {
   // ก่อนที่การดึงข้อมูลคลาวด์ครั้งแรกจะเสร็จ ห้ามให้ pullFromCloud เอาข้อมูลเก่าจากคลาวด์มาทับ
   let hasUnsavedLocalChange = false;
   let cloudBootstrapped = false; // true หลังจากลองดึงข้อมูลจากคลาวด์ครั้งแรกแล้ว (ไม่ว่าจะสำเร็จหรือไม่) ก่อนหน้านี้ห้ามอัปโหลดขึ้นคลาวด์เด็ดขาด
+  // ---- กันข้อมูลทับกันระหว่างหลายเครื่อง/หลายแท็บ ----
+  // จำเวลาอัปเดตของข้อมูลบนคลาวด์ที่เครื่องนี้รู้จักล่าสุด (ตอนดึงลงมาหรือตอนที่เครื่องนี้อัปโหลดเอง)
+  // ก่อนอัปโหลดทุกครั้งจะเช็คว่าคลาวด์ถูกเครื่องอื่นอัปเดตไปหลังจากนั้นหรือยัง ถ้าใช่ = ข้อมูลในหน้านี้เก่าแล้ว
+  // ห้ามอัปโหลดทับ (กันเคสหน้าที่เปิดค้างไว้นานเอาข้อมูลเก่าไปทับบิลใหม่ของเครื่องอื่นจนหาย)
+  let lastCloudMs = 0;
+  let staleListener = null;
+  function setStaleListener(fn) {
+    staleListener = fn;
+  }
+  async function fetchCloudUpdatedMs() {
+    const { data, error } = await __supabaseClient__.from(CLOUD_TABLE).select("updated_at").eq("id", STORAGE_KEY).maybeSingle();
+    if (error) throw error;
+    return data && data.updated_at ? Date.parse(data.updated_at) : 0;
+  }
+  // เช็คเป็นระยะว่ามีเครื่องอื่นบันทึกข้อมูลใหม่ขึ้นคลาวด์ไหม (ไม่ดึงมาทับเองระหว่างใช้งาน แค่เตือนให้กด F5)
+  async function checkCloudFreshness() {
+    if (!__supabaseClient__ || !cloudBootstrapped || !lastCloudMs) return;
+    try {
+      const ms = await fetchCloudUpdatedMs();
+      if (ms && ms > lastCloudMs + 1000) {
+        cloudStatus = "stale";
+        if (staleListener) staleListener(false);
+      }
+    } catch (e) {}
+  }
 
   function setCloudSyncListener(fn) {
     cloudSyncListener = fn;
@@ -572,18 +597,30 @@ function createDB(storageKey) {
     cloudPushTimer = setTimeout(pushToCloud, 800);
   }
 
-  async function pushToCloud() {
+  async function pushToCloud(force) {
     if (!__supabaseClient__) return;
     try {
+      if (!force && lastCloudMs) {
+        const cloudMs = await fetchCloudUpdatedMs();
+        if (cloudMs && cloudMs > lastCloudMs + 1000) {
+          // มีเครื่องอื่นบันทึกข้อมูลใหม่กว่าขึ้นไปแล้ว -> ไม่อัปโหลดทับ แจ้งผู้ใช้ให้โหลดข้อมูลล่าสุดแล้วทำรายการนั้นใหม่
+          cloudStatus = "stale";
+          console.warn("ข้อมูลบนคลาวด์ใหม่กว่าหน้านี้ ยกเลิกการอัปโหลดทับ");
+          if (staleListener) staleListener(true);
+          return;
+        }
+      }
+      const nowIso = new Date().toISOString();
       const { error } = await __supabaseClient__
         .from(CLOUD_TABLE)
-        .upsert({ id: STORAGE_KEY, data: store, updated_at: new Date().toISOString() });
+        .upsert({ id: STORAGE_KEY, data: store, updated_at: nowIso });
       if (error) {
         cloudStatus = "error";
         console.error("อัปโหลดข้อมูลขึ้นคลาวด์ผิดพลาด", error);
       } else {
         cloudStatus = "synced";
         hasUnsavedLocalChange = false;
+        lastCloudMs = Date.parse(nowIso);
       }
     } catch (e) {
       cloudStatus = "error";
@@ -625,7 +662,7 @@ function createDB(storageKey) {
         if (looksLikeDataLoss(row.data)) {
           // ข้อมูลบนคลาวด์ดูน้อยผิดปกติเทียบกับเครื่องนี้ -> ไม่ทับ ถือว่าเครื่องนี้ถูกต้องกว่า แล้วอัปโหลดข้อมูลเครื่องนี้ขึ้นไปแทนเพื่อกู้คืนคลาวด์
           console.warn("ข้อมูลบนคลาวด์น้อยผิดปกติเทียบกับเครื่องนี้ ข้ามการดึงข้อมูลมาทับ และอัปโหลดข้อมูลเครื่องนี้ขึ้นไปแทน");
-          await pushToCloud();
+          await pushToCloud(true);
           // pushToCloud() จะตั้งสถานะเป็น "synced" ถ้าสำเร็จ แต่กรณีนี้อยากให้ผู้ใช้เห็นชัดๆ ว่ามีการตรวจพบความผิดปกติและกู้คืนให้แล้ว
           // จึงคงสถานะเป็น "conflict" ไว้ (เว้นแต่การอัปโหลดกู้คืนจะล้มเหลว ซึ่งสถานะ "error" สำคัญกว่าต้องแสดงแทน)
           if (cloudStatus !== "error") cloudStatus = "conflict";
@@ -634,7 +671,7 @@ function createDB(storageKey) {
           // ถือว่าข้อมูลในเครื่องใหม่กว่าข้อมูลที่เพิ่งดึงมา ไม่ทับข้อมูลเครื่อง แต่อัปโหลดข้อมูลเครื่องขึ้นคลาวด์แทนเพื่อกันข้อมูลหาย
           cloudStatus = "synced";
           console.warn("มีการบันทึกข้อมูลในเครื่องระหว่างดึงข้อมูลคลาวด์ ข้ามการทับข้อมูล และอัปโหลดข้อมูลเครื่องขึ้นไปแทน");
-          await pushToCloud();
+          await pushToCloud(true);
         } else {
           Object.keys(store).forEach((k) => delete store[k]);
           Object.assign(store, row.data);
@@ -663,6 +700,7 @@ function createDB(storageKey) {
           migrateFabricsToRolls(store);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
           cloudStatus = "synced";
+          lastCloudMs = row.updated_at ? Date.parse(row.updated_at) : Date.now();
           if (cloudSyncListener) cloudSyncListener();
         }
       } else {
@@ -1287,7 +1325,10 @@ function createDB(storageKey) {
   // ---------------------------------------------------------------- sales
   function genSaleNo() {
     const d = todayStr().replace(/-/g, "");
-    const n = store.sales.filter((s) => s.sale_no.startsWith("S" + d)).length;
+    // ใช้เลขลำดับสูงสุดของวันนั้น +1 (ไม่ใช่นับจำนวน) กันเลขบิลซ้ำเมื่อมีบิลถูกลบ/เลขข้าม
+    const n = store.sales
+      .filter((s) => String(s.sale_no || "").startsWith("S" + d))
+      .reduce((m, s) => Math.max(m, Number(String(s.sale_no).slice(9)) || 0), 0);
     return "S" + d + pad(n + 1, 3);
   }
   function buildSaleItems(items) {
@@ -2840,7 +2881,7 @@ function createDB(storageKey) {
     salesSummary, cogsSummary, expensesSummary, shippingSummary, bestSellers, lowStockList,
     arAging, apAging, getCustomerCashPendingTotal, getCustomerTotalDue, getCustomerDueBreakdown,
     exportBackup, exportBackupCsv, exportBackupPages, importBackup, resetAll,
-    pullFromCloud, pushToCloud, setCloudSyncListener, getCloudStatus,
+    pullFromCloud, pushToCloud, setCloudSyncListener, getCloudStatus, setStaleListener, checkCloudFreshness,
   };
 }
 
@@ -12073,7 +12114,7 @@ if (typeof module !== "undefined") {
               // ต้องอัปโหลดข้อมูลที่กู้คืนขึ้นคลาวด์ให้เสร็จก่อนรีเฟรชหน้า มิฉะนั้นตอนรีเฟรช
               // ระบบจะไปดึงข้อมูลเก่าบนคลาวด์ (ที่ยังไม่ได้อัปเดต) กลับมาทับข้อมูลที่เพิ่งกู้คืนทันที
               if (DB.pushToCloud) {
-                await DB.pushToCloud();
+                await DB.pushToCloud(true);
               }
               if (DB.getCloudStatus && DB.getCloudStatus() === "error") {
                 global.alert(
@@ -12257,10 +12298,33 @@ if (typeof module !== "undefined") {
         synced: "คลาวด์: ซิงค์แล้ว ✓",
         error: "คลาวด์: ผิดพลาด",
         conflict: "คลาวด์: ข้อมูลไม่ตรงกัน กู้คืนแล้ว",
+        stale: "คลาวด์: มีข้อมูลใหม่ กด F5 ก่อนใช้งาน ⚠",
         offline: "คลาวด์: ออฟไลน์",
       };
       refs.cloudBadge.textContent = labels[status] || "คลาวด์: ไม่ทราบสถานะ";
     }
+    // มีเครื่องอื่นบันทึกข้อมูลใหม่กว่า: เตือนให้รีเฟรช ถ้าเป็นตอนกำลังจะบันทึก (blocked) แจ้งชัดว่ารายการล่าสุดยังไม่ถูกบันทึกขึ้นคลาวด์
+    let staleAlerted = false;
+    if (DB.setStaleListener) {
+      DB.setStaleListener((blocked) => {
+        updateCloudBadge();
+        if (refs.cloudBadge) {
+          refs.cloudBadge.style.background = "#c0392b";
+          refs.cloudBadge.style.color = "#fff";
+        }
+        if (blocked) {
+          global.alert(
+            "ข้อมูลในหน้านี้เก่ากว่าบนคลาวด์ (มีการบันทึกจากเครื่องอื่นหลังจากเปิดหน้านี้)\n\n" +
+              "เพื่อกันข้อมูลของเครื่องอื่นหาย ระบบจึงยังไม่บันทึกรายการล่าสุดที่เพิ่งทำในหน้านี้ขึ้นคลาวด์\n\n" +
+              "กด OK แล้วระบบจะโหลดข้อมูลล่าสุดให้ จากนั้นกรุณาทำรายการนั้นใหม่อีกครั้ง"
+          );
+          global.location.reload();
+        } else if (!staleAlerted) {
+          staleAlerted = true;
+        }
+      });
+    }
+    if (DB.checkCloudFreshness) global.setInterval(() => DB.checkCloudFreshness(), 20000);
     if (DB.setCloudSyncListener) {
       DB.setCloudSyncListener(() => {
         switchTab(currentTab);
