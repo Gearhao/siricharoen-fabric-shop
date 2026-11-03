@@ -5759,7 +5759,7 @@ if (typeof module !== "undefined") {
   }
 
   function addMiscPosRow() {
-    cart.push({ fabric_id: "", code: "", name: "", unit: "ชิ้น", baseUnit: "", qty: 1, unit_price: 0, cost_price: 0, stock_qty: null, roll_id: null, is_misc: true, note: "" });
+    cart.push({ fabric_id: "", code: "", name: "", unit: "หลา", baseUnit: "", qty: 1, unit_price: 0, cost_price: 0, stock_qty: null, roll_id: null, is_misc: true, note: "" });
     renderPosItemsTable();
     updatePosTotals();
   }
@@ -5849,7 +5849,7 @@ if (typeof module !== "undefined") {
         el("th", { text: "จำนวน" }),
         el("th", { text: "หน่วย" }),
         el("th", { text: "ราคา/หน่วย" }),
-        el("th", { text: "" }),
+        el("th", { text: cart.some((r) => r.is_misc) ? "ทุน (ฝากซื้อ)" : "" }),
         el("th", { text: "รวม" }),
         el("th", { text: "คงเหลือ" }),
         el("th", { text: "" })
@@ -5865,17 +5865,21 @@ if (typeof module !== "undefined") {
       let productCell, unitCell;
       if (row.is_misc) {
         const nameInput = textInput(row.name);
-        nameInput.setAttribute("placeholder", "ชื่อสินค้าฝากซื้อ เช่น กระดุม, ไม้แขวนเสื้อ");
+        nameInput.setAttribute("placeholder", "ชื่อผ้า/สินค้าฝากซื้อ เช่น ผ้า 4400 ดำ, กระดุม");
         nameInput.addEventListener("input", (e) => {
           cart[idx].name = e.target.value;
         });
         productCell = el("td", {}, nameInput);
 
-        const unitInputMisc = textInput(row.unit || "ชิ้น");
-        unitInputMisc.addEventListener("input", (e) => {
+        // ฝากซื้อ: เลือกหน่วยได้ หลา / เมตร / ชิ้น (ถ้าเป็นหน่วยอื่นที่เคยพิมพ์ไว้ในบิลเก่า ยังแสดงให้เลือกได้)
+        const miscUnits = ["หลา", "เมตร", "ชิ้น"];
+        const curUnit = row.unit || "หลา";
+        const unitOpts = miscUnits.concat(miscUnits.includes(curUnit) ? [] : [curUnit]).map((u) => ({ value: u, label: u }));
+        const unitSelectMisc = selectInput(unitOpts, curUnit);
+        unitSelectMisc.addEventListener("change", (e) => {
           cart[idx].unit = e.target.value;
         });
-        unitCell = el("td", {}, unitInputMisc);
+        unitCell = el("td", {}, unitSelectMisc);
       } else {
         const fabricSelect = searchSelectInput(fabricOptions, row.fabric_id ? String(row.fabric_id) : "", "พิมพ์รหัส/ชื่อผ้า");
         fabricSelect.inputEl.addEventListener("change", () => {
@@ -5923,7 +5927,9 @@ if (typeof module !== "undefined") {
 
       let costCell;
       if (row.is_misc) {
-        const costInput = numberInput(row.cost_price || 0);
+        const costInput = numberInput(row.cost_price || "");
+        costInput.setAttribute("placeholder", "ทุน/หน่วย");
+        costInput.title = "ราคาทุนต่อหน่วยของสินค้าฝากซื้อ (ไม่พิมพ์ในใบเสร็จ)";
         costInput.addEventListener("input", (e) => {
           cart[idx].cost_price = Number(e.target.value) || 0;
         });
