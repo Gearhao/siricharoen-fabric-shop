@@ -12371,27 +12371,88 @@ if (typeof module !== "undefined") {
         },
         label
       );
-    // ---- โน้ตสั้นๆ (เก็บในเครื่องนี้ ไม่ขึ้นคลาวด์ ไม่ยุ่งกับข้อมูลร้าน)
-    const NOTE_KEY = "siricharoen_quick_note_v1";
-    let noteText = "";
+    // ---- โน้ตรายวัน (เก็บในเครื่องนี้ ไม่ขึ้นคลาวด์ ไม่ยุ่งกับข้อมูลร้าน) แยกโน้ตตามวันที่
+    const NOTE_KEY = "siricharoen_daily_notes_v1";
+    let notes = {};
     try {
-      noteText = global.localStorage.getItem(NOTE_KEY) || "";
-    } catch (e) {}
+      notes = JSON.parse(global.localStorage.getItem(NOTE_KEY) || "{}") || {};
+      // ย้ายโน้ตแบบเดิม (ไม่แยกวัน) มาเป็นโน้ตของวันนี้
+      const old = global.localStorage.getItem("siricharoen_quick_note_v1");
+      if (old && old.trim()) {
+        const t0 = DB.todayStr();
+        notes[t0] = (notes[t0] ? notes[t0] + "\n" : "") + old;
+        global.localStorage.setItem(NOTE_KEY, JSON.stringify(notes));
+        global.localStorage.removeItem("siricharoen_quick_note_v1");
+      }
+    } catch (e) {
+      notes = {};
+    }
+    let noteDate = DB.todayStr();
+    const saveNotes = () => {
+      try {
+        global.localStorage.setItem(NOTE_KEY, JSON.stringify(notes));
+      } catch (e) {}
+    };
+    const TH_DAYS = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
+    const dateLabel = (d) => {
+      const dt = new Date(d + "T00:00:00");
+      return `${TH_DAYS[dt.getDay()]} ${fmtDate(d)}${d === DB.todayStr() ? " (วันนี้)" : ""}`;
+    };
+    const shiftDate = (d, n) => {
+      const dt = new Date(d + "T00:00:00");
+      dt.setDate(dt.getDate() + n);
+      return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+    };
     const noteArea = el("textarea", {
-      placeholder: "จดโน้ตสั้นๆ เช่น ลูกค้าโทรมาสั่ง, ยอดที่ต้องโอน (บันทึกอัตโนมัติ)",
-      style: { width: "100%", boxSizing: "border-box", height: "230px", resize: "vertical", border: "1px solid #dde1e6", borderRadius: "8px", padding: "8px", fontSize: "13px", fontFamily: "inherit" },
+      placeholder: "จดโน้ตของวันนี้ เช่น ลูกค้าโทรมาสั่ง, ยอดที่ต้องโอน (บันทึกอัตโนมัติ)",
+      style: { width: "100%", boxSizing: "border-box", height: "200px", resize: "vertical", border: "1px solid #dde1e6", borderRadius: "8px", padding: "8px", fontSize: "13px", fontFamily: "inherit" },
     });
-    noteArea.value = noteText;
+    const navBtnStyle = { border: "1px solid #dde1e6", background: "#fff", borderRadius: "6px", cursor: "pointer", padding: "2px 8px", fontSize: "13px" };
+    const dateText = el("span", { style: { fontSize: "12.5px", fontWeight: "600", color: "#16324f", flex: "1", textAlign: "center" } });
+    const daySelect = el("select", { style: { width: "100%", fontSize: "12px", marginBottom: "6px", padding: "3px" } });
+    function refreshDaySelect() {
+      clear(daySelect);
+      daySelect.appendChild(el("option", { value: "", text: "ไปที่วันที่มีโน้ต..." }));
+      Object.keys(notes)
+        .filter((d) => (notes[d] || "").trim())
+        .sort()
+        .reverse()
+        .forEach((d) => {
+          const first = (notes[d] || "").trim().split("\n")[0].slice(0, 22);
+          daySelect.appendChild(el("option", { value: d, text: `${fmtDate(d)} · ${first}` }));
+        });
+    }
+    function loadNote(d) {
+      noteDate = d;
+      noteArea.value = notes[d] || "";
+      dateText.textContent = dateLabel(d);
+      noteArea.placeholder = d === DB.todayStr() ? "จดโน้ตของวันนี้ (บันทึกอัตโนมัติ)" : `จดโน้ตของวันที่ ${fmtDate(d)} (บันทึกอัตโนมัติ)`;
+      refreshDaySelect();
+    }
+    daySelect.addEventListener("change", () => {
+      if (daySelect.value) loadNote(daySelect.value);
+    });
+    const dayNav = el(
+      "div",
+      { style: { display: "flex", alignItems: "center", gap: "4px", marginBottom: "6px" } },
+      el("button", { type: "button", text: "◀", title: "วันก่อนหน้า", style: navBtnStyle, onClick: () => loadNote(shiftDate(noteDate, -1)) }),
+      dateText,
+      el("button", { type: "button", text: "▶", title: "วันถัดไป", style: navBtnStyle, onClick: () => loadNote(shiftDate(noteDate, 1)) }),
+      el("button", { type: "button", text: "วันนี้", style: navBtnStyle, onClick: () => loadNote(DB.todayStr()) })
+    );
     const noteSaved = el("span", { text: "", style: { fontSize: "11px", color: "#2e8b57" } });
     let noteTimer = null;
     noteArea.addEventListener("input", () => {
+      const d = noteDate;
+      const v = noteArea.value;
       clearTimeout(noteTimer);
       noteTimer = setTimeout(() => {
-        try {
-          global.localStorage.setItem(NOTE_KEY, noteArea.value);
-          noteSaved.textContent = "บันทึกแล้ว ✓";
-          setTimeout(() => (noteSaved.textContent = ""), 1200);
-        } catch (e) {}
+        if (v.trim()) notes[d] = v;
+        else delete notes[d];
+        saveNotes();
+        refreshDaySelect();
+        noteSaved.textContent = "บันทึกแล้ว ✓";
+        setTimeout(() => (noteSaved.textContent = ""), 1200);
       }, 400);
     });
     const noteClear = el(
@@ -12400,20 +12461,23 @@ if (typeof module !== "undefined") {
         type: "button",
         style: { fontSize: "12px", padding: "3px 8px", border: "1px solid #dde1e6", borderRadius: "6px", background: "#fff", cursor: "pointer" },
         onClick: () => {
-          if (!noteArea.value || !global.confirm("ยืนยันลบโน้ตทั้งหมด?")) return;
+          if (!noteArea.value || !global.confirm(`ยืนยันลบโน้ตของวันที่ ${fmtDate(noteDate)}?`)) return;
           noteArea.value = "";
           noteArea.dispatchEvent(new Event("input"));
         },
       },
-      "ล้างโน้ต"
+      "ล้างโน้ตวันนี้"
     );
     const noteBox = el(
       "div",
       { style: { padding: "8px", display: "none" } },
+      dayNav,
+      daySelect,
       noteArea,
       el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "6px" } }, noteSaved, noteClear),
-      el("div", { text: "โน้ตเก็บไว้ในเครื่องนี้เท่านั้น", style: { fontSize: "11px", color: "#888", marginTop: "4px" } })
+      el("div", { text: "โน้ตแยกตามวัน เก็บไว้ในเครื่องนี้เท่านั้น", style: { fontSize: "11px", color: "#888", marginTop: "4px" } })
     );
+    loadNote(noteDate);
     const calcBox = el("div", {});
     // ปุ่มจดผลคำนวณลงโน้ต
     const toNoteBtn = el(
@@ -12424,8 +12488,13 @@ if (typeof module !== "undefined") {
         style: { fontSize: "11px", padding: "2px 8px", border: "1px solid #c9ced6", borderRadius: "6px", background: "#fff", color: "#16324f", cursor: "pointer", marginTop: "4px" },
         onClick: () => {
           const line = (expr ? expr + " " : "") + cur;
-          noteArea.value = (noteArea.value ? noteArea.value.replace(/\s*$/, "") + "\n" : "") + line;
-          noteArea.dispatchEvent(new Event("input"));
+          // จดลงโน้ตของ "วันนี้" เสมอ
+          const t = DB.todayStr();
+          const prev = (notes[t] || "").replace(/\s*$/, "");
+          notes[t] = (prev ? prev + "\n" : "") + line;
+          saveNotes();
+          if (noteDate === t) noteArea.value = notes[t];
+          refreshDaySelect();
           toNoteBtn.textContent = "จดแล้ว ✓";
           setTimeout(() => (toNoteBtn.textContent = "จดลงโน้ต"), 1200);
         },
