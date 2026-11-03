@@ -12371,11 +12371,86 @@ if (typeof module !== "undefined") {
         },
         label
       );
+    // ---- โน้ตสั้นๆ (เก็บในเครื่องนี้ ไม่ขึ้นคลาวด์ ไม่ยุ่งกับข้อมูลร้าน)
+    const NOTE_KEY = "siricharoen_quick_note_v1";
+    let noteText = "";
+    try {
+      noteText = global.localStorage.getItem(NOTE_KEY) || "";
+    } catch (e) {}
+    const noteArea = el("textarea", {
+      placeholder: "จดโน้ตสั้นๆ เช่น ลูกค้าโทรมาสั่ง, ยอดที่ต้องโอน (บันทึกอัตโนมัติ)",
+      style: { width: "100%", boxSizing: "border-box", height: "230px", resize: "vertical", border: "1px solid #dde1e6", borderRadius: "8px", padding: "8px", fontSize: "13px", fontFamily: "inherit" },
+    });
+    noteArea.value = noteText;
+    const noteSaved = el("span", { text: "", style: { fontSize: "11px", color: "#2e8b57" } });
+    let noteTimer = null;
+    noteArea.addEventListener("input", () => {
+      clearTimeout(noteTimer);
+      noteTimer = setTimeout(() => {
+        try {
+          global.localStorage.setItem(NOTE_KEY, noteArea.value);
+          noteSaved.textContent = "บันทึกแล้ว ✓";
+          setTimeout(() => (noteSaved.textContent = ""), 1200);
+        } catch (e) {}
+      }, 400);
+    });
+    const noteClear = el(
+      "button",
+      {
+        type: "button",
+        style: { fontSize: "12px", padding: "3px 8px", border: "1px solid #dde1e6", borderRadius: "6px", background: "#fff", cursor: "pointer" },
+        onClick: () => {
+          if (!noteArea.value || !global.confirm("ยืนยันลบโน้ตทั้งหมด?")) return;
+          noteArea.value = "";
+          noteArea.dispatchEvent(new Event("input"));
+        },
+      },
+      "ล้างโน้ต"
+    );
+    const noteBox = el(
+      "div",
+      { style: { padding: "8px", display: "none" } },
+      noteArea,
+      el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "6px" } }, noteSaved, noteClear),
+      el("div", { text: "โน้ตเก็บไว้ในเครื่องนี้เท่านั้น", style: { fontSize: "11px", color: "#888", marginTop: "4px" } })
+    );
+    const calcBox = el("div", {});
+    // ปุ่มจดผลคำนวณลงโน้ต
+    const toNoteBtn = el(
+      "button",
+      {
+        type: "button",
+        title: "จดผลคำนวณนี้ลงโน้ต",
+        style: { fontSize: "11px", padding: "2px 8px", border: "1px solid #c9ced6", borderRadius: "6px", background: "#fff", color: "#16324f", cursor: "pointer", marginTop: "4px" },
+        onClick: () => {
+          const line = (expr ? expr + " " : "") + cur;
+          noteArea.value = (noteArea.value ? noteArea.value.replace(/\s*$/, "") + "\n" : "") + line;
+          noteArea.dispatchEvent(new Event("input"));
+          toNoteBtn.textContent = "จดแล้ว ✓";
+          setTimeout(() => (toNoteBtn.textContent = "จดลงโน้ต"), 1200);
+        },
+      },
+      "จดลงโน้ต"
+    );
+    const tabStyle = (on) => ({ padding: "2px 8px", borderRadius: "6px", cursor: "pointer", background: on ? "#16324f" : "transparent", color: on ? "#fff" : "#16324f", fontWeight: "600" });
+    const tabCalc = el("span", { text: "เครื่องคิดเลข", style: tabStyle(true), onClick: () => showTab("calc") });
+    const tabNote = el("span", { text: "โน้ต", style: tabStyle(false), onClick: () => showTab("note") });
+    function showTab(t) {
+      calcBox.style.display = t === "calc" ? "" : "none";
+      noteBox.style.display = t === "note" ? "" : "none";
+      Object.assign(tabCalc.style, tabStyle(t === "calc"));
+      Object.assign(tabNote.style, tabStyle(t === "note"));
+    }
     const closeX = el("span", { text: "✕", style: { cursor: "pointer", padding: "0 4px" }, onClick: () => setOpen(false) });
     const header = el(
       "div",
       { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", background: "#eef0f3", borderRadius: "12px 12px 0 0", cursor: "move", fontSize: "12px", color: "#16324f", userSelect: "none" } },
-      el("span", { text: "เครื่องคิดเลข (ลากย้ายได้)" }),
+      el(
+        "span",
+        { style: { display: "flex", gap: "4px" } },
+        tabCalc,
+        tabNote
+      ),
       closeX
     );
     const panel = el(
@@ -12396,7 +12471,11 @@ if (typeof module !== "undefined") {
         },
       },
       header,
-      el("div", { style: { padding: "8px 10px" } }, exEl, vEl),
+      calcBox,
+      noteBox
+    );
+    calcBox.appendChild(el("div", { style: { padding: "8px 10px", textAlign: "right" } }, exEl, vEl, toNoteBtn));
+    calcBox.appendChild(
       el(
         "div",
         { style: { display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "6px", padding: "0 8px 8px" } },
@@ -12404,7 +12483,9 @@ if (typeof module !== "undefined") {
         quickBtn("เมตร → หลา", "m2y"),
         quickBtn("+ VAT 7%", "vat"),
         quickBtn("ถอด VAT", "nov")
-      ),
+      )
+    );
+    calcBox.appendChild(
       el(
         "div",
         { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "6px", padding: "0 8px 8px" } },
