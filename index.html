@@ -12263,11 +12263,229 @@ if (typeof module !== "undefined") {
     } catch (e) {}
   }
 
+  // =================================================================== เครื่องคิดเลขลอย (มุมขวาล่างทุกหน้า)
+  function buildFloatingCalculator() {
+    const doc = global.document;
+    let cur = "0";
+    let expr = "";
+    const fmt = (n) => {
+      const r = Math.round(n * 100) / 100;
+      return r.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    };
+    const num = (s) => Number(String(s).replace(/,/g, "")) || 0;
+    const exEl = el("div", { style: { fontSize: "12px", color: "#888", minHeight: "16px", textAlign: "right", wordBreak: "break-all" } });
+    const vEl = el("div", { text: "0", style: { fontSize: "24px", fontWeight: "700", textAlign: "right", wordBreak: "break-all", color: "#111" } });
+    function show() {
+      vEl.textContent = cur;
+      exEl.textContent = expr;
+    }
+    function evalExpr(s) {
+      // คำนวณเฉพาะตัวเลขและเครื่องหมาย + - * / ( ) . เท่านั้น
+      const clean = s.replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-").replace(/,/g, "");
+      if (!/^[0-9+\-*/(). ]*$/.test(clean)) return 0;
+      try {
+        const r = Function('"use strict";return (' + clean + ")")();
+        return isFinite(r) ? r : 0;
+      } catch (e) {
+        return 0;
+      }
+    }
+    function press(k) {
+      if (k === "C") {
+        cur = "0";
+        expr = "";
+      } else if (k === "⌫") {
+        cur = cur.length > 1 ? cur.slice(0, -1) : "0";
+      } else if ("÷×−+".includes(k)) {
+        if (expr.endsWith("=")) expr = "";
+        expr += cur.replace(/,/g, "") + " " + k + " ";
+        cur = "0";
+      } else if (k === "%") {
+        cur = fmt(num(cur) / 100);
+      } else if (k === "=") {
+        if (expr.endsWith("=")) return;
+        const r = evalExpr(expr + cur.replace(/,/g, ""));
+        expr = expr + cur + " =";
+        cur = fmt(r);
+      } else {
+        if (expr.endsWith("=")) {
+          expr = "";
+          cur = "0";
+        }
+        if (k === "." && cur.includes(".")) return;
+        if (cur === "0" && k !== ".") cur = k === "00" ? "0" : k;
+        else cur += k;
+      }
+      show();
+    }
+    function conv(t) {
+      const n = num(cur);
+      let r, l;
+      if (t === "y2m") {
+        r = n * METER_PER_YARD;
+        l = `${fmt(n)} หลา = (เมตร)`;
+      } else if (t === "m2y") {
+        r = n * YARD_PER_METER;
+        l = `${fmt(n)} เมตร = (หลา)`;
+      } else if (t === "vat") {
+        r = n * 1.07;
+        l = `${fmt(n)} + VAT 7% =`;
+      } else {
+        r = n / 1.07;
+        l = `${fmt(n)} ถอด VAT 7% =`;
+      }
+      expr = l;
+      cur = fmt(r);
+      show();
+    }
+    const keyBtn = (k) => {
+      const isOp = "÷×−+%".includes(k);
+      const isEq = k === "=";
+      return el(
+        "button",
+        {
+          type: "button",
+          style: {
+            height: "38px",
+            borderRadius: "8px",
+            border: "1px solid #dde1e6",
+            background: isEq ? "#16324f" : isOp ? "#eef0f3" : "#fafbfc",
+            color: isEq ? "#fff" : isOp ? "#16324f" : "#111",
+            fontSize: "16px",
+            fontWeight: isOp || isEq ? "700" : "400",
+            cursor: "pointer",
+            fontFamily: "inherit",
+          },
+          onClick: () => press(k),
+        },
+        k
+      );
+    };
+    const quickBtn = (label, t) =>
+      el(
+        "button",
+        {
+          type: "button",
+          style: { height: "30px", borderRadius: "6px", border: "1px solid #c9a15a", background: "#fbf6ec", color: "#7a5a1e", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" },
+          onClick: () => conv(t),
+        },
+        label
+      );
+    const closeX = el("span", { text: "✕", style: { cursor: "pointer", padding: "0 4px" }, onClick: () => setOpen(false) });
+    const header = el(
+      "div",
+      { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", background: "#eef0f3", borderRadius: "12px 12px 0 0", cursor: "move", fontSize: "12px", color: "#16324f", userSelect: "none" } },
+      el("span", { text: "เครื่องคิดเลข (ลากย้ายได้)" }),
+      closeX
+    );
+    const panel = el(
+      "div",
+      {
+        style: {
+          position: "fixed",
+          right: "18px",
+          bottom: "84px",
+          width: "250px",
+          background: "#fff",
+          border: "1px solid #c9ced6",
+          borderRadius: "12px",
+          boxShadow: "0 6px 18px rgba(0,0,0,.18)",
+          zIndex: "4000",
+          display: "none",
+          fontFamily: "Tahoma,'Segoe UI',sans-serif",
+        },
+      },
+      header,
+      el("div", { style: { padding: "8px 10px" } }, exEl, vEl),
+      el(
+        "div",
+        { style: { display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "6px", padding: "0 8px 8px" } },
+        quickBtn("หลา → เมตร", "y2m"),
+        quickBtn("เมตร → หลา", "m2y"),
+        quickBtn("+ VAT 7%", "vat"),
+        quickBtn("ถอด VAT", "nov")
+      ),
+      el(
+        "div",
+        { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "6px", padding: "0 8px 8px" } },
+        ...["C", "⌫", "%", "÷", "7", "8", "9", "×", "4", "5", "6", "−", "1", "2", "3", "+", "0", "00", ".", "="].map(keyBtn)
+      )
+    );
+    const fab = el(
+      "button",
+      {
+        type: "button",
+        title: "เครื่องคิดเลข",
+        style: {
+          position: "fixed",
+          right: "18px",
+          bottom: "18px",
+          width: "52px",
+          height: "52px",
+          borderRadius: "50%",
+          background: "#16324f",
+          color: "#fff",
+          border: "none",
+          boxShadow: "0 3px 10px rgba(0,0,0,.25)",
+          zIndex: "4000",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        onClick: () => setOpen(panel.style.display === "none"),
+      }
+    );
+    fab.innerHTML =
+      '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><rect x="8" y="6" width="8" height="3" rx="1"/><path d="M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01"/></svg>';
+    function setOpen(open) {
+      panel.style.display = open ? "block" : "none";
+    }
+    // ลากย้ายตำแหน่งที่แถบด้านบน
+    let drag = null;
+    header.addEventListener("mousedown", (e) => {
+      if (e.target === closeX) return;
+      const r = panel.getBoundingClientRect();
+      drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+      e.preventDefault();
+    });
+    doc.addEventListener("mousemove", (e) => {
+      if (!drag) return;
+      const x = Math.min(Math.max(0, e.clientX - drag.dx), global.innerWidth - panel.offsetWidth);
+      const y = Math.min(Math.max(0, e.clientY - drag.dy), global.innerHeight - 40);
+      panel.style.left = x + "px";
+      panel.style.top = y + "px";
+      panel.style.right = "auto";
+      panel.style.bottom = "auto";
+    });
+    doc.addEventListener("mouseup", () => (drag = null));
+    // ใช้แป้นพิมพ์ได้ เมื่อเครื่องคิดเลขเปิดอยู่ และไม่ได้กำลังพิมพ์ในช่องกรอกอื่น
+    doc.addEventListener("keydown", (e) => {
+      if (panel.style.display === "none") return;
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      const map = { "*": "×", "/": "÷", "-": "−", "+": "+", Enter: "=", "=": "=", Backspace: "⌫", Escape: "C", Delete: "C", "%": "%", ".": ".", ",": "." };
+      let k = null;
+      if (/^[0-9]$/.test(e.key)) k = e.key;
+      else if (map[e.key]) k = map[e.key];
+      if (!k) return;
+      e.preventDefault();
+      press(k);
+    });
+    doc.body.appendChild(panel);
+    doc.body.appendChild(fab);
+  }
+
   // ==================================================================== init
   function init() {
     const layoutRoot = buildLayout();
     global.document.body.appendChild(layoutRoot);
     global.document.body.appendChild(buildModal());
+    try {
+      buildFloatingCalculator();
+    } catch (e) {
+      console.error("สร้างเครื่องคิดเลขไม่สำเร็จ", e);
+    }
 
     renderers.dashboard = renderDashboard;
     renderers.pos = renderPOS;
