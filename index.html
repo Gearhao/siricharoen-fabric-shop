@@ -4292,7 +4292,8 @@ if (typeof module !== "undefined") {
           renderPosSalesHistory();
         },
       });
-      return el("label", { class: "chk-label", style: isRed ? { color: "var(--danger)", fontWeight: "600" } : {} }, chk, " " + st);
+      const isBlue = st === "ชำระแล้ว";
+      return el("label", { class: "chk-label", style: isRed ? { color: "var(--danger)", fontWeight: "600" } : isBlue ? { color: "#1f5c94", fontWeight: "600" } : {} }, chk, " " + st);
     });
     const historySearchInput = el("input", {
       type: "text",
