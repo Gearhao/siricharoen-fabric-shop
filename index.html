@@ -12404,43 +12404,82 @@ if (typeof module !== "undefined") {
       return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
     };
     const noteArea = el("textarea", {
-      placeholder: "จดโน้ตของวันนี้ เช่น ลูกค้าโทรมาสั่ง, ยอดที่ต้องโอน (บันทึกอัตโนมัติ)",
-      style: { width: "100%", boxSizing: "border-box", height: "200px", resize: "vertical", border: "1px solid #dde1e6", borderRadius: "8px", padding: "8px", fontSize: "13px", fontFamily: "inherit" },
+      placeholder: "จดอะไรก็ได้…",
+      style: {
+        width: "100%",
+        boxSizing: "border-box",
+        height: "220px",
+        resize: "none",
+        border: "none",
+        outline: "none",
+        background: "#f6f7f9",
+        borderRadius: "10px",
+        padding: "10px 12px",
+        fontSize: "13.5px",
+        lineHeight: "1.6",
+        fontFamily: "inherit",
+        color: "#222",
+      },
     });
-    const navBtnStyle = { border: "1px solid #dde1e6", background: "#fff", borderRadius: "6px", cursor: "pointer", padding: "2px 8px", fontSize: "13px" };
-    const dateText = el("span", { style: { fontSize: "12.5px", fontWeight: "600", color: "#16324f", flex: "1", textAlign: "center" } });
-    const daySelect = el("select", { style: { width: "100%", fontSize: "12px", marginBottom: "6px", padding: "3px" } });
+    const ghostBtn = (txt, title, onClick) =>
+      el("button", { type: "button", text: txt, title, onClick, style: { border: "none", background: "transparent", cursor: "pointer", color: "#16324f", fontSize: "16px", padding: "2px 8px", lineHeight: "1" } });
+    const dateText = el("div", { style: { fontSize: "13px", fontWeight: "600", color: "#16324f", cursor: "pointer", userSelect: "none" } });
+    const todayLink = el("div", {
+      text: "กลับวันนี้",
+      style: { fontSize: "11px", color: "#8a8f98", cursor: "pointer", marginTop: "1px" },
+      onClick: () => loadNote(DB.todayStr()),
+    });
+    // รายการวันที่มีโน้ต (แสดงเมื่อกดที่วันที่)
+    const dayList = el("div", { style: { display: "none", maxHeight: "150px", overflowY: "auto", margin: "0 0 8px", borderRadius: "8px", background: "#f6f7f9" } });
+    function refreshDayList() {
+      clear(dayList);
+      const days = Object.keys(notes).filter((d) => (notes[d] || "").trim()).sort().reverse();
+      if (!days.length) {
+        dayList.appendChild(el("div", { text: "ยังไม่มีโน้ต", style: { fontSize: "12px", color: "#8a8f98", padding: "8px 10px" } }));
+        return;
+      }
+      days.forEach((d) => {
+        const first = (notes[d] || "").trim().split("\n")[0];
+        dayList.appendChild(
+          el(
+            "div",
+            {
+              style: { display: "flex", gap: "8px", padding: "6px 10px", cursor: "pointer", fontSize: "12px", borderBottom: "1px solid #eceef1" },
+              onClick: () => {
+                dayList.style.display = "none";
+                loadNote(d);
+              },
+            },
+            el("span", { text: fmtDate(d).slice(0, 5), style: { color: "#16324f", fontWeight: "600", flex: "0 0 auto" } }),
+            el("span", { text: first, style: { color: "#555", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } })
+          )
+        );
+      });
+    }
+    dateText.addEventListener("click", () => {
+      const open = dayList.style.display === "none";
+      if (open) refreshDayList();
+      dayList.style.display = open ? "" : "none";
+    });
     function refreshDaySelect() {
-      clear(daySelect);
-      daySelect.appendChild(el("option", { value: "", text: "ไปที่วันที่มีโน้ต..." }));
-      Object.keys(notes)
-        .filter((d) => (notes[d] || "").trim())
-        .sort()
-        .reverse()
-        .forEach((d) => {
-          const first = (notes[d] || "").trim().split("\n")[0].slice(0, 22);
-          daySelect.appendChild(el("option", { value: d, text: `${fmtDate(d)} · ${first}` }));
-        });
+      if (dayList.style.display !== "none") refreshDayList();
     }
     function loadNote(d) {
       noteDate = d;
       noteArea.value = notes[d] || "";
-      dateText.textContent = dateLabel(d);
-      noteArea.placeholder = d === DB.todayStr() ? "จดโน้ตของวันนี้ (บันทึกอัตโนมัติ)" : `จดโน้ตของวันที่ ${fmtDate(d)} (บันทึกอัตโนมัติ)`;
+      const isToday = d === DB.todayStr();
+      dateText.textContent = `${dateLabel(d).replace(" (วันนี้)", "")} ▾`;
+      todayLink.style.visibility = isToday ? "hidden" : "visible";
       refreshDaySelect();
     }
-    daySelect.addEventListener("change", () => {
-      if (daySelect.value) loadNote(daySelect.value);
-    });
     const dayNav = el(
       "div",
-      { style: { display: "flex", alignItems: "center", gap: "4px", marginBottom: "6px" } },
-      el("button", { type: "button", text: "◀", title: "วันก่อนหน้า", style: navBtnStyle, onClick: () => loadNote(shiftDate(noteDate, -1)) }),
-      dateText,
-      el("button", { type: "button", text: "▶", title: "วันถัดไป", style: navBtnStyle, onClick: () => loadNote(shiftDate(noteDate, 1)) }),
-      el("button", { type: "button", text: "วันนี้", style: navBtnStyle, onClick: () => loadNote(DB.todayStr()) })
+      { style: { display: "flex", alignItems: "center", justifyContent: "space-between", margin: "2px 0 8px" } },
+      ghostBtn("‹", "วันก่อนหน้า", () => loadNote(shiftDate(noteDate, -1))),
+      el("div", { style: { textAlign: "center" } }, dateText, todayLink),
+      ghostBtn("›", "วันถัดไป", () => loadNote(shiftDate(noteDate, 1)))
     );
-    const noteSaved = el("span", { text: "", style: { fontSize: "11px", color: "#2e8b57" } });
+    const noteSaved = el("span", { text: "บันทึกอัตโนมัติ", style: { fontSize: "11px", color: "#a0a5ad" } });
     let noteTimer = null;
     noteArea.addEventListener("input", () => {
       const d = noteDate;
@@ -12452,30 +12491,26 @@ if (typeof module !== "undefined") {
         saveNotes();
         refreshDaySelect();
         noteSaved.textContent = "บันทึกแล้ว ✓";
-        setTimeout(() => (noteSaved.textContent = ""), 1200);
+        setTimeout(() => (noteSaved.textContent = "บันทึกอัตโนมัติ"), 1200);
       }, 400);
     });
-    const noteClear = el(
-      "button",
-      {
-        type: "button",
-        style: { fontSize: "12px", padding: "3px 8px", border: "1px solid #dde1e6", borderRadius: "6px", background: "#fff", cursor: "pointer" },
-        onClick: () => {
-          if (!noteArea.value || !global.confirm(`ยืนยันลบโน้ตของวันที่ ${fmtDate(noteDate)}?`)) return;
-          noteArea.value = "";
-          noteArea.dispatchEvent(new Event("input"));
-        },
+    const noteClear = el("span", {
+      text: "ล้าง",
+      title: "ลบโน้ตของวันนี้",
+      style: { fontSize: "11px", color: "#a0a5ad", cursor: "pointer" },
+      onClick: () => {
+        if (!noteArea.value || !global.confirm(`ลบโน้ตของวันที่ ${fmtDate(noteDate)}?`)) return;
+        noteArea.value = "";
+        noteArea.dispatchEvent(new Event("input"));
       },
-      "ล้างโน้ตวันนี้"
-    );
+    });
     const noteBox = el(
       "div",
-      { style: { padding: "8px", display: "none" } },
+      { style: { padding: "6px 10px 10px", display: "none" } },
       dayNav,
-      daySelect,
+      dayList,
       noteArea,
-      el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "6px" } }, noteSaved, noteClear),
-      el("div", { text: "โน้ตแยกตามวัน เก็บไว้ในเครื่องนี้เท่านั้น", style: { fontSize: "11px", color: "#888", marginTop: "4px" } })
+      el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "6px", padding: "0 2px" } }, noteSaved, noteClear)
     );
     loadNote(noteDate);
     const calcBox = el("div", {});
@@ -12485,7 +12520,7 @@ if (typeof module !== "undefined") {
       {
         type: "button",
         title: "จดผลคำนวณนี้ลงโน้ต",
-        style: { fontSize: "11px", padding: "2px 8px", border: "1px solid #c9ced6", borderRadius: "6px", background: "#fff", color: "#16324f", cursor: "pointer", marginTop: "4px" },
+        style: { fontSize: "11px", padding: "0", border: "none", background: "transparent", color: "#8a8f98", cursor: "pointer", marginTop: "2px", textDecoration: "underline" },
         onClick: () => {
           const line = (expr ? expr + " " : "") + cur;
           // จดลงโน้ตของ "วันนี้" เสมอ
@@ -12501,8 +12536,8 @@ if (typeof module !== "undefined") {
       },
       "จดลงโน้ต"
     );
-    const tabStyle = (on) => ({ padding: "2px 8px", borderRadius: "6px", cursor: "pointer", background: on ? "#16324f" : "transparent", color: on ? "#fff" : "#16324f", fontWeight: "600" });
-    const tabCalc = el("span", { text: "เครื่องคิดเลข", style: tabStyle(true), onClick: () => showTab("calc") });
+    const tabStyle = (on) => ({ padding: "3px 10px", borderRadius: "999px", cursor: "pointer", background: on ? "#fff" : "transparent", color: on ? "#16324f" : "#8a8f98", fontWeight: on ? "600" : "400", boxShadow: on ? "0 1px 2px rgba(0,0,0,.08)" : "none" });
+    const tabCalc = el("span", { text: "คิดเลข", style: tabStyle(true), onClick: () => showTab("calc") });
     const tabNote = el("span", { text: "โน้ต", style: tabStyle(false), onClick: () => showTab("note") });
     function showTab(t) {
       calcBox.style.display = t === "calc" ? "" : "none";
@@ -12510,13 +12545,13 @@ if (typeof module !== "undefined") {
       Object.assign(tabCalc.style, tabStyle(t === "calc"));
       Object.assign(tabNote.style, tabStyle(t === "note"));
     }
-    const closeX = el("span", { text: "✕", style: { cursor: "pointer", padding: "0 4px" }, onClick: () => setOpen(false) });
+    const closeX = el("span", { text: "✕", title: "ปิด", style: { cursor: "pointer", padding: "0 4px", color: "#a0a5ad" }, onClick: () => setOpen(false) });
     const header = el(
       "div",
-      { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", background: "#eef0f3", borderRadius: "12px 12px 0 0", cursor: "move", fontSize: "12px", color: "#16324f", userSelect: "none" } },
+      { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "#fff", borderBottom: "1px solid #eef0f3", borderRadius: "12px 12px 0 0", cursor: "move", fontSize: "12px", color: "#16324f", userSelect: "none" } },
       el(
         "span",
-        { style: { display: "flex", gap: "4px" } },
+        { style: { display: "flex", gap: "2px", background: "#eef0f3", borderRadius: "999px", padding: "2px" } },
         tabCalc,
         tabNote
       ),
