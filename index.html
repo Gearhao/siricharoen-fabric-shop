@@ -3665,7 +3665,7 @@ if (typeof module !== "undefined") {
   // เครดิตแลกเปลี่ยนที่กดใช้ไว้ในบิลนี้ (มาจากการรับคืนสินค้าแบบ "เปลี่ยนของ" ครั้งก่อน) - หักออกจากลูกค้าจริงตอนกดขายสำเร็จ
   let pendingExchangeCredit = null; // { customerId, amount }
   // สถานะบิลที่ติ๊กกรองไว้ในประวัติการขาย (ไม่ติ๊กเลย = แสดงทุกสถานะ)
-  const POS_HISTORY_STATUSES = ["ค้างชำระ", "เงินสดแต่ค้างชำระ", "รอเช็คขึ้นเงิน", "ชำระแล้ว"];
+  const POS_HISTORY_STATUSES = ["ชำระแล้ว", "ค้างชำระ", "เงินสดแต่ค้างชำระ", "รอเช็คขึ้นเงิน"];
   const posHistoryStatusFilter = new Set();
   let posHistorySearch = "";
   let posHistoryDate = "";
@@ -4292,7 +4292,7 @@ if (typeof module !== "undefined") {
           renderPosSalesHistory();
         },
       });
-      return el("label", { class: "chk-label" }, chk, " " + st);
+      return el("label", { class: "chk-label", style: isRed ? { color: "var(--danger)", fontWeight: "600" } : {} }, chk, " " + st);
     });
     const historySearchInput = el("input", {
       type: "text",
