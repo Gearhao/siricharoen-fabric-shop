@@ -5783,7 +5783,14 @@ if (typeof module !== "undefined") {
     const fid = Number(fidStr) || 0;
     const f = fid ? DB.getFabric(fid) : null;
     if (f) {
-      const saleUnit = cart[idx].unit || "หลา";
+      // เลือกหน่วยอัตโนมัติ (กันลืมเปลี่ยน): ถ้ายังไม่ได้ใส่ราคา ใช้หน่วยที่ลูกค้ารายนี้เคยซื้อผ้านี้ล่าสุด ถ้าไม่เคยใช้หน่วยของผ้าในคลัง
+      let saleUnit = cart[idx].unit || "หลา";
+      if (!cart[idx].unit_price) {
+        const custIdU = refs.posCustomerSelect ? refs.posCustomerSelect.getCustomerId() : 0;
+        const lastU = custIdU ? getLastPriceForCustomerFabric(custIdU, f.id) : null;
+        const autoUnit = (lastU && lastU.unit) || f.unit;
+        if (autoUnit === "หลา" || autoUnit === "เมตร") saleUnit = autoUnit;
+      }
       cart[idx].fabric_id = f.id;
       cart[idx].code = f.code;
       cart[idx].name = f.name;
@@ -5822,6 +5829,14 @@ if (typeof module !== "undefined") {
     row.unit = unitVal;
     renderPosItemsTable();
     updatePosTotals();
+  }
+
+  // ช่องหน่วยที่เป็น "เมตร" ให้พื้นเหลือง ตัวหนา มองปราดเดียวรู้ว่าแถวไหนเป็นเมตร
+  function styleMeterUnit(sel) {
+    const isM = sel.value === "เมตร";
+    sel.style.background = isM ? "#ffe066" : "";
+    sel.style.fontWeight = isM ? "700" : "";
+    sel.style.borderColor = isM ? "#e0a800" : "";
   }
 
   function round2(n) {
@@ -5877,8 +5892,10 @@ if (typeof module !== "undefined") {
         const curUnit = row.unit || "หลา";
         const unitOpts = miscUnits.concat(miscUnits.includes(curUnit) ? [] : [curUnit]).map((u) => ({ value: u, label: u }));
         const unitSelectMisc = selectInput(unitOpts, curUnit);
+        styleMeterUnit(unitSelectMisc);
         unitSelectMisc.addEventListener("change", (e) => {
           cart[idx].unit = e.target.value;
+          styleMeterUnit(unitSelectMisc);
         });
         unitCell = el("td", {}, unitSelectMisc);
       } else {
@@ -5896,6 +5913,7 @@ if (typeof module !== "undefined") {
         productCell = el("td", {}, fabricSelect);
 
         const unitSelect = selectInput(unitOptions, row.unit || "หลา");
+        styleMeterUnit(unitSelect);
         unitSelect.addEventListener("change", (e) => posRowSetUnit(idx, e.target.value));
         unitCell = el("td", {}, unitSelect);
       }
