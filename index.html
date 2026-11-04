@@ -353,9 +353,9 @@ html, body {
   width: 100%;
 }
 .pos-item-table th:nth-child(1), .pos-item-table td:nth-child(1) { width: 5%; }
-.pos-item-table th:nth-child(2), .pos-item-table td:nth-child(2) { width: 25%; }
-.pos-item-table th:nth-child(3), .pos-item-table td:nth-child(3) { width: 14%; }
-.pos-item-table th:nth-child(4), .pos-item-table td:nth-child(4) { width: 7%; }
+.pos-item-table th:nth-child(2), .pos-item-table td:nth-child(2) { width: 20%; }
+.pos-item-table th:nth-child(3), .pos-item-table td:nth-child(3) { width: 12%; }
+.pos-item-table th:nth-child(4), .pos-item-table td:nth-child(4) { width: 14%; }
 .pos-item-table th:nth-child(5), .pos-item-table td:nth-child(5) { width: 11%; }
 .pos-item-table th:nth-child(6), .pos-item-table td:nth-child(6) { width: 8%; }
 .pos-item-table th:nth-child(7), .pos-item-table td:nth-child(7) { width: 9%; }
@@ -5908,7 +5908,7 @@ if (typeof module !== "undefined") {
               class: "pos-unit-btn",
               "data-unit": o.value,
               style: {
-                padding: "3px 9px",
+                padding: "3px 6px",
                 borderRadius: "14px",
                 border: "1px solid #bbb",
                 background: on ? "#222" : "#fff",
@@ -5930,11 +5930,11 @@ if (typeof module !== "undefined") {
           "div",
           {
             class: "pos-unit-pick",
-            style: { display: "inline-flex", gap: "4px", padding: "2px", borderRadius: "16px", outline: row.unit ? "none" : "1px dashed var(--danger)", outlineOffset: "1px" },
+            style: { display: "inline-flex", gap: "3px", padding: "0", borderRadius: "16px", outline: row.unit ? "none" : "1px dashed var(--danger)", outlineOffset: "1px" },
           },
           ...unitPicks
         );
-        unitCell = el("td", { style: { minWidth: "100px" } }, unitBox);
+        unitCell = el("td", { style: { whiteSpace: "nowrap" } }, unitBox);
       }
 
       const noteInput = textInput(row.note || "");
