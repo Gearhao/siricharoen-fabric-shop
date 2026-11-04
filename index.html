@@ -5754,7 +5754,8 @@ if (typeof module !== "undefined") {
   }
 
   function addPosRow() {
-    cart.push({ fabric_id: "", code: "", name: "", unit: "หลา", baseUnit: "", qty: 1, unit_price: 0, cost_price: 0, stock_qty: null, roll_id: null, is_misc: false, note: "" });
+    // หน่วยเริ่มต้นว่าง ต้องติ้กเลือก หลา/เมตร เอง
+    cart.push({ fabric_id: "", code: "", name: "", unit: "", baseUnit: "", qty: 1, unit_price: 0, cost_price: 0, stock_qty: null, roll_id: null, is_misc: false, note: "" });
     renderPosItemsTable();
     updatePosTotals();
   }
@@ -5783,14 +5784,8 @@ if (typeof module !== "undefined") {
     const fid = Number(fidStr) || 0;
     const f = fid ? DB.getFabric(fid) : null;
     if (f) {
-      // เลือกหน่วยอัตโนมัติ (กันลืมเปลี่ยน): ถ้ายังไม่ได้ใส่ราคา ใช้หน่วยที่ลูกค้ารายนี้เคยซื้อผ้านี้ล่าสุด ถ้าไม่เคยใช้หน่วยของผ้าในคลัง
-      let saleUnit = cart[idx].unit || "หลา";
-      if (!cart[idx].unit_price) {
-        const custIdU = refs.posCustomerSelect ? refs.posCustomerSelect.getCustomerId() : 0;
-        const lastU = custIdU ? getLastPriceForCustomerFabric(custIdU, f.id) : null;
-        const autoUnit = (lastU && lastU.unit) || f.unit;
-        if (autoUnit === "หลา" || autoUnit === "เมตร") saleUnit = autoUnit;
-      }
+      // หน่วยยังไม่เลือก ("") = คิดราคาตามหน่วยของผ้าในคลังไปก่อน พอติ้กเลือกหน่วยจะแปลงราคาให้
+      const saleUnit = cart[idx].unit || "";
       cart[idx].fabric_id = f.id;
       cart[idx].code = f.code;
       cart[idx].name = f.name;
@@ -5810,7 +5805,7 @@ if (typeof module !== "undefined") {
         }
       }
     } else {
-      cart[idx] = { fabric_id: "", code: "", name: "", unit: cart[idx].unit || "หลา", baseUnit: "", qty: cart[idx].qty, unit_price: 0, stock_qty: null, roll_id: null, note: cart[idx].note || "" };
+      cart[idx] = { fabric_id: "", code: "", name: "", unit: cart[idx].unit || "", baseUnit: "", qty: cart[idx].qty, unit_price: 0, stock_qty: null, roll_id: null, note: cart[idx].note || "" };
     }
     renderPosItemsTable();
     updatePosTotals();
@@ -5829,14 +5824,6 @@ if (typeof module !== "undefined") {
     row.unit = unitVal;
     renderPosItemsTable();
     updatePosTotals();
-  }
-
-  // ช่องหน่วยที่เป็น "เมตร" ให้พื้นเหลือง ตัวหนา มองปราดเดียวรู้ว่าแถวไหนเป็นเมตร
-  function styleMeterUnit(sel) {
-    const isM = sel.value === "เมตร";
-    sel.style.background = isM ? "#ffe066" : "";
-    sel.style.fontWeight = isM ? "700" : "";
-    sel.style.borderColor = isM ? "#e0a800" : "";
   }
 
   function round2(n) {
@@ -5892,10 +5879,8 @@ if (typeof module !== "undefined") {
         const curUnit = row.unit || "หลา";
         const unitOpts = miscUnits.concat(miscUnits.includes(curUnit) ? [] : [curUnit]).map((u) => ({ value: u, label: u }));
         const unitSelectMisc = selectInput(unitOpts, curUnit);
-        styleMeterUnit(unitSelectMisc);
         unitSelectMisc.addEventListener("change", (e) => {
           cart[idx].unit = e.target.value;
-          styleMeterUnit(unitSelectMisc);
         });
         unitCell = el("td", {}, unitSelectMisc);
       } else {
@@ -5912,10 +5897,16 @@ if (typeof module !== "undefined") {
         });
         productCell = el("td", {}, fabricSelect);
 
-        const unitSelect = selectInput(unitOptions, row.unit || "หลา");
-        styleMeterUnit(unitSelect);
-        unitSelect.addEventListener("change", (e) => posRowSetUnit(idx, e.target.value));
-        unitCell = el("td", {}, unitSelect);
+        // ติ้กเลือกหน่วย หลา / เมตร (เริ่มต้นว่าง ต้องเลือกก่อนบันทึกบิล)
+        const radioName = `pos-unit-${idx}-${Date.now()}`;
+        const unitPicks = unitOptions.map((o) => {
+          const r = el("input", { type: "radio", name: radioName, value: o.value });
+          r.checked = row.unit === o.value;
+          r.addEventListener("change", () => posRowSetUnit(idx, o.value));
+          return el("label", { style: { display: "flex", alignItems: "center", gap: "3px", whiteSpace: "nowrap", cursor: "pointer" } }, r, o.label);
+        });
+        const unitBox = el("div", { class: "pos-unit-pick", style: { display: "flex", flexDirection: "column", gap: "2px", padding: "2px 4px", borderRadius: "4px", border: row.unit ? "1px solid transparent" : "1px solid var(--danger)" } }, ...unitPicks);
+        unitCell = el("td", {}, unitBox);
       }
 
       const noteInput = textInput(row.note || "");
@@ -6044,6 +6035,12 @@ if (typeof module !== "undefined") {
   // ป้องกันพนักงานลืมเปลี่ยนเป็น "เครดิต" ตอนขายให้ลูกค้าประจำที่จริงๆ ควรเป็นยอดค้างชำระ (ไม่ใช่แค่เงินสดที่ยังไม่ได้จ่าย)
   // ถ้าเลือกลูกค้า (ไม่ใช่ลูกค้าทั่วไป) และวิธีชำระเป็น "เงินสดแต่ยังไม่จ่าย" ให้ถามยืนยันก่อนบันทึกบิลจริง
   function checkout() {
+    // บังคับเลือกหน่วย (หลา/เมตร) ทุกแถวผ้าก่อน กันลืมเปลี่ยนหน่วย
+    const noUnitIdx = cart.findIndex((it) => !it.is_misc && it.fabric_id && it.qty > 0 && it.unit !== "หลา" && it.unit !== "เมตร");
+    if (noUnitIdx >= 0) {
+      global.alert(`กรุณาติ้กเลือกหน่วย หลา หรือ เมตร ของรายการที่ ${noUnitIdx + 1} ก่อน`);
+      return;
+    }
     const custId = refs.posCustomerSelect.getCustomerId();
     const paymentMethod = refs.posPaymentSelect.value;
     if (custId && paymentMethod === "เงินสดแต่ยังไม่จ่าย") {
