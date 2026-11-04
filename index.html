@@ -7777,9 +7777,32 @@ if (typeof module !== "undefined") {
   function openMovementsModal(fid) {
     const f = DB.getFabric(fid);
     const moves = DB.getStockMovements(fid);
+    // หาว่าขายให้ใคร / ซื้อจากใคร และราคาต่อหน่วยของผ้านี้ในบิลนั้น
+    const moveParty = (m) => {
+      try {
+        if (m.ref_type === "sale" && m.ref_id) {
+          const s = DB.getSale(m.ref_id);
+          if (!s) return { who: "", price: "" };
+          const c = s.customer_id ? DB.getCustomer(s.customer_id) : null;
+          const its = (s.items || []).filter((i) => !i.is_misc && i.fabric_id === fid);
+          const price = [...new Set(its.map((i) => `${money(i.unit_price)}/${i.unit || "หลา"}`))].join(", ");
+          return { who: c ? c.name : s.customer_name || "ลูกค้าทั่วไป", price };
+        }
+        if (m.ref_type === "purchase" && m.ref_id) {
+          const p = DB.getPurchase(m.ref_id);
+          if (!p) return { who: "", price: "" };
+          const sp = p.supplier_id ? DB.getSupplier(p.supplier_id) : null;
+          const its = (p.items || []).filter((i) => i.fabric_id === fid);
+          const price = [...new Set(its.map((i) => `${money(i.unit_cost)}/${i.unit || "หลา"}`))].join(", ");
+          return { who: sp ? sp.name : "", price: price ? `ทุน ${price}` : "" };
+        }
+      } catch (e) {}
+      return { who: "", price: "" };
+    };
+    const parties = moves.map(moveParty);
     const table = buildDataTable(
-      ["วันที่", "ประเภท", "จำนวน", "หมายเหตุ"],
-      moves.map((m) => [fmtDate(m.date), m.move_type, m.qty, m.note]),
+      ["วันที่", "ประเภท", "จำนวน", "ลูกค้า / ผู้จำหน่าย", "ราคา/หน่วย", "หมายเหตุ"],
+      moves.map((m, i) => [fmtDate(m.date), m.move_type, m.qty, parties[i].who, parties[i].price, m.note]),
       {
         actions: (idx) => {
           const m = moves[idx];
