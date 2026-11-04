@@ -5898,15 +5898,43 @@ if (typeof module !== "undefined") {
         productCell = el("td", {}, fabricSelect);
 
         // ติ้กเลือกหน่วย หลา / เมตร (เริ่มต้นว่าง ต้องเลือกก่อนบันทึกบิล)
-        const radioName = `pos-unit-${idx}-${Date.now()}`;
+        // แบบ 2: ปุ่มคู่แยกกัน (หลา / เมตร) อันที่เลือกเป็นพื้นเข้ม ยังไม่เลือกมีเส้นประแดงบางๆ
         const unitPicks = unitOptions.map((o) => {
-          const r = el("input", { type: "radio", name: radioName, value: o.value, style: { width: "15px", height: "15px", minWidth: "15px", flex: "0 0 auto", margin: "0", padding: "0" } });
-          r.checked = row.unit === o.value;
-          r.addEventListener("change", () => posRowSetUnit(idx, o.value));
-          return el("label", { style: { display: "flex", alignItems: "center", gap: "3px", whiteSpace: "nowrap", cursor: "pointer" } }, r, o.label);
+          const on = row.unit === o.value;
+          return el(
+            "button",
+            {
+              type: "button",
+              class: "pos-unit-btn",
+              "data-unit": o.value,
+              style: {
+                padding: "3px 9px",
+                borderRadius: "14px",
+                border: "1px solid #bbb",
+                background: on ? "#222" : "#fff",
+                color: on ? "#fff" : "#555",
+                fontSize: "13px",
+                lineHeight: "1.4",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                width: "auto",
+                minWidth: "0",
+                margin: "0",
+              },
+              onClick: () => posRowSetUnit(idx, o.value),
+            },
+            o.label
+          );
         });
-        const unitBox = el("div", { class: "pos-unit-pick", style: { display: "flex", flexDirection: "column", gap: "2px", padding: "2px 4px", borderRadius: "4px", border: row.unit ? "1px solid transparent" : "1px solid var(--danger)" } }, ...unitPicks);
-        unitCell = el("td", { style: { minWidth: "72px" } }, unitBox);
+        const unitBox = el(
+          "div",
+          {
+            class: "pos-unit-pick",
+            style: { display: "inline-flex", gap: "4px", padding: "2px", borderRadius: "16px", outline: row.unit ? "none" : "1px dashed var(--danger)", outlineOffset: "1px" },
+          },
+          ...unitPicks
+        );
+        unitCell = el("td", { style: { minWidth: "100px" } }, unitBox);
       }
 
       const noteInput = textInput(row.note || "");
