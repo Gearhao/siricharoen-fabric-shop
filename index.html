@@ -6986,6 +6986,8 @@ if (typeof module !== "undefined") {
   function buildBillingStatementDoc(cust, shop, sales, dueDateStr, note, shipAccountLabel, wholeAccountLabel, docNo) {
     const custName = cust ? cust.name : "ลูกค้าทั่วไป";
     const custAddress = cust && cust.address ? cust.address : "";
+    // เรียงบิลจากวันที่เก่าก่อน ลงมาเป็นวันที่หลัง (วันเดียวกันเรียงตามเลขที่บิล)
+    sales = (sales || []).slice().sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.sale_no || "").localeCompare(String(b.sale_no || "")));
     // บิลที่เป็นแว็ดและมีค่าจัดส่ง: แยกค่าส่งออกจากยอดของบิลนั้น แล้วไปสรุปรวมเป็นบรรทัดแยกด้านล่าง
     // (เพราะลูกค้าต้องโอนเงินค่าส่งแยกต่างหาก เหมือนใบส่งสินค้าที่เป็นแว็ด)
     const rowsData = sales.map((s) => {
