@@ -6847,6 +6847,11 @@ if (typeof module !== "undefined") {
     const e = escapeHtmlText;
     const fmtQ = (n) => (Number(n) || 0).toLocaleString("en-US", { maximumFractionDigits: 3 });
     const today = fmtDate(DB.todayStr());
+    // หน้าตาแบบเดียวกับใบเสร็จรับเงิน (ดีไซน์ 13P: กว้าง 380px ตารางกรอบ ขาวดำ) แต่ไม่มีราคา
+    const B = "border:1px solid #000;";
+    const TH = B + "background:#e6e6e6;font-weight:bold;padding:5px 4px;";
+    const TD = B + "padding:5px 4px;";
+    const TOT = B + "background:#d9d9d9;color:#000;font-weight:bold;padding:6px 4px;";
     const pages = dests.map((d, di) => {
       const rows = (d.lines || []).filter((l) => Number(l.qty) > 0);
       const unitTotals = {};
@@ -6854,42 +6859,41 @@ if (typeof module !== "undefined") {
       const totalText = Object.entries(unitTotals).map(([u, q]) => `${fmtQ(q)} ${u}`).join(" + ");
       const rowHtml = rows
         .map(
-          (l, i) => `<tr>
-            <td style="border:1.5px solid #000;padding:8px;text-align:center;vertical-align:top;">${i + 1}</td>
-            <td style="border:1.5px solid #000;padding:8px;vertical-align:top;"><div style="font-weight:700;">${e(l.label)}</div>${
-              l.detail ? `<div style="margin-top:6px;font-size:20px;font-weight:700;letter-spacing:1px;">${e(l.detail).replace(/\n/g, "<br>")}</div>` : ""
-            }</td>
-            <td style="border:1.5px solid #000;padding:8px;text-align:right;vertical-align:top;font-weight:700;white-space:nowrap;">${fmtQ(l.qty)}</td>
-            <td style="border:1.5px solid #000;padding:8px;text-align:center;vertical-align:top;">${e(l.unit || "")}</td>
-          </tr>`
+          (l, i) =>
+            `<tr><td style="${TD}text-align:center;">${i + 1}</td><td style="${TD}">${e(l.label)}${
+              l.detail ? `<div style="font-size:10.5px;color:#555;margin-top:2px;">${e(l.detail).replace(/\n/g, "<br>")}</div>` : ""
+            }</td><td style="${TD}text-align:right;white-space:nowrap;">${fmtQ(l.qty)} ${e(l.unit || "")}</td></tr>`
         )
         .join("");
-      return `<div class="sd-page" style="font-family:Tahoma,'Leelawadee UI',sans-serif;color:#000;font-size:17px;line-height:1.45;${di < dests.length - 1 ? "page-break-after:always;break-after:page;" : ""}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #000;padding-bottom:8px;margin-bottom:12px;">
-          <div><div style="font-size:30px;font-weight:700;">ใบส่งสินค้า</div><div style="font-size:15px;">${e(shop.name || "")}${shop.phone ? " โทร " + e(shop.phone) : ""}</div></div>
-          <div style="text-align:right;font-size:16px;">เลขที่ <b>${e(sale.sale_no)}-${di + 1}</b><br>วันที่ ${today}<br>อ้างอิงบิล ${e(sale.sale_no)}</div>
+      return `<div class="sd-page" style="max-width:380px;margin:0;font-family:Tahoma,'Segoe UI',sans-serif;color:#000;${di < dests.length - 1 ? "page-break-after:always;break-after:page;" : ""}">
+        <div style="text-align:center;margin-bottom:12px;">
+          <div style="font-size:17px;font-weight:bold;letter-spacing:0.5px;">ใบส่งสินค้า</div>
+          <div style="font-size:11px;color:#555;margin-top:3px;">เลขที่ ${e(sale.sale_no)}-${di + 1}</div>
         </div>
-        <div style="font-size:16px;margin-bottom:6px;">ลูกค้า: <b>${e(cust ? cust.name : "ลูกค้าทั่วไป")}</b></div>
-        <div style="border:2px solid #000;padding:10px 12px;margin-bottom:14px;">
-          <div style="font-size:15px;">ส่งที่</div>
-          <div style="font-size:28px;font-weight:700;">${e(d.name || "")}${d.phone ? `<span style="font-size:22px;margin-left:14px;">โทร ${e(d.phone)}</span>` : ""}</div>
-          ${d.address ? `<div style="font-size:19px;margin-top:4px;">${e(d.address).replace(/\n/g, "<br>")}</div>` : ""}
-        </div>
-        <table style="width:100%;border-collapse:collapse;font-size:18px;">
-          <thead><tr style="background:#d9d9d9;">
-            <th style="border:1.5px solid #000;padding:8px;width:8%;">ลำดับ</th>
-            <th style="border:1.5px solid #000;padding:8px;">รายการ</th>
-            <th style="border:1.5px solid #000;padding:8px;width:16%;">จำนวน</th>
-            <th style="border:1.5px solid #000;padding:8px;width:11%;">หน่วย</th>
-          </tr></thead>
-          <tbody>${rowHtml}</tbody>
-          <tfoot><tr style="background:#d9d9d9;"><td colspan="2" style="border:1.5px solid #000;padding:8px;text-align:right;font-weight:700;">รวม</td><td colspan="2" style="border:1.5px solid #000;padding:8px;text-align:center;font-weight:700;font-size:22px;">${e(totalText)}</td></tr></tfoot>
+        <table style="width:100%;font-size:12px;margin-bottom:12px;border-collapse:collapse;">
+          <tr><td style="padding:3px 0;color:#444;">วันที่</td><td style="padding:3px 0;text-align:right;">${today}</td></tr>
+          <tr><td style="padding:3px 0;color:#444;">ลูกค้า</td><td style="padding:3px 0;text-align:right;font-weight:bold;font-size:14px;">${e(cust ? cust.name : "ลูกค้าทั่วไป")}</td></tr>
+          <tr><td style="padding:3px 0;color:#444;">อ้างอิงบิล</td><td style="padding:3px 0;text-align:right;">${e(sale.sale_no)}</td></tr>
+          <tr><td style="padding:3px 0;color:#444;vertical-align:top;">ส่งที่</td><td style="padding:3px 0;text-align:right;"><b style="font-size:14px;">${e(d.name || "")}</b>${d.phone ? `<br>โทร ${e(d.phone)}` : ""}${
+            d.address ? `<br>${e(d.address).replace(/\n/g, "<br>")}` : ""
+          }</td></tr>
         </table>
-        ${d.note ? `<div style="margin-top:10px;font-size:16px;">หมายเหตุ: ${e(d.note)}</div>` : ""}
-        <div style="margin-top:14px;font-size:16px;">ได้รับสินค้าตามรายการข้างต้นครบถ้วน ในสภาพเรียบร้อย</div>
-        <div style="display:flex;justify-content:space-between;gap:30px;margin-top:60px;font-size:17px;text-align:center;">
-          <div style="flex:1;"><div style="border-top:1.5px solid #000;padding-top:6px;">ผู้รับสินค้า</div><div style="margin-top:22px;">วันที่ ......../......../........</div></div>
-          <div style="flex:1;"><div style="border-top:1.5px solid #000;padding-top:6px;">ผู้ส่งสินค้า</div><div style="margin-top:22px;">วันที่ ......../......../........</div></div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px;">
+          <thead><tr>
+            <th style="${TH}text-align:center;width:22px;">#</th>
+            <th style="${TH}text-align:left;">รายการ</th>
+            <th style="${TH}text-align:right;">จำนวน</th>
+          </tr></thead>
+          <tbody>
+            ${rowHtml}
+            <tr><td colspan="2" style="${TOT}text-align:right;font-size:13px;">รวม</td><td style="${TOT}text-align:right;font-size:14px;white-space:nowrap;">${e(totalText)}</td></tr>
+          </tbody>
+        </table>
+        ${d.note ? `<div style="text-align:left;font-size:12px;margin-top:8px;">หมายเหตุ: ${e(d.note)}</div>` : ""}
+        <div style="font-size:12px;color:#444;text-align:center;margin:10px 0 18px;">ได้รับสินค้าตามรายการข้างต้นครบถ้วน</div>
+        <div style="display:flex;justify-content:space-between;margin-top:28px;font-size:11px;text-align:center;color:#000;">
+          <div style="width:45%;border-top:1px solid #000;padding-top:4px;">ผู้ส่งสินค้า</div>
+          <div style="width:45%;border-top:1px solid #000;padding-top:4px;">ผู้รับสินค้า</div>
         </div>
       </div>`;
     });
@@ -6897,10 +6901,10 @@ if (typeof module !== "undefined") {
   }
 
   function printSplitDeliveryHtml(html) {
-    const w = global.window.open("", "_blank", "width=820,height=900");
+    const w = global.window.open("", "_blank", "width=420,height=640");
     if (!w) return;
     w.document.write(
-      `<!DOCTYPE html><html><head><meta charset="utf-8"><title>ใบส่งสินค้า</title><style>@page{size:A4;margin:14mm;}body{margin:0;}</style></head><body>${html}</body></html>`
+      `<!DOCTYPE html><html><head><meta charset="utf-8"><title>ใบส่งสินค้า</title></head><body>${html}</body></html>`
     );
     w.document.close();
     w.focus();
@@ -7107,7 +7111,7 @@ if (typeof module !== "undefined") {
         }),
       }));
     }
-    const previewBox = el("div", { style: { display: "none", border: "1px solid #ccc", padding: "16px", marginTop: "10px", background: "#fff", maxWidth: "720px" } });
+    const previewBox = el("div", { class: "receipt-preview", style: { display: "none", marginTop: "10px" } });
     const previewBtn = el(
       "button",
       {
