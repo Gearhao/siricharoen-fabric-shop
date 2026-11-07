@@ -4058,7 +4058,7 @@ if (typeof module !== "undefined") {
     }
 
     sec.appendChild(
-      el("div", { class: "section-inner" }, checkReminderPanel, statsRow, rangeRow, grid)
+      el("div", { class: "section-inner" }, buildIncomingLimitBox(Number(today.slice(0, 4)), true), checkReminderPanel, statsRow, rangeRow, grid)
     );
   }
 
@@ -10657,6 +10657,60 @@ if (typeof module !== "undefined") {
     });
     return result;
   }
+  // เกณฑ์รับเงินเข้าต่อบัญชีต่อปี (ม.ค.-ธ.ค.): ไม่เกิน 400 ครั้ง และไม่เกิน 2 ล้านบาท เตือนเมื่อถึง 80%
+  // นับรวมการโยกเงินเข้าบัญชีด้วย (ธนาคารนับทุกรายการที่เงินเข้า)
+  // (ใช้ฟังก์ชันแทน const เพราะหน้าหลักอาจถูกวาดก่อนโค้ดส่วนนี้ทำงาน)
+  function incomingLimitStatus(year) {
+    const INCOMING_LIMIT_COUNT = 400, INCOMING_LIMIT_AMOUNT = 2000000, INCOMING_WARN_RATIO = 0.8;
+    return computeIncomingSummary(year, true).map((r) => {
+      const cRatio = r.total.count / INCOMING_LIMIT_COUNT;
+      const aRatio = r.total.amount / INCOMING_LIMIT_AMOUNT;
+      const ratio = Math.max(cRatio, aRatio);
+      return { account: r.account, count: r.total.count, amount: r.total.amount, cRatio, aRatio, level: ratio >= 1 ? "over" : ratio >= INCOMING_WARN_RATIO ? "near" : "ok" };
+    });
+  }
+  function buildIncomingLimitBox(year, onlyWarn) {
+    const INCOMING_LIMIT_COUNT = 400, INCOMING_LIMIT_AMOUNT = 2000000;
+    const list = incomingLimitStatus(year);
+    const shown = onlyWarn ? list.filter((x) => x.level !== "ok") : list;
+    if (!shown.length) return null;
+    const anyOver = shown.some((x) => x.level === "over");
+    const anyNear = shown.some((x) => x.level !== "ok");
+    const pct = (r) => `${Math.round(r * 100)}%`;
+    const box = el(
+      "div",
+      {
+        style: {
+          border: `2px solid ${anyOver ? "var(--danger)" : anyNear ? "#e0a800" : "#ccc"}`,
+          background: anyOver ? "#fdecea" : anyNear ? "#fff8e1" : "#fafafa",
+          borderRadius: "8px",
+          padding: "10px 14px",
+          marginBottom: "12px",
+          fontSize: "13px",
+        },
+      },
+      el("div", {
+        text: `${anyNear ? "⚠ " : ""}เงินเข้าแต่ละบัญชี ปี ${year + 543} (เกณฑ์ไม่เกิน ${INCOMING_LIMIT_COUNT} ครั้ง / ${money(INCOMING_LIMIT_AMOUNT)} บาท ต่อปี)`,
+        style: { fontWeight: "700", marginBottom: "6px", color: anyOver ? "var(--danger)" : "" },
+      })
+    );
+    shown
+      .slice()
+      .sort((a, b) => Math.max(b.cRatio, b.aRatio) - Math.max(a.cRatio, a.aRatio))
+      .forEach((r) => {
+        const color = r.level === "over" ? "var(--danger)" : r.level === "near" ? "#b26a00" : "";
+        box.appendChild(
+          el(
+            "div",
+            { style: { display: "flex", justifyContent: "space-between", gap: "10px", flexWrap: "wrap", padding: "2px 0", color, fontWeight: r.level === "ok" ? "400" : "600" } },
+            el("span", { text: `${r.account.bank_name} - ${r.account.account_name}${r.level === "over" ? " (เกินแล้ว)" : r.level === "near" ? " (ใกล้ถึง)" : ""}` }),
+            el("span", { text: `${r.count}/${INCOMING_LIMIT_COUNT} ครั้ง (${pct(r.cRatio)}) · ${money(r.amount)}/${money(INCOMING_LIMIT_AMOUNT)} บาท (${pct(r.aRatio)})` })
+          )
+        );
+      });
+    return box;
+  }
+
   // หน้าสรุปยอดโอนเข้า (แบบ 3-6): กราฟแท่งแนวนอนต่อบัญชี เรียงยอดมากไปน้อย พร้อม % เปลี่ยนแปลงเทียบเดือนก่อน
   let incomingSummaryMonth = null; // "YYYY-MM" หรือ "YYYY" (ทั้งปี)
   function openIncomingSummaryModal() {
@@ -10753,6 +10807,9 @@ if (typeof module !== "undefined") {
     function render() {
       clear(out);
       const period = incomingSummaryMonth;
+      // กล่องเกณฑ์ 400 ครั้ง / 2 ล้านบาท ของปีที่กำลังดู (โชว์ทุกบัญชี)
+      const limitBox = buildIncomingLimitBox(Number(period.slice(0, 4)), false);
+      if (limitBox) out.appendChild(limitBox);
       const prev = prevPeriod(period);
       const cur = periodValues(period);
       const old = periodValues(prev);
