@@ -6913,7 +6913,10 @@ if (typeof module !== "undefined") {
     const items = (sale.items || []).map((it, idx) => {
       const base = splitItemLabel(it);
       const note = String(it.note || "").trim();
-      return { idx, base, label: note ? `${base} (${note})` : base, note, qty: Number(it.qty) || 0, unit: it.unit || "หลา" };
+      // โน้ตแบบ "ช่างสี่ 47 78 55x10" = คำแรกเป็นชื่อผู้รับ ที่เหลือเป็นรายละเอียดม้วน
+      const noteName = note.split(/\s+/)[0] || "";
+      const noteRest = note.slice(noteName.length).trim();
+      return { idx, base, label: noteName ? `${base} (${noteName})` : base, note: noteName, noteRest, qty: Number(it.qty) || 0, unit: it.unit || "หลา" };
     });
     let dests = DB.getSplitDeliveries(sale.sale_no);
     const recipients = DB.getDeliveryRecipients();
@@ -6928,7 +6931,9 @@ if (typeof module !== "undefined") {
           d.name = it.note;
           d.phone = r ? r.phone : "";
           d.address = r ? r.address : "";
-          d.lines.find((l) => l.idx === it.idx).qty = it.qty;
+          const ln = d.lines.find((l) => l.idx === it.idx);
+          ln.qty = it.qty;
+          ln.detail = it.noteRest;
           return d;
         });
       } else dests = [blankDest(), blankDest()];
