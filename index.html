@@ -2423,6 +2423,34 @@ function createDB(storageKey) {
     return store.customerOrders.find((x) => x.id === id) || null;
   }
 
+  // -------------------------------------------------------------- ใบส่งสินค้าแยกที่ส่ง (บิลเดียวส่งหลายที่ เช่น ส่งให้ช่างหลายคน)
+  // เก็บแยกจากตัวบิล (key = เลขที่บิล) เพื่อไม่ให้หายตอนแก้ไขบิล และไม่กระทบยอดขาย/สต็อกใดๆ
+  function ensureSplitDeliveryStore() {
+    if (!store.splitDeliveries || typeof store.splitDeliveries !== "object" || Array.isArray(store.splitDeliveries)) store.splitDeliveries = {};
+    return store.splitDeliveries;
+  }
+  function getSplitDeliveries(saleNo) {
+    const list = ensureSplitDeliveryStore()[saleNo];
+    return Array.isArray(list) ? JSON.parse(JSON.stringify(list)) : [];
+  }
+  function saveSplitDeliveries(saleNo, list) {
+    const s = ensureSplitDeliveryStore();
+    if (Array.isArray(list) && list.length) s[saleNo] = JSON.parse(JSON.stringify(list));
+    else delete s[saleNo];
+    save();
+  }
+  // รายชื่อผู้รับที่เคยส่งไป (ไว้เลือกซ้ำ ไม่ต้องพิมพ์เบอร์/ที่อยู่ใหม่)
+  function getDeliveryRecipients() {
+    const m = new Map();
+    Object.values(ensureSplitDeliveryStore()).forEach((list) =>
+      (list || []).forEach((d) => {
+        const name = String(d.name || "").trim();
+        if (name) m.set(name, { name, phone: d.phone || "", address: d.address || "" });
+      })
+    );
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name, "th"));
+  }
+
   // -------------------------------------------------------------- ใบเสร็จค่าขนส่ง Flash (แยกจากร้านผ้า ไม่นับรวมยอดขาย)
   function ensureFlashStore() {
     if (!Array.isArray(store.flashReceipts)) store.flashReceipts = [];
@@ -2879,6 +2907,7 @@ function createDB(storageKey) {
     addCustomerOrder, updateCustomerOrder, deleteCustomerOrder, markCustomerOrderDone, markCustomerOrderUndone, getCustomerOrders, getCustomerOrder,
     addQuotation, updateQuotation, deleteQuotation, getQuotations, getQuotation, setQuotationStatus, markQuotationConverted,
     addFlashReceipt, deleteFlashReceipt, getFlashReceipts, getFlashReceipt, flashReceiptTotals,
+    getSplitDeliveries, saveSplitDeliveries, getDeliveryRecipients,
     addBillingNote, updateBillingNote, deleteBillingNote, getBillingNotesForCustomer, getBillingNote,
     getBankAccounts, getBankAccount, getCashAccount, createBankAccount, updateBankAccount, deleteBankAccount, adjustBankAccountBalance, transferBetweenAccounts, getAccountMovements,
     salesSummary, cogsSummary, expensesSummary, shippingSummary, bestSellers, lowStockList,
@@ -6805,6 +6834,268 @@ if (typeof module !== "undefined") {
     openModal("ใบเสร็จค่าจัดส่ง", body, { wide: true });
   }
 
+  // ---------------- ใบส่งสินค้าแยกที่ส่ง: บิลเดียว แบ่งของส่งหลายที่ (เช่น ส่งให้ช่าง 3 คน) แต่ละที่ได้ใบส่งสินค้าของตัวเอง 1 หน้า A4 ให้เซ็นรับ
+  // ไม่โชว์ราคา ไม่กระทบยอดขาย/สต็อก บันทึกไว้กับเลขที่บิล เปิดมาพิมพ์ซ้ำได้
+  function splitItemLabel(it) {
+    if (it.is_misc) return it.name || "สินค้าอื่นๆ";
+    const f = DB.getFabric(it.fabric_id);
+    return f ? `${f.code ? f.code + " - " : ""}${f.name || ""}` : it.name || "(สินค้านี้ถูกลบแล้ว)";
+  }
+
+  function buildSplitDeliveryHtml(sale, cust, dests) {
+    const shop = DB.getShopInfo() || {};
+    const e = escapeHtmlText;
+    const fmtQ = (n) => (Number(n) || 0).toLocaleString("en-US", { maximumFractionDigits: 3 });
+    const today = fmtDate(DB.todayStr());
+    const pages = dests.map((d, di) => {
+      const rows = (d.lines || []).filter((l) => Number(l.qty) > 0);
+      const unitTotals = {};
+      rows.forEach((l) => (unitTotals[l.unit || ""] = (unitTotals[l.unit || ""] || 0) + Number(l.qty)));
+      const totalText = Object.entries(unitTotals).map(([u, q]) => `${fmtQ(q)} ${u}`).join(" + ");
+      const rowHtml = rows
+        .map(
+          (l, i) => `<tr>
+            <td style="border:1.5px solid #000;padding:8px;text-align:center;vertical-align:top;">${i + 1}</td>
+            <td style="border:1.5px solid #000;padding:8px;vertical-align:top;"><div style="font-weight:700;">${e(l.label)}</div>${
+              l.detail ? `<div style="margin-top:6px;font-size:20px;font-weight:700;letter-spacing:1px;">${e(l.detail).replace(/\n/g, "<br>")}</div>` : ""
+            }</td>
+            <td style="border:1.5px solid #000;padding:8px;text-align:right;vertical-align:top;font-weight:700;white-space:nowrap;">${fmtQ(l.qty)}</td>
+            <td style="border:1.5px solid #000;padding:8px;text-align:center;vertical-align:top;">${e(l.unit || "")}</td>
+          </tr>`
+        )
+        .join("");
+      return `<div class="sd-page" style="font-family:Tahoma,'Leelawadee UI',sans-serif;color:#000;font-size:17px;line-height:1.45;${di < dests.length - 1 ? "page-break-after:always;break-after:page;" : ""}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #000;padding-bottom:8px;margin-bottom:12px;">
+          <div><div style="font-size:30px;font-weight:700;">ใบส่งสินค้า</div><div style="font-size:15px;">${e(shop.name || "")}${shop.phone ? " โทร " + e(shop.phone) : ""}</div></div>
+          <div style="text-align:right;font-size:16px;">เลขที่ <b>${e(sale.sale_no)}-${di + 1}</b><br>วันที่ ${today}<br>อ้างอิงบิล ${e(sale.sale_no)}</div>
+        </div>
+        <div style="font-size:16px;margin-bottom:6px;">ลูกค้า: <b>${e(cust ? cust.name : "ลูกค้าทั่วไป")}</b></div>
+        <div style="border:2px solid #000;padding:10px 12px;margin-bottom:14px;">
+          <div style="font-size:15px;">ส่งที่</div>
+          <div style="font-size:28px;font-weight:700;">${e(d.name || "")}${d.phone ? `<span style="font-size:22px;margin-left:14px;">โทร ${e(d.phone)}</span>` : ""}</div>
+          ${d.address ? `<div style="font-size:19px;margin-top:4px;">${e(d.address).replace(/\n/g, "<br>")}</div>` : ""}
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:18px;">
+          <thead><tr style="background:#d9d9d9;">
+            <th style="border:1.5px solid #000;padding:8px;width:8%;">ลำดับ</th>
+            <th style="border:1.5px solid #000;padding:8px;">รายการ</th>
+            <th style="border:1.5px solid #000;padding:8px;width:16%;">จำนวน</th>
+            <th style="border:1.5px solid #000;padding:8px;width:11%;">หน่วย</th>
+          </tr></thead>
+          <tbody>${rowHtml}</tbody>
+          <tfoot><tr style="background:#d9d9d9;"><td colspan="2" style="border:1.5px solid #000;padding:8px;text-align:right;font-weight:700;">รวม</td><td colspan="2" style="border:1.5px solid #000;padding:8px;text-align:center;font-weight:700;font-size:22px;">${e(totalText)}</td></tr></tfoot>
+        </table>
+        ${d.note ? `<div style="margin-top:10px;font-size:16px;">หมายเหตุ: ${e(d.note)}</div>` : ""}
+        <div style="margin-top:14px;font-size:16px;">ได้รับสินค้าตามรายการข้างต้นครบถ้วน ในสภาพเรียบร้อย</div>
+        <div style="display:flex;justify-content:space-between;gap:30px;margin-top:60px;font-size:17px;text-align:center;">
+          <div style="flex:1;"><div style="border-top:1.5px solid #000;padding-top:6px;">ผู้รับสินค้า</div><div style="margin-top:22px;">วันที่ ......../......../........</div></div>
+          <div style="flex:1;"><div style="border-top:1.5px solid #000;padding-top:6px;">ผู้ส่งสินค้า</div><div style="margin-top:22px;">วันที่ ......../......../........</div></div>
+        </div>
+      </div>`;
+    });
+    return pages.join("");
+  }
+
+  function printSplitDeliveryHtml(html) {
+    const w = global.window.open("", "_blank", "width=820,height=900");
+    if (!w) return;
+    w.document.write(
+      `<!DOCTYPE html><html><head><meta charset="utf-8"><title>ใบส่งสินค้า</title><style>@page{size:A4;margin:14mm;}body{margin:0;}</style></head><body>${html}</body></html>`
+    );
+    w.document.close();
+    w.focus();
+    w.print();
+  }
+
+  function openSplitDeliveryModal(sale, custId) {
+    const cust = custId ? DB.getCustomer(custId) : sale.customer_id ? DB.getCustomer(sale.customer_id) : null;
+    const items = (sale.items || []).map((it, idx) => ({ idx, label: splitItemLabel(it), qty: Number(it.qty) || 0, unit: it.unit || "หลา" }));
+    let dests = DB.getSplitDeliveries(sale.sale_no);
+    const blankDest = () => ({ name: "", phone: "", address: "", note: "", lines: items.map((it) => ({ idx: it.idx, qty: "", detail: "" })) });
+    if (!dests.length) dests = [blankDest(), blankDest()];
+    // บรรทัดสินค้าให้ครบทุกรายการในบิลเสมอ (เผื่อบิลถูกแก้ไขรายการหลังบันทึกไว้)
+    dests.forEach((d) => {
+      d.lines = items.map((it) => (d.lines || []).find((l) => l.idx === it.idx) || { idx: it.idx, qty: "", detail: "" });
+    });
+    const recipients = DB.getDeliveryRecipients();
+    const listId = "split-recipients-" + Date.now();
+    const datalist = el("datalist", { id: listId }, ...recipients.map((r) => el("option", { value: r.name })));
+
+    const destWrap = el("div", {});
+    const summaryBox = el("div", { style: { margin: "10px 0", fontSize: "14px" } });
+
+    function updateSummary() {
+      clear(summaryBox);
+      items.forEach((it) => {
+        const sent = dests.reduce((s, d) => s + (Number((d.lines.find((l) => l.idx === it.idx) || {}).qty) || 0), 0);
+        const diff = Math.round((sent - it.qty) * 1000) / 1000;
+        const ok = Math.abs(diff) < 0.001;
+        summaryBox.appendChild(
+          el("div", {
+            style: { color: ok ? "var(--success, #2e7d32)" : "var(--danger)", fontWeight: "600" },
+            text: `${it.label}: แบ่งส่งแล้ว ${sent.toLocaleString()} / ในบิล ${it.qty.toLocaleString()} ${it.unit}${ok ? " ✓ ครบ" : diff > 0 ? ` (เกิน ${diff.toLocaleString()})` : ` (ยังขาด ${(-diff).toLocaleString()})`}`,
+          })
+        );
+      });
+    }
+
+    function renderDests() {
+      clear(destWrap);
+      dests.forEach((d, di) => {
+        const nameIn = textInput(d.name);
+        nameIn.setAttribute("list", listId);
+        nameIn.setAttribute("placeholder", "ชื่อผู้รับ เช่น ช่างสี่");
+        const phoneIn = textInput(d.phone);
+        phoneIn.setAttribute("placeholder", "เบอร์โทร");
+        const addrIn = el("textarea", { rows: 2, style: { width: "100%", boxSizing: "border-box" } });
+        addrIn.value = d.address || "";
+        addrIn.setAttribute("placeholder", "ที่อยู่ส่ง");
+        const noteIn = textInput(d.note || "");
+        noteIn.setAttribute("placeholder", "หมายเหตุ (ถ้ามี)");
+        nameIn.addEventListener("input", () => {
+          d.name = nameIn.value;
+          const r = recipients.find((x) => x.name === nameIn.value.trim());
+          if (r) {
+            if (!phoneIn.value) phoneIn.value = d.phone = r.phone;
+            if (!addrIn.value) addrIn.value = d.address = r.address;
+          }
+        });
+        phoneIn.addEventListener("input", () => (d.phone = phoneIn.value));
+        addrIn.addEventListener("input", () => (d.address = addrIn.value));
+        noteIn.addEventListener("input", () => (d.note = noteIn.value));
+
+        const lineRows = items.map((it) => {
+          const l = d.lines.find((x) => x.idx === it.idx);
+          const qIn = numberInput(l.qty);
+          qIn.setAttribute("placeholder", "จำนวน");
+          qIn.style.width = "110px";
+          qIn.addEventListener("input", () => {
+            l.qty = qIn.value;
+            updateSummary();
+          });
+          const detIn = textInput(l.detail || "");
+          detIn.setAttribute("placeholder", "รายละเอียดม้วน เช่น L001: 47 78 55");
+          detIn.addEventListener("input", () => (l.detail = detIn.value));
+          return el(
+            "div",
+            { style: { display: "flex", gap: "8px", alignItems: "center", marginTop: "6px", flexWrap: "wrap" } },
+            el("div", { text: it.label, style: { flex: "1 1 180px", fontWeight: "600" } }),
+            qIn,
+            el("span", { text: it.unit }),
+            el("div", { style: { flex: "2 1 220px" } }, detIn)
+          );
+        });
+
+        const delBtn = el(
+          "button",
+          {
+            class: "btn btn-sm",
+            onClick: () => {
+              if (!global.confirm(`ลบที่ส่งที่ ${di + 1}${d.name ? " (" + d.name + ")" : ""} ออก?`)) return;
+              dests.splice(di, 1);
+              renderDests();
+              updateSummary();
+            },
+          },
+          "ลบ"
+        );
+        destWrap.appendChild(
+          el(
+            "div",
+            { style: { border: "1px solid #ccc", borderRadius: "8px", padding: "10px 12px", marginBottom: "10px" } },
+            el(
+              "div",
+              { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" } },
+              el("b", { text: `ที่ส่งที่ ${di + 1}` }),
+              delBtn
+            ),
+            el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, el("div", { style: { flex: "2 1 200px" } }, nameIn), el("div", { style: { flex: "1 1 140px" } }, phoneIn)),
+            el("div", { style: { marginTop: "6px" } }, addrIn),
+            ...lineRows,
+            el("div", { style: { marginTop: "6px" } }, noteIn)
+          )
+        );
+      });
+    }
+
+    const addBtn = el(
+      "button",
+      {
+        class: "btn",
+        onClick: () => {
+          dests.push(blankDest());
+          renderDests();
+          updateSummary();
+        },
+      },
+      "+ เพิ่มที่ส่ง"
+    );
+
+    function cleaned() {
+      return dests
+        .map((d) => ({
+          name: String(d.name || "").trim(),
+          phone: String(d.phone || "").trim(),
+          address: String(d.address || "").trim(),
+          note: String(d.note || "").trim(),
+          lines: d.lines.map((l) => ({ idx: l.idx, qty: l.qty === "" ? "" : Number(l.qty) || 0, detail: String(l.detail || "").trim() })),
+        }))
+        .filter((d) => d.name || d.lines.some((l) => Number(l.qty) > 0));
+    }
+
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-success",
+        onClick: () => {
+          DB.saveSplitDeliveries(sale.sale_no, cleaned());
+          saveBtn.textContent = "บันทึกแล้ว ✓";
+          setTimeout(() => (saveBtn.textContent = "บันทึก"), 1500);
+        },
+      },
+      "บันทึก"
+    );
+    const printBtn = el(
+      "button",
+      {
+        class: "btn btn-accent",
+        onClick: () => {
+          const list = cleaned();
+          const bad = list.findIndex((d) => !d.name || !d.lines.some((l) => Number(l.qty) > 0));
+          if (!list.length || bad >= 0) {
+            global.alert(list.length ? `ที่ส่งที่ ${bad + 1} ยังไม่ได้ใส่ชื่อผู้รับหรือจำนวน` : "กรุณาใส่ที่ส่งอย่างน้อย 1 ที่");
+            return;
+          }
+          DB.saveSplitDeliveries(sale.sale_no, list);
+          const forPrint = list.map((d) => ({
+            ...d,
+            lines: d.lines.map((l) => ({ ...l, label: items.find((it) => it.idx === l.idx).label, unit: items.find((it) => it.idx === l.idx).unit })),
+          }));
+          printSplitDeliveryHtml(buildSplitDeliveryHtml(sale, cust, forPrint));
+        },
+      },
+      "พิมพ์ใบส่งสินค้าทั้งหมด"
+    );
+    const backBtn = el("button", { class: "btn btn-primary", onClick: closeModal }, "ปิด");
+
+    renderDests();
+    updateSummary();
+    const body = el(
+      "div",
+      {},
+      datalist,
+      el("div", {
+        text: `บิล ${sale.sale_no} · ${cust ? cust.name : "ลูกค้าทั่วไป"} · แบ่งของส่งหลายที่ แต่ละที่จะได้ใบส่งสินค้า 1 หน้า (ไม่โชว์ราคา) มีช่องให้ผู้รับเซ็น`,
+        style: { fontSize: "13px", color: "#666", marginBottom: "10px" },
+      }),
+      destWrap,
+      addBtn,
+      summaryBox,
+      el("div", { class: "modal-actions" }, saveBtn, printBtn, backBtn)
+    );
+    openModal("ใบส่งสินค้าแยกที่ส่ง", body, { wide: true });
+  }
+
   function showReceiptModal(sale, custId, cartItems, forcedDocType) {
     const cust = custId ? DB.getCustomer(custId) : null;
     const shop = DB.getShopInfo();
@@ -6966,6 +7257,7 @@ if (typeof module !== "undefined") {
       sale.shipping_fee > 0
         ? el("button", { class: "btn btn-warning", onClick: () => openShippingReceiptModal(sale, custId) }, "ออกใบเสร็จค่าส่งแยก")
         : null;
+    const splitDeliveryBtn = el("button", { class: "btn", onClick: () => openSplitDeliveryModal(sale, custId) }, "ใบส่งสินค้าแยกที่ส่ง");
 
     const body = el(
       "div",
@@ -6975,7 +7267,7 @@ if (typeof module !== "undefined") {
       qrRow,
       accountRow,
       previewBox,
-      el("div", { class: "modal-actions" }, downloadBtn, pdfBtn, copyBtn, printBtn, shippingBtn, closeBtn)
+      el("div", { class: "modal-actions" }, downloadBtn, pdfBtn, copyBtn, printBtn, shippingBtn, splitDeliveryBtn, closeBtn)
     );
     exposeTestRefs("receipt", { get text() { return current.text; }, get html() { return current.html; }, sale, setDocType: (t) => { docType = t; refresh(); } });
     openModal(current.docTitle, body, { wide: true });
