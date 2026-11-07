@@ -10807,9 +10807,6 @@ if (typeof module !== "undefined") {
     function render() {
       clear(out);
       const period = incomingSummaryMonth;
-      // กล่องเกณฑ์ 400 ครั้ง / 2 ล้านบาท ของปีที่กำลังดู (โชว์ทุกบัญชี)
-      const limitBox = buildIncomingLimitBox(Number(period.slice(0, 4)), false);
-      if (limitBox) out.appendChild(limitBox);
       const prev = prevPeriod(period);
       const cur = periodValues(period);
       const old = periodValues(prev);
