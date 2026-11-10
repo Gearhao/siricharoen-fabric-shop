@@ -3898,7 +3898,11 @@ if (typeof module !== "undefined") {
       { class: "stats-grid" },
       statCard("ยอดขายวันนี้", `${money(sToday.total_sales)} บาท`, `${sToday.n_sales} บิล`),
       statCard("ยอดขายเดือนนี้", `${money(sMonth.total_sales)} บาท`, `${sMonth.n_sales} บิล`),
-      statCard("ลูกหนี้การค้าคงค้าง", `${money(arTotal)} บาท`, `${ar.length} ราย`),
+      statCard(
+        "ลูกหนี้การค้าคงค้าง",
+        `${money(arTotal)} บาท`,
+        `ค้างชำระ ${money(ar.reduce((s, c) => s + (c.credit_balance || 0), 0))} · เงินสดค้างจ่าย ${money(ar.reduce((s, c) => s + DB.getCustomerCashPendingTotal(c.id), 0))} · ${ar.length} ราย`
+      ),
       statCard("เจ้าหนี้การค้าคงค้าง", `${money(apTotal)} บาท`, `${ap.length} ราย`),
       statCard("รายการรอสินค้า", `${pendingBackorders.length} รายการ`, "ยังไม่เสร็จ")
     );
@@ -4560,9 +4564,15 @@ if (typeof module !== "undefined") {
     if (refs.posHistorySummary) {
       const totalAmount = sales.reduce((sum, s) => sum + s.total, 0);
       const totalShipping = sales.reduce((sum, s) => sum + (s.shipping_fee || 0), 0);
+      // ยอดที่ยังค้างของบิลที่แสดงอยู่ แยกตามสถานะ
+      const remainOf = (st) => sales.filter((s) => s.status === st).reduce((sum, s) => sum + Math.max((s.total || 0) - (s.paid || 0), 0), 0);
+      const creditRemain = remainOf("ค้างชำระ");
+      const cashRemain = remainOf("เงินสดแต่ค้างชำระ");
       refs.posHistorySummary.textContent =
         `รวม ${sales.length} บิล ยอดขายรวม ${money(totalAmount)} บาท` +
-        (totalShipping ? ` (ค่าส่งรวม ${money(totalShipping)} บาท)` : "");
+        (totalShipping ? ` (ค่าส่งรวม ${money(totalShipping)} บาท)` : "") +
+        (creditRemain > 0.004 ? ` · ค้างชำระ ${money(creditRemain)}` : "") +
+        (cashRemain > 0.004 ? ` · เงินสดค้างจ่าย ${money(cashRemain)}` : "");
     }
 
     // ตัดรายการที่ติ๊กเลือกไว้แต่ไม่อยู่ในผลลัพธ์ที่กรองอยู่ตอนนี้ทิ้ง (เช่น พิมพ์ค้นหา/เปลี่ยนช่วงวันที่ใหม่) กันค้างเลือกบิลที่มองไม่เห็น
@@ -5732,12 +5742,14 @@ if (typeof module !== "undefined") {
     const customers = DB.getCustomers();
     const options = [{ value: "0", label: "ลูกค้าทั่วไป (เงินสด)" }].concat(
       customers.map((c) => {
-        const due = DB.getCustomerTotalDue(c);
+        // แยกยอด ค้างชำระ (เครดิต) กับ เงินสดค้างจ่าย
+        const credit = c.credit_balance || 0;
+        const cashDue = DB.getCustomerCashPendingTotal(c.id);
         const parts = [];
         // ถ้ายอดติดลบ แปลว่าร้านติดเครดิตลูกค้าอยู่ (ลูกค้าจ่ายเกิน/มีเครดิตค้างคืน) ให้โชว์เป็น "เครดิต -X" แทน "ค้างชำระ -X" จะได้ไม่งง
-        // ถ้าไม่มีค้างชำระเลย (due = 0) ไม่ต้องโชว์อะไรเลย
-        if (due < 0) parts.push(`เครดิต ${money(due)}`);
-        else if (due > 0) parts.push(`ค้างชำระ ${money(due)}`);
+        if (credit < 0) parts.push(`เครดิต ${money(credit)}`);
+        else if (credit > 0) parts.push(`ค้างชำระ ${money(credit)}`);
+        if (cashDue > 0) parts.push(`เงินสดค้าง ${money(cashDue)}`);
         // เครดิตแลกเปลี่ยนไม่โชว์ในช่องเลือกลูกค้าแล้ว (ดูได้จากข้อความใต้ช่องลูกค้าที่หน้าขายสินค้าแทน)
         const suffix = parts.length > 0 ? ` (${parts.join(", ")})` : "";
         return { value: String(c.id), label: `${c.code} - ${c.name}${suffix}` };
@@ -8415,9 +8427,11 @@ if (typeof module !== "undefined") {
       c.phone,
       c.address,
       money(c.credit_limit),
-      money(DB.getCustomerTotalDue(c)),
+      // แยกยอด: ค้างชำระ (บิลเครดิต) กับ เงินสดค้างจ่าย (บิลเงินสดที่ยังไม่จ่าย/รอเช็ค)
+      money(c.credit_balance || 0),
+      money(DB.getCustomerCashPendingTotal(c.id)),
     ]);
-    const table = buildDataTable(["รหัสลูกค้า", "ชื่อลูกค้า", "เบอร์โทร", "ที่อยู่", "วงเงินเครดิต", "ยอดค้างชำระ"], rows, {
+    const table = buildDataTable(["รหัสลูกค้า", "ชื่อลูกค้า", "เบอร์โทร", "ที่อยู่", "วงเงินเครดิต", "ค้างชำระ", "เงินสดค้างจ่าย"], rows, {
       actions: (idx) => {
         const c = customers[idx];
         return [
