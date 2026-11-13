@@ -11716,6 +11716,12 @@ if (typeof module !== "undefined") {
       "บันทึกเป็นไฟล์ .txt"
     );
     const printBtn = el("button", { class: "btn", onClick: () => printReceiptHtml(current.html) }, "พิมพ์ใบเสนอราคา");
+    // บันทึกใบเสนอราคาเป็นไฟล์ PDF (ใช้ตัวสร้าง PDF เดียวกับใบเสร็จ)
+    const pdfBtn = el(
+      "button",
+      { class: "btn btn-info", onClick: () => downloadReceiptPdf(current.html, `${q.quote_no.replace(/\//g, "-")}.pdf`) },
+      "ดาวน์โหลด PDF"
+    );
     const copyBtn = el(
       "button",
       {
@@ -11742,7 +11748,7 @@ if (typeof module !== "undefined") {
       {},
       formField("บัญชีสำหรับโอนเงิน (ถ้ามี)", accountSelect),
       previewBox,
-      el("div", { class: "modal-actions" }, downloadBtn, copyBtn, printBtn, closeBtn)
+      el("div", { class: "modal-actions" }, downloadBtn, pdfBtn, copyBtn, printBtn, closeBtn)
     );
     openModal("ใบเสนอราคา", body, { wide: true });
   }
