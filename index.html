@@ -5852,8 +5852,13 @@ if (typeof module !== "undefined") {
     updatePosTotals();
   }
 
+  // แถวที่กำลังกดเปลี่ยนหน่วย (โชว์ปุ่มคู่) เก็บแยกไว้ ไม่ใส่ลงในข้อมูลบิล
+  function posUnitEditing() {
+    return posUnitEditing._s || (posUnitEditing._s = new WeakSet());
+  }
   function posRowSetUnit(idx, unitVal) {
     const row = cart[idx];
+    posUnitEditing().delete(row);
     const f = row.fabric_id ? DB.getFabric(row.fabric_id) : null;
     if (f) {
       // แปลงราคา/หน่วยให้สอดคล้องกับหน่วยที่เลือกใหม่ (มูลค่ารวมของรายการยังเท่าเดิม)
@@ -5940,7 +5945,9 @@ if (typeof module !== "undefined") {
 
         // ติ้กเลือกหน่วย หลา / เมตร (เริ่มต้นว่าง ต้องเลือกก่อนบันทึกบิล)
         // แบบ 2: ปุ่มคู่แยกกัน (หลา / เมตร) อันที่เลือกเป็นพื้นเข้ม ยังไม่เลือกมีเส้นประแดงบางๆ
-        const unitPicks = unitOptions.map((o) => {
+        // แบบ B: เลือกแล้วเหลือแค่ปุ่มที่เลือก + ไอคอนดินสอเล็กๆ กดเพื่อเปลี่ยน (โชว์ปุ่มคู่กลับมา)
+        const pickedOnly = (row.unit === "หลา" || row.unit === "เมตร") && !posUnitEditing().has(row);
+        const unitPicks = unitOptions.filter((o) => !pickedOnly || o.value === row.unit).map((o) => {
           const on = row.unit === o.value;
           return el(
             "button",
@@ -5973,7 +5980,23 @@ if (typeof module !== "undefined") {
             class: "pos-unit-pick",
             style: { display: "inline-flex", gap: "3px", padding: "0", borderRadius: "16px", outline: row.unit ? "none" : "1px dashed var(--danger)", outlineOffset: "1px" },
           },
-          ...unitPicks
+          ...unitPicks,
+          pickedOnly
+            ? el(
+                "button",
+                {
+                  type: "button",
+                  title: "เปลี่ยนหน่วย",
+                  class: "pos-unit-edit",
+                  style: { border: "none", background: "none", padding: "0 2px", margin: "0", width: "auto", minWidth: "0", cursor: "pointer", color: "#888", fontSize: "15px", lineHeight: "1" },
+                  onClick: () => {
+                    posUnitEditing().add(row);
+                    renderPosItemsTable();
+                  },
+                },
+                "✎"
+              )
+            : null
         );
         unitCell = el("td", { style: { whiteSpace: "nowrap" } }, unitBox);
       }
