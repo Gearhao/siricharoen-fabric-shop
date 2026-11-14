@@ -13198,7 +13198,7 @@ if (typeof module !== "undefined") {
       "button",
       {
         type: "button",
-        title: "เครื่องคิดเลข",
+        title: "เครื่องคิดเลข / โน้ต / ปักหมุด",
         style: {
           position: "fixed",
           right: "18px",
@@ -13216,11 +13216,63 @@ if (typeof module !== "undefined") {
           alignItems: "center",
           justifyContent: "center",
         },
-        onClick: () => setOpen(panel.style.display === "none"),
+        onClick: () => setDial(!dialOpen),
       }
     );
-    fab.innerHTML =
-      '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><rect x="8" y="6" width="8" height="3" rx="1"/><path d="M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01"/></svg>';
+    // ---- ปุ่มลอยแบบกางเป็นโค้ง (แบบ 3): กดปุ่มกลม -> กางไอคอนเล็ก 3 อัน เครื่องคิดเลข / โน้ต / ปักหมุด
+    const svg = (inner, size) =>
+      `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+    const ICON_CALC = '<rect x="5" y="3" width="14" height="18" rx="2"/><rect x="8" y="6" width="8" height="3" rx="1"/><path d="M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01"/>';
+    const ICON_NOTE = '<path d="M5 4h14v16H5z"/><path d="M9 8h6M9 12h6M9 16h4"/>';
+    const ICON_PIN = '<path d="M15 4.5l-4 4-4 1.5-1.5 1.5 7 7 1.5-1.5 1.5-4 4-4"/><path d="M9 15l-4.5 4.5"/><path d="M14.5 4l5.5 5.5"/>';
+    const ICON_APPS = '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/>';
+    const ICON_X = '<path d="M18 6L6 18M6 6l12 12"/>';
+    let dialOpen = false;
+    const R = 75; // รัศมีโค้ง
+    const minis = [
+      ["calc", "เครื่องคิดเลข", ICON_CALC, 90],
+      ["note", "โน้ต", ICON_NOTE, 135],
+      ["pin", "ปักหมุด", ICON_PIN, 180],
+    ].map(([tab, label, icon, deg]) => {
+      const a = (deg * Math.PI) / 180;
+      const right = 44 + Math.round(-Math.cos(a) * R) - 20;
+      const bottom = 44 + Math.round(Math.sin(a) * R) - 20;
+      const b = el("button", {
+        type: "button",
+        title: label,
+        style: {
+          position: "fixed",
+          right: right + "px",
+          bottom: bottom + "px",
+          width: "40px",
+          height: "40px",
+          borderRadius: "50%",
+          background: "#fff",
+          color: "#16324f",
+          border: "1px solid #c9ced6",
+          boxShadow: "0 2px 8px rgba(0,0,0,.18)",
+          zIndex: "4000",
+          cursor: "pointer",
+          display: "none",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "0",
+        },
+        onClick: () => {
+          setDial(false);
+          showTab(tab);
+          setOpen(true);
+        },
+      });
+      b.innerHTML = svg(icon, 19);
+      return b;
+    });
+    function setDial(open) {
+      dialOpen = open;
+      minis.forEach((m) => (m.style.display = open ? "flex" : "none"));
+      fab.innerHTML = svg(open ? ICON_X : ICON_APPS, 22);
+    }
+    setDial(false);
     function setOpen(open) {
       panel.style.display = open ? "block" : "none";
     }
@@ -13256,6 +13308,7 @@ if (typeof module !== "undefined") {
       press(k);
     });
     doc.body.appendChild(panel);
+    minis.forEach((m) => doc.body.appendChild(m));
     doc.body.appendChild(fab);
   }
 
