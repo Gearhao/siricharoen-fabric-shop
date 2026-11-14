@@ -13036,7 +13036,6 @@ if (typeof module !== "undefined") {
     try {
       pinArea.value = global.localStorage.getItem(PIN_KEY) || "";
     } catch (e) {}
-    const pinSaved = el("span", { text: "บันทึกอัตโนมัติ · ไม่เปลี่ยนตามวัน", style: { fontSize: "11px", color: "#a0a5ad" } });
     let pinTimer = null;
     pinArea.addEventListener("input", () => {
       clearTimeout(pinTimer);
@@ -13044,8 +13043,6 @@ if (typeof module !== "undefined") {
         try {
           global.localStorage.setItem(PIN_KEY, pinArea.value);
         } catch (e) {}
-        pinSaved.textContent = "บันทึกแล้ว ✓";
-        setTimeout(() => (pinSaved.textContent = "บันทึกอัตโนมัติ · ไม่เปลี่ยนตามวัน"), 1200);
       }, 400);
     });
     // ค้นหาข้อความในโน้ตปักหมุด: กดแว่นขยาย พิมพ์คำ จะโชว์บรรทัดที่เจอ กดแล้วกระโดดไปที่บรรทัดนั้น
@@ -13105,9 +13102,9 @@ if (typeof module !== "undefined") {
     const pinBox = el(
       "div",
       { style: { padding: "10px", display: "none" } },
+      el("div", { style: { margin: "0 0 6px 2px" } }, pinSearchBtn),
       pinSearchWrap,
-      pinArea,
-      el("div", { style: { marginTop: "6px", padding: "0 2px", display: "flex", justifyContent: "space-between", alignItems: "center" } }, pinSaved, pinSearchBtn)
+      pinArea
     );
     const calcBox = el("div", {});
     // ปุ่มจดผลคำนวณลงโน้ต
