@@ -13028,6 +13028,32 @@ if (typeof module !== "undefined") {
       el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "6px", padding: "0 2px" } }, noteSaved, noteClear)
     );
     loadNote(noteDate);
+    // ---- โน้ตปักหมุด: โน้ตก้อนเดียว ไม่แยกวัน อยู่ถาวร (เก็บในเครื่องนี้)
+    const PIN_KEY = "siricharoen_pinned_note_v1";
+    const pinArea = el("textarea", { placeholder: "จดเรื่องที่ต้องดูประจำ…" });
+    pinArea.style.cssText = noteArea.style.cssText;
+    pinArea.style.height = "250px";
+    try {
+      pinArea.value = global.localStorage.getItem(PIN_KEY) || "";
+    } catch (e) {}
+    const pinSaved = el("span", { text: "บันทึกอัตโนมัติ · ไม่เปลี่ยนตามวัน", style: { fontSize: "11px", color: "#a0a5ad" } });
+    let pinTimer = null;
+    pinArea.addEventListener("input", () => {
+      clearTimeout(pinTimer);
+      pinTimer = setTimeout(() => {
+        try {
+          global.localStorage.setItem(PIN_KEY, pinArea.value);
+        } catch (e) {}
+        pinSaved.textContent = "บันทึกแล้ว ✓";
+        setTimeout(() => (pinSaved.textContent = "บันทึกอัตโนมัติ · ไม่เปลี่ยนตามวัน"), 1200);
+      }, 400);
+    });
+    const pinBox = el(
+      "div",
+      { style: { padding: "10px", display: "none" } },
+      pinArea,
+      el("div", { style: { marginTop: "6px", padding: "0 2px" } }, pinSaved)
+    );
     const calcBox = el("div", {});
     // ปุ่มจดผลคำนวณลงโน้ต
     const toNoteBtn = el(
@@ -13054,11 +13080,14 @@ if (typeof module !== "undefined") {
     const tabStyle = (on) => ({ padding: "3px 10px", borderRadius: "999px", cursor: "pointer", background: on ? "#fff" : "transparent", color: on ? "#16324f" : "#8a8f98", fontWeight: on ? "600" : "400", boxShadow: on ? "0 1px 2px rgba(0,0,0,.08)" : "none" });
     const tabCalc = el("span", { text: "คิดเลข", style: tabStyle(true), onClick: () => showTab("calc") });
     const tabNote = el("span", { text: "โน้ต", style: tabStyle(false), onClick: () => showTab("note") });
+    const tabPin = el("span", { text: "ปักหมุด", style: tabStyle(false), onClick: () => showTab("pin") });
     function showTab(t) {
       calcBox.style.display = t === "calc" ? "" : "none";
       noteBox.style.display = t === "note" ? "" : "none";
+      pinBox.style.display = t === "pin" ? "" : "none";
       Object.assign(tabCalc.style, tabStyle(t === "calc"));
       Object.assign(tabNote.style, tabStyle(t === "note"));
+      Object.assign(tabPin.style, tabStyle(t === "pin"));
     }
     const closeX = el("span", { text: "✕", title: "ปิด", style: { cursor: "pointer", padding: "0 4px", color: "#a0a5ad" }, onClick: () => setOpen(false) });
     const header = el(
@@ -13068,7 +13097,8 @@ if (typeof module !== "undefined") {
         "span",
         { style: { display: "flex", gap: "2px", background: "#eef0f3", borderRadius: "999px", padding: "2px" } },
         tabCalc,
-        tabNote
+        tabNote,
+        tabPin
       ),
       closeX
     );
@@ -13091,7 +13121,8 @@ if (typeof module !== "undefined") {
       },
       header,
       calcBox,
-      noteBox
+      noteBox,
+      pinBox
     );
     calcBox.appendChild(el("div", { style: { padding: "8px 10px", textAlign: "right" } }, exEl, vEl, toNoteBtn));
     calcBox.appendChild(
