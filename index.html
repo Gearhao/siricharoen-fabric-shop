@@ -13048,11 +13048,66 @@ if (typeof module !== "undefined") {
         setTimeout(() => (pinSaved.textContent = "บันทึกอัตโนมัติ · ไม่เปลี่ยนตามวัน"), 1200);
       }, 400);
     });
+    // ค้นหาข้อความในโน้ตปักหมุด: กดแว่นขยาย พิมพ์คำ จะโชว์บรรทัดที่เจอ กดแล้วกระโดดไปที่บรรทัดนั้น
+    const pinSearchIn = el("input", { type: "text", placeholder: "ค้นหาในโน้ตปักหมุด…" });
+    pinSearchIn.style.cssText = "width:100%;box-sizing:border-box;border:1px solid #dfe3e8;border-radius:8px;padding:5px 9px;font-size:12.5px;outline:none;font-family:inherit;";
+    const pinResults = el("div", { style: { maxHeight: "120px", overflowY: "auto", marginTop: "4px" } });
+    const pinSearchWrap = el("div", { style: { display: "none", marginBottom: "6px" } }, pinSearchIn, pinResults);
+    function runPinSearch() {
+      clear(pinResults);
+      const q = pinSearchIn.value.trim().toLowerCase();
+      if (!q) return;
+      const text = pinArea.value;
+      const lines = text.split("\n");
+      let pos = 0;
+      const hits = [];
+      lines.forEach((ln) => {
+        const i = ln.toLowerCase().indexOf(q);
+        if (i >= 0) hits.push({ ln, start: pos + i });
+        pos += ln.length + 1;
+      });
+      if (!hits.length) {
+        pinResults.appendChild(el("div", { text: "ไม่เจอ", style: { fontSize: "12px", color: "#a0a5ad", padding: "4px 6px" } }));
+        return;
+      }
+      hits.slice(0, 30).forEach((h) =>
+        pinResults.appendChild(
+          el("div", {
+            text: h.ln.trim() || "(บรรทัดว่าง)",
+            style: { fontSize: "12px", color: "#333", padding: "4px 6px", cursor: "pointer", borderBottom: "1px solid #f0f1f3", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+            onClick: () => {
+              pinArea.focus();
+              pinArea.setSelectionRange(h.start, h.start + q.length);
+              // เลื่อนกล่องโน้ตให้เห็นบรรทัดที่เจอ
+              const lineNo = pinArea.value.slice(0, h.start).split("\n").length - 1;
+              const lh = parseFloat(getComputedStyle(pinArea).lineHeight) || 20;
+              pinArea.scrollTop = Math.max(0, lineNo * lh - 40);
+            },
+          })
+        )
+      );
+    }
+    pinSearchIn.addEventListener("input", runPinSearch);
+    const pinSearchBtn = el("span", {
+      text: "🔍",
+      title: "ค้นหาข้อความ",
+      style: { cursor: "pointer", fontSize: "13px", opacity: "0.6" },
+      onClick: () => {
+        const open = pinSearchWrap.style.display === "none";
+        pinSearchWrap.style.display = open ? "" : "none";
+        if (open) pinSearchIn.focus();
+        else {
+          pinSearchIn.value = "";
+          clear(pinResults);
+        }
+      },
+    });
     const pinBox = el(
       "div",
       { style: { padding: "10px", display: "none" } },
+      pinSearchWrap,
       pinArea,
-      el("div", { style: { marginTop: "6px", padding: "0 2px" } }, pinSaved)
+      el("div", { style: { marginTop: "6px", padding: "0 2px", display: "flex", justifyContent: "space-between", alignItems: "center" } }, pinSaved, pinSearchBtn)
     );
     const calcBox = el("div", {});
     // ปุ่มจดผลคำนวณลงโน้ต
