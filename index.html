@@ -6515,7 +6515,11 @@ if (typeof module !== "undefined") {
     }
     if (cust) {
       const totalDue = DB.getCustomerTotalDue(cust);
-      if (totalDue > 0) {
+      // ลูกค้าที่ค้างอยู่แค่บิลนี้ใบเดียว (ไม่มีบิลอื่นค้าง) ไม่ต้องใส่ยอดค้างชำระสะสม เพราะซ้ำกับยอดของบิลนี้
+      const hasOtherUnpaid = DB.getCustomerSales(cust.id).some(
+        (s) => s.id !== sale.id && s.sale_no !== sale.sale_no && s.status !== "ชำระแล้ว" && (s.total || 0) - (s.paid || 0) > 0.004
+      );
+      if (totalDue > 0 && hasOtherUnpaid) {
         linesNoSign.push("");
         linesNoSign.push("-".repeat(40));
         linesNoSign.push(`${L.totalDueAll}: ${money(totalDue)} ${L.currency}`);
