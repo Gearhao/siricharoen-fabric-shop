@@ -13046,10 +13046,10 @@ if (typeof module !== "undefined") {
       }, 400);
     });
     // ค้นหาข้อความในโน้ตปักหมุด: กดแว่นขยาย พิมพ์คำ จะโชว์บรรทัดที่เจอ กดแล้วกระโดดไปที่บรรทัดนั้น
-    const pinSearchIn = el("input", { type: "text", placeholder: "ค้นหาในโน้ตปักหมุด…" });
+    const pinSearchIn = el("input", { type: "text", placeholder: "🔍 ค้นหา…" });
     pinSearchIn.style.cssText = "width:100%;box-sizing:border-box;border:1px solid #dfe3e8;border-radius:8px;padding:5px 9px;font-size:12.5px;outline:none;font-family:inherit;";
     const pinResults = el("div", { style: { maxHeight: "120px", overflowY: "auto", marginTop: "4px" } });
-    const pinSearchWrap = el("div", { style: { display: "none", marginBottom: "6px" } }, pinSearchIn, pinResults);
+    const pinSearchWrap = el("div", { style: { marginBottom: "6px" } }, pinSearchIn, pinResults);
     function runPinSearch() {
       clear(pinResults);
       const q = pinSearchIn.value.trim().toLowerCase();
@@ -13085,24 +13085,9 @@ if (typeof module !== "undefined") {
       );
     }
     pinSearchIn.addEventListener("input", runPinSearch);
-    const pinSearchBtn = el("span", {
-      text: "🔍",
-      title: "ค้นหาข้อความ",
-      style: { cursor: "pointer", fontSize: "13px", opacity: "0.6" },
-      onClick: () => {
-        const open = pinSearchWrap.style.display === "none";
-        pinSearchWrap.style.display = open ? "" : "none";
-        if (open) pinSearchIn.focus();
-        else {
-          pinSearchIn.value = "";
-          clear(pinResults);
-        }
-      },
-    });
     const pinBox = el(
       "div",
       { style: { padding: "10px", display: "none" } },
-      el("div", { style: { margin: "0 0 6px 2px" } }, pinSearchBtn),
       pinSearchWrap,
       pinArea
     );
