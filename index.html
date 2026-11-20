@@ -4697,10 +4697,10 @@ if (typeof module !== "undefined") {
               "รับชำระเงิน"
             )
           : null,
-        DB.canUnpaySale(s) ? el("button", { class: "btn btn-sm", onClick: () => unpaySaleAction(s.id) }, "ยกเลิกรับชำระ") : null,
         el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, "พิมพ์ใบเสร็จ"),
         el("button", { class: "btn btn-sm btn-copy-text", onClick: (e) => quickCopySaleText(s.id, e.currentTarget) }, "คัดลอกข้อความ"),
         el("button", { class: "btn btn-sm", onClick: () => openProductReturnModal(s.id) }, "รับคืนสินค้า"),
+        DB.canUnpaySale(s) ? el("button", { class: "btn btn-sm", onClick: () => unpaySaleAction(s.id) }, "ยกเลิกรับชำระ") : null,
         el("button", { class: "btn btn-sm", onClick: () => deleteSalePOS(s.id) }, "ลบ")
       );
       const isUnpaidStatus = s.status === "ค้างชำระ" || s.status === "เงินสดแต่ค้างชำระ" || s.status === "รอเช็คขึ้นเงิน";
