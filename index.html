@@ -1643,6 +1643,37 @@ function createDB(storageKey) {
     save();
   }
 
+  // ยกเลิกการรับชำระทั้งหมดของบิล (กรณีกดรับชำระผิด) - ใช้ได้กับบิลเงินเชื่อ / เงินสดแต่ยังไม่จ่าย
+  // ย้อนเงินออกจากบัญชีที่เคยรับ, คืนยอดหนี้ลูกค้า, ลบประวัติรับชำระของบิลนี้ แล้วสถานะกลับเป็นแบบก่อนรับเงิน
+  function canUnpaySale(sale) {
+    return !!sale && (sale.paid || 0) > 0 && (sale.payment_method === "เงินเชื่อ" || sale.payment_method === "เงินสดแต่ยังไม่จ่าย");
+  }
+  function unpaySale(saleId) {
+    const sale = store.sales.find((x) => x.id === saleId);
+    if (!canUnpaySale(sale)) return { ok: false, msg: "บิลนี้ยกเลิกการรับชำระไม่ได้" };
+    if (store.checks.some((c) => c.sale_id === saleId && (c.status === "รอขึ้นเงิน" || c.status === "ขึ้นเงินแล้ว")))
+      return { ok: false, msg: "บิลนี้มีเช็คผูกอยู่ ยกเลิกแบบนี้ไม่ได้ กรุณาจัดการที่เช็คแทน" };
+    if (store.returns.some((r) => r.sale_id === saleId)) return { ok: false, msg: "บิลนี้มีการรับคืนสินค้าแล้ว ยกเลิกการรับชำระแบบนี้ไม่ได้" };
+    const amt = Math.round((sale.paid || 0) * 100) / 100;
+    // ย้อนเงินออกจากบัญชีที่เคยรับไว้ทั้งหมด
+    syncSaleAccountBalance(sale, []);
+    // บิลเงินเชื่อ: คืนยอดหนี้ลูกค้า และลบประวัติรับชำระของบิลนี้
+    if (sale.payment_method === "เงินเชื่อ" && sale.customer_id) {
+      const c = getCustomer(sale.customer_id);
+      if (c) c.credit_balance = Math.round(((c.credit_balance || 0) + amt) * 100) / 100;
+      const note = `ชำระตามบิล ${sale.sale_no}`;
+      store.customerPayments = store.customerPayments.filter((p) => !(p.customer_id === sale.customer_id && p.note === note));
+    }
+    sale.paid = 0;
+    sale.change_amt = 0;
+    sale.paid_method = "";
+    sale.bank_name = "";
+    sale.bank_account_name = "";
+    sale.status = sale.payment_method === "เงินเชื่อ" ? "ค้างชำระ" : "เงินสดแต่ค้างชำระ";
+    save();
+    return { ok: true, amount: amt };
+  }
+
   // ------------------------------------------------------------ เช็ครับล่วงหน้า (checks) - รับเช็คจากลูกค้าไว้รอวันขึ้นเงิน แล้วเตือนก่อนถึงกำหนด
   // ยอดรวมเช็คที่ยังรอขึ้นเงินของบิลหนึ่งใบ (กันไม่ให้รับชำระซ้ำในส่วนที่เช็คคุมไว้แล้ว)
   function getPendingCheckTotalForSale(saleId) {
@@ -2920,7 +2951,7 @@ function createDB(storageKey) {
     adjustStock, getStockMovements, deleteStockMovement,
     addRoll, getRollsByFabric, getActiveRollsByFabric, getRoll, adjustRollQty,
     createSale, updateSale, deleteSale, getSales, getSale, getSaleByNo, markSalePaid, paySale,
-    getPendingCheckTotalForSale, getChecksForSale, getCheck, getPendingChecks, receiveCheck, clearCheck, bounceCheck, deleteCheck, updateCheck,
+    getPendingCheckTotalForSale, getChecksForSale, getCheck, getPendingChecks, receiveCheck, clearCheck, bounceCheck, deleteCheck, updateCheck, canUnpaySale, unpaySale,
     addProductReturn, getSaleReturns, getReturns, deleteReturn, getReturnedQtyForItem, useExchangeCredit,
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense, updateExpense, processRecurringExpenses,
@@ -4666,6 +4697,7 @@ if (typeof module !== "undefined") {
               "รับชำระเงิน"
             )
           : null,
+        DB.canUnpaySale(s) ? el("button", { class: "btn btn-sm", onClick: () => unpaySaleAction(s.id) }, "ยกเลิกรับชำระ") : null,
         el("button", { class: "btn btn-sm", onClick: () => reprintSalePOS(s.id) }, "พิมพ์ใบเสร็จ"),
         el("button", { class: "btn btn-sm btn-copy-text", onClick: (e) => quickCopySaleText(s.id, e.currentTarget) }, "คัดลอกข้อความ"),
         el("button", { class: "btn btn-sm", onClick: () => openProductReturnModal(s.id) }, "รับคืนสินค้า"),
@@ -5767,6 +5799,34 @@ if (typeof module !== "undefined") {
   // คัดลอกข้อความใบเสร็จจากหน้าประวัติการขายได้ทันที ไม่ต้องเปิดหน้าพิมพ์ใบเสร็จ
   // ใช้ค่าเริ่มต้นเดียวกับหน้าพิมพ์ (เงินเชื่อ = ใบส่งสินค้า, อื่นๆ = ใบเสร็จ, บัญชีที่ลูกค้าใช้ประจำ)
   // บิล "เงินสดแต่ค้างชำระ" ถามก่อนว่าจะเอาใบเสร็จหรือใบส่งของ เหมือนตอนกดพิมพ์
+  // ยกเลิกการรับชำระของบิล (กดรับชำระผิด) -> กลับเป็นสถานะก่อนรับเงิน
+  function unpaySaleAction(saleId) {
+    const sale = DB.getSale(saleId);
+    if (!sale) return;
+    const accs = (sale.account_splits || [])
+      .map((x) => {
+        const a = DB.getBankAccount(x.account_id);
+        return a ? `${a.is_cash ? "เงินสด" : a.bank_name + " - " + a.account_name} ${money(x.amount)}` : "";
+      })
+      .filter(Boolean)
+      .join(", ");
+    const back = sale.payment_method === "เงินเชื่อ" ? "ค้างชำระ" : "เงินสดแต่ค้างชำระ";
+    if (
+      !global.confirm(
+        `ยกเลิกการรับชำระบิล ${sale.sale_no} ยอดที่รับไว้ ${money(sale.paid)} บาท?\n` +
+          (accs ? `เงินจะถูกหักออกจากบัญชี: ${accs}\n` : "") +
+          `สถานะบิลจะกลับเป็น "${back}" เหมือนก่อนรับเงิน`
+      )
+    )
+      return;
+    const r = DB.unpaySale(saleId);
+    if (!r.ok) {
+      global.alert(r.msg);
+      return;
+    }
+    renderPosSalesHistory();
+  }
+
   function quickCopySaleText(saleId, btn) {
     const sale = DB.getSale(saleId);
     if (!sale) return;
