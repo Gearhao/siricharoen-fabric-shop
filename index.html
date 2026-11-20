@@ -1718,6 +1718,28 @@ function createDB(storageKey) {
     save();
     return true;
   }
+  // แก้ไขรายละเอียดเช็คที่ยังรอขึ้นเงิน (เลขเช็ค/ธนาคาร/วันขึ้นเงิน/จำนวนเงิน/หมายเหตุ)
+  // จำนวนเงินต้องไม่เกินยอดค้างของบิล หักเช็คใบอื่นที่ยังรอขึ้นเงินของบิลเดียวกัน
+  function updateCheck(checkId, data) {
+    const check = store.checks.find((c) => c.id === checkId);
+    if (!check || check.status !== "รอขึ้นเงิน") return { ok: false, msg: "แก้ได้เฉพาะเช็คที่ยังรอขึ้นเงิน" };
+    const sale = store.sales.find((x) => x.id === check.sale_id);
+    if (data.amount != null) {
+      const amt = Math.round((Number(data.amount) || 0) * 100) / 100;
+      const otherPending = store.checks
+        .filter((c) => c.sale_id === check.sale_id && c.status === "รอขึ้นเงิน" && c.id !== check.id)
+        .reduce((s, c) => s + c.amount, 0);
+      const maxAmt = sale ? Math.round((sale.total - (sale.paid || 0) - otherPending) * 100) / 100 : amt;
+      if (amt <= 0) return { ok: false, msg: "จำนวนเงินต้องมากกว่า 0" };
+      if (amt > maxAmt + 0.004) return { ok: false, msg: `จำนวนเงินเกินยอดค้างของบิล (ใส่ได้ไม่เกิน ${maxAmt.toLocaleString("en-US", { minimumFractionDigits: 2 })} บาท)` };
+      check.amount = amt;
+    }
+    ["check_no", "bank_name", "due_date", "note"].forEach((k) => {
+      if (data[k] != null) check[k] = String(data[k]).trim();
+    });
+    save();
+    return { ok: true };
+  }
   // ลบเช็คที่บันทึกผิด (ยังไม่ขึ้นเงิน) - คืนสถานะบิลกลับเหมือน bounceCheck แต่ลบทิ้งไปเลยไม่เก็บประวัติ
   function deleteCheck(checkId) {
     const idx = store.checks.findIndex((c) => c.id === checkId);
@@ -2898,7 +2920,7 @@ function createDB(storageKey) {
     adjustStock, getStockMovements, deleteStockMovement,
     addRoll, getRollsByFabric, getActiveRollsByFabric, getRoll, adjustRollQty,
     createSale, updateSale, deleteSale, getSales, getSale, getSaleByNo, markSalePaid, paySale,
-    getPendingCheckTotalForSale, getChecksForSale, getCheck, getPendingChecks, receiveCheck, clearCheck, bounceCheck, deleteCheck,
+    getPendingCheckTotalForSale, getChecksForSale, getCheck, getPendingChecks, receiveCheck, clearCheck, bounceCheck, deleteCheck, updateCheck,
     addProductReturn, getSaleReturns, getReturns, deleteReturn, getReturnedQtyForItem, useExchangeCredit,
     createPurchase, updatePurchase, deletePurchaseDraft, deletePurchase, receivePurchase, payPurchase, unpayPurchase, getPurchases, getPurchase, genPoNo,
     addExpense, getExpenses, deleteExpense, updateExpense, processRecurringExpenses,
@@ -4015,7 +4037,7 @@ if (typeof module !== "undefined") {
           {},
           el("td", { text: cust ? cust.name : "-" }),
           el("td", { text: c.sale ? c.sale.sale_no : "-" }),
-          el("td", { text: c.check_no || "-" }),
+          el("td", {}, c.check_no || "-", c.note ? el("div", { text: c.note, style: { fontSize: "11px", color: "#888" } }) : null),
           el("td", { text: c.bank_name || "-" }),
           el("td", { text: money(c.amount) + " บาท" }),
           el("td", {
@@ -4025,6 +4047,7 @@ if (typeof module !== "undefined") {
           el(
             "td",
             { class: "actions-cell" },
+            el("button", { class: "btn btn-sm", onClick: () => openCheckDetailModal(c.id) }, "ดู/แก้ไข"),
             el("button", { class: "btn btn-sm btn-primary", onClick: () => openClearCheckModal(c.id) }, "ขึ้นเงินแล้ว"),
             el("button", { class: "btn btn-sm", onClick: () => bounceCheckAction(c.id) }, "เช็คเด้ง")
           )
@@ -5159,6 +5182,82 @@ if (typeof module !== "undefined") {
     );
     exposeTestRefs("clearCheck", { accountSelect, saveBtn });
     openModal("ยืนยันเช็คขึ้นเงิน", el("div", {}, form, el("div", { class: "modal-actions" }, saveBtn)));
+  }
+  // ดูรายละเอียด + แก้ไขเช็คที่รอขึ้นเงิน (เปิดจากหน้าแรก)
+  function openCheckDetailModal(checkId, refreshFn) {
+    const refresh = refreshFn || renderDashboard;
+    const check = DB.getCheck(checkId);
+    if (!check) return;
+    const sale = DB.getSale(check.sale_id);
+    const cust = check.customer_id ? DB.getCustomer(check.customer_id) : null;
+    const remain = sale ? Math.round((sale.total - (sale.paid || 0)) * 100) / 100 : 0;
+    const info = (label, value) =>
+      el("div", { style: { display: "flex", justifyContent: "space-between", gap: "12px", padding: "3px 0", fontSize: "13px" } }, el("span", { text: label, style: { color: "#777" } }), el("span", { text: value, style: { fontWeight: "600", textAlign: "right" } }));
+    const infoBox = el(
+      "div",
+      { style: { background: "#f6f7f9", borderRadius: "8px", padding: "8px 12px", marginBottom: "12px" } },
+      info("ลูกค้า", cust ? cust.name : "-"),
+      info("เลขที่บิล", sale ? `${sale.sale_no} (${fmtDate(sale.date)})` : "-"),
+      info("ยอดบิล / ค้างชำระ", sale ? `${money(sale.total)} / ${money(remain)} บาท` : "-"),
+      info("วันที่รับเช็ค", check.received_date ? fmtDate(check.received_date) : "-"),
+      info("สถานะ", check.status || "-")
+    );
+    const checkNoIn = textInput(check.check_no || "");
+    const bankIn = textInput(check.bank_name || "");
+    const dueIn = el("input", { type: "date", value: (check.due_date || "").slice(0, 10) });
+    const amtIn = numberInput(check.amount);
+    const noteIn = textInput(check.note || "");
+    const editable = check.status === "รอขึ้นเงิน";
+    [checkNoIn, bankIn, dueIn, amtIn, noteIn].forEach((x) => (x.disabled = !editable));
+    const saveBtn = el(
+      "button",
+      {
+        class: "btn btn-primary",
+        onClick: () => {
+          if (!dueIn.value) {
+            global.alert("กรุณาใส่วันที่ขึ้นเงิน");
+            return;
+          }
+          const r = DB.updateCheck(checkId, { check_no: checkNoIn.value, bank_name: bankIn.value, due_date: dueIn.value, amount: amtIn.value, note: noteIn.value });
+          if (!r.ok) {
+            global.alert(r.msg);
+            return;
+          }
+          closeModal();
+          refresh();
+        },
+      },
+      "บันทึกการแก้ไข"
+    );
+    const delBtn = el(
+      "button",
+      {
+        class: "btn btn-danger",
+        onClick: () => {
+          if (!global.confirm(`ลบเช็คเลขที่ ${check.check_no || "-"} จำนวน ${money(check.amount)} บาท? (ใช้กรณีบันทึกผิด บิลจะกลับไปเป็นค้างชำระตามเดิม)`)) return;
+          DB.deleteCheck(checkId);
+          closeModal();
+          refresh();
+        },
+      },
+      "ลบเช็คนี้"
+    );
+    const body = el(
+      "div",
+      {},
+      infoBox,
+      el(
+        "div",
+        { class: "form-panel" },
+        formField("เลขที่เช็ค", checkNoIn),
+        formField("ธนาคาร", bankIn),
+        formField("วันที่ขึ้นเงิน", dueIn),
+        formField("จำนวนเงิน (บาท)", amtIn),
+        formField("หมายเหตุ", noteIn)
+      ),
+      editable ? el("div", { class: "modal-actions" }, delBtn, saveBtn) : el("p", { text: "เช็คนี้ไม่ได้อยู่ในสถานะรอขึ้นเงินแล้ว แก้ไขไม่ได้", style: { color: "#999", fontSize: "12px" } })
+    );
+    openModal(`รายละเอียดเช็ค ${check.check_no || ""}`.trim(), body);
   }
   // เช็คเด้ง/ถูกปฏิเสธ - คืนสถานะบิลกลับไปเป็นค้างชำระตามปกติ เพื่อให้ติดตามทวงถามใหม่
   function bounceCheckAction(checkId, refreshFn) {
